@@ -65,7 +65,10 @@ h1{font-size:20px;margin:0;flex:1;letter-spacing:.5px}
 .chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
 
 /* 店铺卡片 */
-main{padding:4px 14px 20px;max-width:920px;margin:0 auto}
+main{padding:4px 14px 20px;max-width:1400px;margin:0 auto}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,460px),1fr));gap:10px;align-items:start}
+.grid .card{margin-bottom:0}
+.stn{display:inline-block;padding:1px 8px;border-radius:6px;background:var(--soft);color:var(--ink);font-weight:600;font-size:12px}
 .sec{font-size:12px;color:var(--sub);margin:14px 4px 6px;letter-spacing:.5px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:16px;margin-bottom:10px;box-shadow:var(--shadow);overflow:hidden}
 .hd{display:flex;gap:10px;padding:12px 12px 10px;align-items:flex-start}
@@ -184,7 +187,7 @@ K = LS.get('k', '');
 const fromUrl = (location.hash.match(/k=([^&]+)/) || location.search.match(/[?&]k=([^&]+)/) || [])[1];
 if (fromUrl) { K = decodeURIComponent(fromUrl); LS.set('k', K); history.replaceState(null, '', location.pathname); }
 
-let D = null, area = '', tab = LS.get('tab', 'all'), sortBy = LS.get('sort', 'free');
+let D = null, area = '', tab = LS.get('tab', 'all'), sortBy = LS.get('sort2', 'area');
 let openSet = new Set(), closedSet = new Set(), autoOpen = false, favs = [], tileF = {};
 try { favs = JSON.parse(LS.get('favs', '[]')); } catch (e) {}
 if (tab === 'fav' && !favs.length) tab = 'all';
@@ -245,7 +248,7 @@ function seat(t) {
 const fmtMin = m => m == null ? '' : m < 60 ? m + '分' : Math.floor(m / 60) + '时' + String(m % 60).padStart(2, '0');
 
 function setTab(t) { tab = t; LS.set('tab', t); window.scrollTo(0, 0); render(); }
-function toggleSort() { sortBy = sortBy === 'free' ? 'area' : 'free'; LS.set('sort', sortBy); render(); }
+function toggleSort() { sortBy = sortBy === 'free' ? 'area' : 'free'; LS.set('sort2', sortBy); render(); }
 function toggleFav(ev, label) {
   ev.stopPropagation();
   favs = favs.includes(label) ? favs.filter(x => x !== label) : favs.concat(label);
@@ -292,14 +295,21 @@ function render() {
   if (tab === 'fav') list = list.filter(s => favs.includes(s.label));
   if (tab === 'free') list = list.filter(s => s.status === 'open' && s.free > 0);
   const rank = s => s.status === 'open' && s.n ? 0 : s.status === 'air' ? 1 : 2;
+  // 地区按车站名五十音（表格本来就是这个顺序，地区按钮也是）
+  const ai = s => { const i = areas.indexOf(s.area); return i < 0 ? 999 : i; };
   if (sortBy === 'free') list = list.slice().sort((a, b) => rank(a) - rank(b) || b.free / (b.n || 1) - a.free / (a.n || 1) || b.free - a.free);
+  else list = list.slice().sort((a, b) => ai(a) - ai(b));
   autoOpen = list.length <= 3;
+  // 卡片排成格子：电脑/平板一行 2 家，手机一行 1 家
+  const grid = arr => '<div class="grid">' + arr.map(card).join('') + '</div>';
+  // 19 个车站多数只有 1〜2 家，按车站分段会留很多空位，所以连续排，车站名放在卡片左上角
+  const byArea = grid;
   let h = '';
   if (tab === 'all') {
     const fav = list.filter(s => favs.includes(s.label)), rest = list.filter(s => !favs.includes(s.label));
-    if (fav.length) h += '<div class="sec">⭐ 我的店</div>' + fav.map(card).join('') + '<div class="sec">全部店铺</div>';
-    h += rest.map(card).join('');
-  } else h += list.map(card).join('');
+    if (fav.length) h += '<div class="sec">⭐ 我的店</div>' + grid(fav) + '<div class="sec">全部店铺</div>';
+    h += byArea(rest);
+  } else h += byArea(list);
   if (!list.length) h += `<div id="msg">${tab === 'fav' ? '还没有「我的店」。在店名左边点 ☆ 就能加进来。' : tab === 'free' ? '现在没有空桌的店' : '没有符合的店'}</div>`;
   h += '<div class="legend">' + [['free', '空桌'], ['used', '使用中'], ['remind', '放题快结束'], ['lo', 'L.O.'], ['over', '放题超时'], ['held', '预约留桌（不算空桌）']]
     .map(([c, t]) => `<span><i style="background:${c === 'used' ? 'var(--usedBg);border:1px solid var(--line)' : COLOR[c]}"></i>${t}</span>`).join('') + '</div>';
@@ -341,7 +351,7 @@ function card(s) {
   return `<div class="card${s.status !== 'open' ? ' closed' : ''}">
     <div class="hd" onclick="toggleOpen(${L})">
       <button class="star${fav ? ' on' : ''}" onclick="toggleFav(event, ${L})" aria-label="设为我的店">${fav ? '★' : '☆'}</button>
-      <div class="nm"><div class="area">${esc(s.area)}</div><div class="sn">${esc(s.name)}</div>
+      <div class="nm"><div class="area"><span class="stn">${esc(s.area)}</span></div><div class="sn">${esc(s.name)}</div>
         <div class="area">${sub}</div>${badges ? '<div class="badges">' + badges + '</div>' : ''}${seg}</div>
       <div class="big">${big}</div>
     </div>
