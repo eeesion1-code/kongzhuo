@@ -338,7 +338,7 @@ function render() {
   const ai = s => { const i = areas.indexOf(s.area); return i < 0 ? 999 : i; };
   if (sortBy === 'free') list = list.slice().sort((a, b) => rank(a) - rank(b) || b.free / (b.n || 1) - a.free / (a.n || 1) || b.free - a.free);
   else list = list.slice().sort((a, b) => ai(a) - ai(b));
-  autoOpen = list.length <= 3;
+  autoOpen = list.length <= 3 || !!area;  // 11/12：点了车站按钮就整站展开（上野 6 家也直接看桌位图）
   // 卡片排成格子：电脑/平板一行 2 家，手机一行 1 家
   const grid = arr => '<div class="grid">' + arr.map(card).join('') + '</div>';
   // 19 个车站多数只有 1〜2 家，按车站分段会留很多空位，所以连续排，车站名放在卡片左上角
