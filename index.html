@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
@@ -11,225 +11,371 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="空桌一览">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
-<meta name="theme-color" content="#f4f5f7" media="(prefers-color-scheme: light)">
-<meta name="theme-color" content="#111318" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#f5f6f8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1115" media="(prefers-color-scheme: dark)">
 <style>
 :root{
-  --bg:#f4f5f7;--card:#fff;--ink:#1d2129;--sub:#6b7280;--line:#e5e7eb;
-  --free:#ffffff;--freeB:#16a34a;--used:#dcfce7;--usedB:#86efac;--remind:#fef9c3;--remindB:#facc15;
-  --lo:#ffedd5;--loB:#fb923c;--over:#fee2e2;--overB:#ef4444;--held:#dbeafe;--heldB:#3b82f6;
-  --good:#16a34a;--mid:#ca8a04;--bad:#dc2626;--chip:#eef2ff;--chipOn:#1d4ed8;
+  --bg:#f5f6f8;--card:#fff;--ink:#16181d;--sub:#6b7280;--faint:#9ca3af;--line:#e6e8ec;--soft:#f0f2f5;
+  --brand:#1d4ed8;--brandInk:#fff;
+  --free:#16a34a;--freeBg:#ecfdf3;
+  --used:#64748b;--usedBg:#f1f5f9;
+  --remind:#b45309;--remindBg:#fef3c7;
+  --lo:#c2410c;--loBg:#ffedd5;
+  --over:#dc2626;--overBg:#fee2e2;
+  --held:#2563eb;--heldBg:#dbeafe;
+  --shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.08);
 }
 @media (prefers-color-scheme: dark){
-  :root{--bg:#111318;--card:#1b1e25;--ink:#e8eaed;--sub:#9aa0a6;--line:#2c313a;
-    --free:#1b1e25;--freeB:#22c55e;--used:#14321f;--usedB:#2f7a47;--remind:#3a3410;--remindB:#ca8a04;
-    --lo:#3b2614;--loB:#ea7a2a;--over:#3d1717;--overB:#ef4444;--held:#132a4a;--heldB:#3b82f6;
-    --good:#22c55e;--mid:#eab308;--bad:#f87171;--chip:#232838;--chipOn:#3b82f6;}
+  :root{--bg:#0f1115;--card:#181b21;--ink:#eceef2;--sub:#a1a7b3;--faint:#6b7280;--line:#2a2f38;--soft:#20242c;
+    --brand:#3b82f6;
+    --free:#22c55e;--freeBg:#11281a;--used:#94a3b8;--usedBg:#1f242c;--remind:#facc15;--remindBg:#2f2a10;
+    --lo:#fb923c;--loBg:#33210f;--over:#f87171;--overBg:#361515;--held:#60a5fa;--heldBg:#132544;
+    --shadow:none;}
 }
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Hiragino Sans","PingFang SC","Noto Sans CJK SC","Microsoft YaHei",sans-serif;-webkit-text-size-adjust:100%}
-header{position:sticky;top:0;z-index:5;background:var(--bg);padding:calc(10px + env(safe-area-inset-top)) 12px 6px;border-bottom:1px solid var(--line)}
-.top{display:flex;align-items:center;gap:8px}
-h1{font-size:18px;margin:0;flex:1}
-#stamp{font-size:12px;color:var(--sub)}
-#stale{display:none;margin-top:6px;padding:6px 10px;border-radius:8px;background:var(--over);color:var(--bad);font-size:13px}
-button{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:6px 10px}
-#tot{margin-top:4px;font-size:13px;color:var(--sub)}
-.bar2{display:flex;gap:6px;margin-top:8px}
-#q{flex:1;min-width:0;font:inherit;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)}
-.chips{display:flex;gap:6px;overflow-x:auto;padding:8px 0 2px;scrollbar-width:none}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink)}
+body{font:15px/1.45 -apple-system,BlinkMacSystemFont,"Hiragino Sans","PingFang SC","Noto Sans CJK SC","Microsoft YaHei",sans-serif;-webkit-text-size-adjust:100%;padding-bottom:calc(64px + env(safe-area-inset-bottom))}
+button{font:inherit;color:inherit;cursor:pointer}
+.r{color:var(--over)}
+
+/* 顶部 */
+header{background:var(--bg);padding:calc(10px + env(safe-area-inset-top)) 14px 8px}
+.top{display:flex;align-items:center;gap:10px}
+h1{font-size:20px;margin:0;flex:1;letter-spacing:.5px}
+.live{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--sub);background:var(--card);border:1px solid var(--line);border-radius:999px;padding:4px 10px}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--free)}
+.live.warn .dot{background:var(--remind)} .live.bad .dot{background:var(--over)} .live.bad{color:var(--over)}
+.iconbtn{width:36px;height:36px;border-radius:10px;border:1px solid var(--line);background:var(--card);font-size:17px}
+.iconbtn.spin{animation:spin 1s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+#banner{display:none;margin-top:8px;padding:8px 12px;border-radius:10px;background:var(--overBg);color:var(--over);font-size:13px}
+
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.stat{background:var(--card);border-radius:12px;padding:8px 10px;box-shadow:var(--shadow);border:1px solid var(--line)}
+.stat small{display:block;font-size:11px;color:var(--sub)}
+.stat b{font-size:20px;font-variant-numeric:tabular-nums}
+.stat b em{font-style:normal;font-size:12px;color:var(--sub);font-weight:400}
+
+.tools{display:flex;gap:8px;margin-top:10px}
+#q{flex:1;min-width:0;font:inherit;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}
+.sortbtn{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:0 12px;font-size:13px;white-space:nowrap}
+.chips{display:flex;gap:6px;overflow-x:auto;margin-top:8px;padding-bottom:2px;scrollbar-width:none}
 .chips::-webkit-scrollbar{display:none}
-.chip{flex:none;padding:4px 11px;border-radius:999px;background:var(--chip);border:0;font-size:13px}
-.chip.on{background:var(--chipOn);color:#fff}
-main{padding:10px 12px 40px;max-width:900px;margin:0 auto}
-.sec{font-size:13px;color:var(--sub);margin:12px 2px 6px}
-.card{background:var(--card);border:1px solid var(--line);border-radius:12px;margin-bottom:8px;overflow:hidden}
-.hd{display:flex;align-items:center;gap:10px;padding:10px 12px;cursor:pointer}
+.chip{flex:none;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:4px 12px;font-size:13px}
+.chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+
+/* 店铺卡片 */
+main{padding:4px 14px 20px;max-width:920px;margin:0 auto}
+.sec{font-size:12px;color:var(--sub);margin:14px 4px 6px;letter-spacing:.5px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;margin-bottom:10px;box-shadow:var(--shadow);overflow:hidden}
+.hd{display:flex;gap:10px;padding:12px 12px 10px;align-items:flex-start}
+.star{border:0;background:none;font-size:20px;line-height:1;padding:2px 0 0;color:var(--faint)}
+.star.on{color:#f59e0b}
 .nm{flex:1;min-width:0}
 .area{font-size:12px;color:var(--sub)}
-.sn{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.meta{font-size:12px;color:var(--sub);margin-top:2px}
-.big{text-align:right;white-space:nowrap}
-.big b{font-size:22px}
-.big small{color:var(--sub)}
-.g{color:var(--good)}.m{color:var(--mid)}.r{color:var(--bad)}
-.meter{display:flex;height:5px;border-radius:3px;overflow:hidden;background:var(--used);margin-top:5px}
-.meter i{display:block;height:100%}
-.star{border:0;background:none;font-size:18px;padding:2px 4px;color:var(--sub)}
-.star.on{color:#f59e0b}
-.closed .sn,.closed .big{opacity:.55}
-.body{display:none;padding:0 12px 12px;border-top:1px solid var(--line)}
-.open .body{display:block}
-.info{font-size:13px;margin:8px 0 0;padding:8px 10px;background:var(--bg);border-radius:8px}
-.info div+div{margin-top:3px}
-.warn{color:var(--bad)}
-.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(70px,1fr));gap:5px;margin-top:10px}
-.tile{border:1.5px solid;border-radius:8px;padding:4px 6px;min-height:40px;font-size:11.5px;line-height:1.35;overflow:hidden}
-.tile.free{min-height:0}
-.tile b{display:block;font-size:15px}
-.tile .x{color:var(--sub);word-break:break-all}
-.free{background:var(--free);border-color:var(--freeB);border-style:dashed}
-.free b::after{content:" 空";font-size:11px;color:var(--good);font-weight:600}
-.used{background:var(--used);border-color:var(--usedB)}
-.remind{background:var(--remind);border-color:var(--remindB)}
-.lo{background:var(--lo);border-color:var(--loB)}
-.over{background:var(--over);border-color:var(--overB)}
-.held{background:var(--held);border-color:var(--heldB)}
-.pend{font-size:12.5px;margin-top:8px}
-.pend div{padding:5px 8px;border-left:3px solid var(--heldB);background:var(--bg);border-radius:4px;margin-top:4px}
-.legend{display:flex;flex-wrap:wrap;gap:8px;font-size:12px;color:var(--sub);margin:16px 2px 0}
-.legend span{display:inline-flex;align-items:center;gap:4px}
-.legend i{width:14px;height:14px;border-radius:3px;border:1.5px solid}
-#msg{padding:30px 10px;text-align:center;color:var(--sub)}
-#keybox{display:none;padding:40px 20px;text-align:center}
-#keybox input{font:inherit;padding:10px;border:1px solid var(--line);border-radius:8px;width:220px;max-width:80%;background:var(--card);color:var(--ink)}
-#keybox button{margin-left:6px;padding:10px 14px}
+.sn{font-weight:650;font-size:16px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.big{text-align:right;white-space:nowrap;line-height:1.1}
+.big b{font-size:28px;font-variant-numeric:tabular-nums}
+.big small{display:block;font-size:12px;color:var(--sub)}
+.g{color:var(--free)} .m{color:var(--remind)} .rr{color:var(--over)}
+.seg{display:flex;height:6px;border-radius:3px;overflow:hidden;background:var(--usedBg);margin-top:8px}
+.seg i{height:100%}
+.best{margin:0 12px 10px;padding:8px 10px;border-radius:10px;background:var(--soft);font-size:13px}
+.best b{font-weight:600}
+.badges{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.bd{font-size:11.5px;padding:2px 8px;border-radius:999px;background:var(--soft);color:var(--sub)}
+.bd.held{background:var(--heldBg);color:var(--held)} .bd.remind{background:var(--remindBg);color:var(--remind)}
+.bd.lo{background:var(--loBg);color:var(--lo)} .bd.over{background:var(--overBg);color:var(--over)}
+.closed .sn,.closed .big{opacity:.5}
+.more{display:block;width:100%;border:0;border-top:1px solid var(--line);background:none;padding:9px;font-size:13px;color:var(--brand)}
+
+/* 展开后 */
+.body{padding:0 12px 12px}
+.filters{display:flex;gap:6px;overflow-x:auto;padding:10px 0 2px;scrollbar-width:none}
+.filters::-webkit-scrollbar{display:none}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(72px,1fr));gap:6px;margin-top:8px;align-items:start}
+.tile{position:relative;border-radius:10px;padding:6px 7px 7px;min-height:58px;font-size:11.5px;line-height:1.3;overflow:hidden;background:var(--usedBg);border:1px solid transparent}
+.tile b{display:block;font-size:16px;font-variant-numeric:tabular-nums;letter-spacing:.2px}
+.tile .st{font-weight:600}
+.tile .x{color:var(--sub);margin-top:2px;word-break:break-all}
+.tile .tm{position:absolute;left:0;bottom:0;height:3px;background:currentColor;opacity:.5}
+.tile.free{background:var(--freeBg);border:1.5px dashed var(--free);min-height:44px}
+.tile.free .st{color:var(--free)}
+.tile.used .st{color:var(--used)}
+.tile.remind{background:var(--remindBg)} .tile.remind .st{color:var(--remind)}
+.tile.lo{background:var(--loBg)} .tile.lo .st{color:var(--lo)}
+.tile.over{background:var(--overBg)} .tile.over .st{color:var(--over)}
+.tile.held{background:var(--heldBg)} .tile.held .st{color:var(--held)}
+.tile.dim{opacity:.18}
+.tile.open{grid-column:1/-1}
+h3{font-size:13px;margin:14px 2px 6px;color:var(--sub);font-weight:600}
+.tl{border-left:2px solid var(--line);margin-left:6px;padding-left:12px}
+.tl div{position:relative;padding:4px 0;font-size:13px}
+.tl div::before{content:"";position:absolute;left:-17px;top:10px;width:8px;height:8px;border-radius:50%;background:var(--faint)}
+.tl div.now::before{background:var(--free)}
+.tl b{display:inline-block;min-width:52px;font-variant-numeric:tabular-nums}
+.note{font-size:12.5px;padding:8px 10px;border-radius:10px;background:var(--soft);margin-top:8px}
+.note.warn{background:var(--overBg);color:var(--over)}
+.pend div{font-size:12.5px;padding:7px 10px;border-left:3px solid var(--held);background:var(--soft);border-radius:6px;margin-top:5px}
+
+/* 底部导航 */
+nav{position:fixed;left:0;right:0;bottom:0;z-index:10;display:flex;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;border:0;background:none;padding:8px 0 6px;font-size:11px;color:var(--sub)}
+nav button span{display:block;font-size:20px;line-height:1.2}
+nav button.on{color:var(--brand)}
+.legend{display:flex;flex-wrap:wrap;gap:10px;font-size:12px;color:var(--sub);margin:18px 4px 4px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-right:4px}
+.foot{font-size:11.5px;color:var(--faint);margin:8px 4px}
+#msg{padding:40px 10px;text-align:center;color:var(--sub)}
+#keybox{display:none;padding:50px 24px;text-align:center}
+#keybox img{width:72px;height:72px;border-radius:18px}
+#keybox input{font:inherit;font-size:16px;padding:12px;border:1px solid var(--line);border-radius:12px;width:240px;max-width:80%;background:var(--card);color:var(--ink);text-align:center}
+#keybox button{display:block;margin:12px auto 0;width:240px;max-width:80%;padding:12px;border:0;border-radius:12px;background:var(--brand);color:#fff;font-weight:600}
 </style>
 </head>
 <body>
-<header>
+<header id="hdr">
   <div class="top">
-    <h1>🪑 空桌一览</h1>
-    <span id="stamp">读取中…</span>
-    <button id="rf" onclick="load(true)">↻</button>
+    <h1>空桌一览</h1>
+    <span class="live" id="live"><i class="dot"></i><span id="age">读取中</span></span>
+    <button class="iconbtn" id="rf" onclick="load(true)" aria-label="刷新">↻</button>
   </div>
-  <div id="tot"></div>
-  <div id="stale"></div>
-  <div class="bar2">
-    <input id="q" placeholder="搜店名 / 地区" oninput="render()">
-    <button id="sort" onclick="toggleSort()">空桌多→少</button>
+  <div id="banner"></div>
+  <div class="stats" id="stats"></div>
+  <div class="tools">
+    <input id="q" placeholder="🔍 搜店名 / 地区" oninput="render()">
+    <button class="sortbtn" id="sort" onclick="toggleSort()"></button>
   </div>
   <div class="chips" id="chips"></div>
 </header>
 <main id="list"><div id="msg">读取中…</div></main>
-<div id="keybox"><p>第一次打开，请输入负责人给的访问密码</p><input id="kin" autocomplete="off" autocapitalize="off"><button onclick="saveKey()">确定</button><p id="kerr" class="r"></p></div>
+<div id="keybox">
+  <img src="icon-192.png" alt="">
+  <p>第一次打开，请输入负责人给的访问密码</p>
+  <input id="kin" autocomplete="off" autocapitalize="off" enterkeyhint="go" onkeydown="if(event.key==='Enter')saveKey()">
+  <button onclick="saveKey()">开始使用</button>
+  <p id="kerr" class="r"></p>
+</div>
+<nav id="nav">
+  <button data-tab="all" onclick="setTab('all')"><span>🏬</span>全部店</button>
+  <button data-tab="fav" onclick="setTab('fav')"><span>⭐</span>我的店</button>
+  <button data-tab="free" onclick="setTab('free')"><span>🪑</span>现在有空桌</button>
+</nav>
 <script>
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'API_URL_HERE';
-// 密码：网址里的 #k=… 或 ?k=…，第一次带进来就记在这台手机上（加到主屏幕后 iPhone 要再输一次）
 let K = '';
-try { K = localStorage.getItem('k') || ''; } catch (e) {}
+const LS = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+  del(k) { try { localStorage.removeItem(k); } catch (e) {} }
+};
+K = LS.get('k', '');
+// 密码：网址里的 #k=… 或 ?k=…，第一次带进来就记在这台手机上（加到主屏幕后 iPhone 要在 APP 里再输一次）
 const fromUrl = (location.hash.match(/k=([^&]+)/) || location.search.match(/[?&]k=([^&]+)/) || [])[1];
-if (fromUrl) { K = decodeURIComponent(fromUrl); try { localStorage.setItem('k', K); } catch (e) {} history.replaceState(null, '', location.pathname); }
-function saveKey() {
-  K = document.getElementById('kin').value.trim();
-  try { localStorage.setItem('k', K); } catch (e) {}
-  document.getElementById('kerr').textContent = '';
-  load(true);
-}
-function askKey(msg) {
+if (fromUrl) { K = decodeURIComponent(fromUrl); LS.set('k', K); history.replaceState(null, '', location.pathname); }
+
+let D = null, area = '', tab = LS.get('tab', 'all'), sortBy = LS.get('sort', 'free');
+let openSet = new Set(), favs = [], tileF = {};
+try { favs = JSON.parse(LS.get('favs', '[]')); } catch (e) {}
+if (tab === 'fav' && !favs.length) tab = 'all';
+
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const ST = { free: '空', used: '使用中', remind: '放题快结束', lo: 'L.O.', over: '放题超时', held: '预约留桌' };
+const COLOR = { free: 'var(--free)', held: 'var(--held)', remind: 'var(--remind)', lo: 'var(--lo)', over: 'var(--over)' };
+
+function saveKey() { K = document.getElementById('kin').value.trim(); if (!K) return; LS.set('k', K); document.getElementById('kerr').textContent = ''; load(true); }
+function showKey(msg) {
   document.getElementById('keybox').style.display = 'block';
-  document.getElementById('list').style.display = 'none';
+  ['hdr', 'list', 'nav'].forEach(id => document.getElementById(id).style.display = 'none');
   document.getElementById('kerr').textContent = msg || '';
-  document.getElementById('stamp').textContent = '';
 }
-let D = null, area = '', sortBy = 'free', openSet = new Set(), favs = [];
-try { favs = JSON.parse(localStorage.getItem('favs') || '[]'); } catch (e) {}
-try { sortBy = localStorage.getItem('sort') || 'free'; } catch (e) {}
-const esc = s => String(s == null ? '' : s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-const SNAME = {free:'空桌', held:'预约留桌', used:'使用中', remind:'放题快结束', lo:'L.O.', over:'放题超时'};
+function hideKey() {
+  document.getElementById('keybox').style.display = 'none';
+  document.getElementById('hdr').style.display = '';
+  document.getElementById('list').style.display = '';
+  document.getElementById('nav').style.display = 'flex';
+}
 
 function load(manual) {
-  if (!K) { askKey(); return; }
+  if (!K) { showKey(); return; }
   const rf = document.getElementById('rf');
-  if (manual) rf.textContent = '…';
+  rf.classList.add('spin');
   fetch(API + '?fmt=json&k=' + encodeURIComponent(K), { cache: 'no-store' })
     .then(r => r.json())
     .then(d => {
-      rf.textContent = '↻';
-      if (d.error === 'key') { try { localStorage.removeItem('k'); } catch (e) {} K = ''; askKey('密码不对，请再确认一下'); return; }
+      rf.classList.remove('spin');
+      if (d.error === 'key') { LS.del('k'); K = ''; showKey('密码不对，请再确认一下'); return; }
       if (d.error) throw new Error(d.error);
-      D = d; D.offline = false;
-      try { localStorage.setItem('last', JSON.stringify(d)); } catch (e) {}
-      document.getElementById('keybox').style.display = 'none';
-      document.getElementById('list').style.display = 'block';
-      render();
+      D = d; D.offline = false; D.got = Date.now();
+      LS.set('last', JSON.stringify(d));
+      hideKey(); render();
     })
     .catch(() => {
-      rf.textContent = '↻';
-      if (!D) { try { D = JSON.parse(localStorage.getItem('last') || 'null'); } catch (e) {} }
-      if (D) { D.offline = true; render(); }
-      else document.getElementById('msg').textContent = '连不上，稍后自动重试';
+      rf.classList.remove('spin');
+      if (!D) { try { D = JSON.parse(LS.get('last', 'null')); } catch (e) {} }
+      if (D) { D.offline = true; hideKey(); render(); }
+      else { hideKey(); document.getElementById('list').innerHTML = '<div id="msg">连不上，稍后自动重试</div>'; }
     });
 }
-function parseT(s) { const m = String(s || '').match(/(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})/); return m ? new Date(+m[1], m[2]-1, +m[3], +m[4], +m[5]) : null; }
-function toggleSort() { sortBy = sortBy === 'free' ? 'area' : 'free'; try { localStorage.setItem('sort', sortBy); } catch (e) {} render(); }
+
+const parseT = s => { const m = String(s || '').match(/(\d{4})\/(\d{1,2})\/(\d{1,2})\s+(\d{1,2}):(\d{2})/); return m ? new Date(+m[1], m[2] - 1, +m[3], +m[4], +m[5]) : null; };
+const nowMin = () => { const t = parseT(D && D.now); if (!t) return null; const extra = D.got ? Math.floor((Date.now() - D.got) / 60000) : 0; return t.getHours() * 60 + t.getMinutes() + extra; };
+// 「2人 · 15:02 开台」→ 人数、坐了几分钟
+function seat(t) {
+  for (const x of t.x) {
+    const m = x.match(/(\d+|\?)人\s*·\s*(\d{1,2}):(\d{2})\s*开台/);
+    if (m) {
+      const nm = nowMin(); let mins = null;
+      if (nm != null) { mins = (nm - (+m[2] * 60 + +m[3]) + 1440) % 1440; }
+      return { ppl: m[1], mins };
+    }
+  }
+  return null;
+}
+const fmtMin = m => m == null ? '' : m < 60 ? m + '分' : Math.floor(m / 60) + '时' + String(m % 60).padStart(2, '0');
+
+function setTab(t) { tab = t; LS.set('tab', t); window.scrollTo(0, 0); render(); }
+function toggleSort() { sortBy = sortBy === 'free' ? 'area' : 'free'; LS.set('sort', sortBy); render(); }
 function toggleFav(ev, label) {
   ev.stopPropagation();
   favs = favs.includes(label) ? favs.filter(x => x !== label) : favs.concat(label);
-  try { localStorage.setItem('favs', JSON.stringify(favs)); } catch (e) {}
-  render();
+  LS.set('favs', JSON.stringify(favs)); render();
 }
 function toggleOpen(label) { openSet.has(label) ? openSet.delete(label) : openSet.add(label); render(); }
+function setTileF(label, f) { tileF[label] = f; render(); }
+function toggleTile(ev) { ev.currentTarget.classList.toggle('open'); }
 
 function render() {
   if (!D) return;
-  document.getElementById('sort').textContent = sortBy === 'free' ? '空桌多→少' : '按地区';
-  const st = parseT(D.stamp), now = parseT(D.now);
-  const age = st && now ? Math.round((now - st) / 60000) : null;
-  document.getElementById('stamp').textContent = D.stamp ? '更新 ' + D.stamp.replace(/^\d{4}\//, '').replace(/:\d{2}$/, '') + (age != null ? '（' + age + ' 分前）' : '') : '';
+  // 更新时间
+  const st = parseT(D.stamp), nm = parseT(D.now);
+  const age = st && nm ? Math.max(0, Math.round((nm - st) / 60000) + (D.got ? Math.floor((Date.now() - D.got) / 60000) : 0)) : null;
   const open = D.stores.filter(s => s.status === 'open' && s.n);
+  const live = document.getElementById('live');
+  live.className = 'live' + (age == null ? '' : age > 25 && open.length ? ' bad' : age > 15 ? ' warn' : '');
+  document.getElementById('age').textContent = age == null ? '—' : (st.getHours() + ':' + String(st.getMinutes()).padStart(2, '0') + ' 更新 · ' + (age < 1 ? '刚刚' : age + ' 分前'));
+  const banner = document.getElementById('banner');
+  if (D.offline) { banner.style.display = 'block'; banner.textContent = '⚠ 现在连不上网络，显示的是上次读到的数据'; }
+  else if (age != null && age > 25 && open.length) { banner.style.display = 'block'; banner.textContent = '⚠ 已经 ' + age + ' 分钟没更新，空桌可能不准'; }
+  else banner.style.display = 'none';
+  // 合计
   const free = open.reduce((a, s) => a + s.free, 0), n = open.reduce((a, s) => a + s.n, 0);
-  document.getElementById('tot').textContent = open.length
-    ? '营业中 ' + open.length + ' 家｜空桌 ' + free + ' / ' + n + ' 桌' + (D.ppl != null ? '｜在店 ' + D.ppl + ' 人' : '')
-    : '现在没有营业中的店';
-  const stale = document.getElementById('stale');
-  if (age != null && age > 25 && open.length) { stale.style.display = 'block'; stale.textContent = '⚠ 已经 ' + age + ' 分钟没更新，下面的空桌可能不准'; }
-  else stale.style.display = 'none';
-  if (D.offline) { stale.style.display = 'block'; stale.textContent = '⚠ 现在连不上网络，显示的是上次读到的数据'; }
-
+  document.getElementById('stats').innerHTML =
+    `<div class="stat"><small>营业中</small><b>${open.length}<em> 家</em></b></div>` +
+    `<div class="stat"><small>空桌</small><b class="g">${free}<em> / ${n}</em></b></div>` +
+    `<div class="stat"><small>在店</small><b>${D.ppl != null ? D.ppl : '—'}<em> 人</em></b></div>`;
+  document.getElementById('sort').textContent = sortBy === 'free' ? '空桌多→少' : '按地区';
   const areas = [...new Set(D.stores.map(s => s.area).filter(Boolean))];
   document.getElementById('chips').innerHTML = ['', ...areas].map(a =>
-    `<button class="chip${a === area ? ' on' : ''}" onclick="area=${esc(JSON.stringify(a))};render()">${a ? esc(a) : '全部'}</button>`).join('');
+    `<button class="chip${a === area ? ' on' : ''}" onclick='area=${esc(JSON.stringify(a))};render()'>${a ? esc(a) : '全部地区'}</button>`).join('');
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
 
+  // 列表
   const q = document.getElementById('q').value.trim();
-  let list = D.stores.filter(s => (!area || s.area === area) && (!q || (s.label).indexOf(q) >= 0));
+  let list = D.stores.filter(s => (!area || s.area === area) && (!q || s.label.indexOf(q) >= 0));
+  if (tab === 'fav') list = list.filter(s => favs.includes(s.label));
+  if (tab === 'free') list = list.filter(s => s.status === 'open' && s.free > 0);
   const rank = s => s.status === 'open' && s.n ? 0 : s.status === 'air' ? 1 : 2;
-  if (sortBy === 'free') list = list.slice().sort((a, b) => rank(a) - rank(b) || (b.free / (b.n || 1)) - (a.free / (a.n || 1)) || b.free - a.free);
-  const fav = list.filter(s => favs.includes(s.label)), rest = list.filter(s => !favs.includes(s.label));
+  if (sortBy === 'free') list = list.slice().sort((a, b) => rank(a) - rank(b) || b.free / (b.n || 1) - a.free / (a.n || 1) || b.free - a.free);
   let h = '';
-  if (fav.length) h += '<div class="sec">⭐ 我的店</div>' + fav.map(card).join('') + '<div class="sec">全部店铺</div>';
-  h += rest.map(card).join('') || '<div id="msg">没有符合的店</div>';
-  h += '<div class="legend">' + [['free','空桌'],['used','使用中'],['remind','放题快结束'],['lo','L.O.'],['over','放题超时'],['held','预约留桌（不算空桌）']]
-    .map(([c, t]) => `<span><i class="${c}"></i>${t}</span>`).join('') + '</div>';
-  h += '<div class="legend">营业额和预约客人姓名不显示。每分钟自动更新；数据来自实时桌位程序（约每 10 分钟一次）。</div>';
+  if (tab === 'all') {
+    const fav = list.filter(s => favs.includes(s.label)), rest = list.filter(s => !favs.includes(s.label));
+    if (fav.length) h += '<div class="sec">⭐ 我的店</div>' + fav.map(card).join('') + '<div class="sec">全部店铺</div>';
+    h += rest.map(card).join('');
+  } else h += list.map(card).join('');
+  if (!list.length) h += `<div id="msg">${tab === 'fav' ? '还没有「我的店」。在店名左边点 ☆ 就能加进来。' : tab === 'free' ? '现在没有空桌的店' : '没有符合的店'}</div>`;
+  h += '<div class="legend">' + [['free', '空桌'], ['used', '使用中'], ['remind', '放题快结束'], ['lo', 'L.O.'], ['over', '放题超时'], ['held', '预约留桌（不算空桌）']]
+    .map(([c, t]) => `<span><i style="background:${c === 'used' ? 'var(--usedBg);border:1px solid var(--line)' : COLOR[c]}"></i>${t}</span>`).join('') + '</div>';
+  h += '<div class="foot">桌子格子：桌号、人数、坐了多久（从开台算）。点格子看详细。营业额和预约客人姓名不显示。<br>每分钟自动更新；数据来自实时桌位程序，约每 10 分钟读一次收银台。</div>';
   document.getElementById('list').innerHTML = h;
 }
 
 function card(s) {
   const isOpen = openSet.has(s.label), fav = favs.includes(s.label);
-  const pct = s.n ? s.free / s.n : 0, cls = pct >= 0.5 ? 'g' : pct >= 0.2 ? 'm' : 'r';
-  let big, meta, meter = '';
-  if (s.status === 'closed') { big = '<small>🌙 已打烊</small>'; meta = esc(s.note); }
-  else if (s.status === 'air') { big = '<small>—</small>'; meta = esc(s.note); }
-  else if (!s.n) { big = '<small class="r">' + (/抓取失败/.test(s.warn) ? '⚠ 这轮没读到' : '没有桌位数据') + '</small>'; meta = s.warn ? '<span class="r">' + esc(s.warn) + '</span>（下一轮会再读）' : ''; }
-  else {
-    big = `<b class="${cls}">${s.free}</b><small> / ${s.n} 空</small>`;
-    meta = [s.ppl != null ? '在店 ' + s.ppl + ' 人' : '', '使用中 ' + s.busy, s.held ? '🟦 留桌 ' + s.held : ''].filter(Boolean).join('　');
-    meter = `<div class="meter"><i style="width:${s.free / s.n * 100}%;background:var(--freeB)"></i><i style="width:${s.held / s.n * 100}%;background:var(--heldB)"></i></div>`;
-  }
+  const pct = s.n ? s.free / s.n : 0, cls = pct >= 0.5 ? 'g' : pct >= 0.2 ? 'm' : 'rr';
   const L = esc(JSON.stringify(s.label));
-  let body = '';
-  if (isOpen) {
-    const info = s.info.filter(x => !/^①/.test(x)).concat(s.notes).map(x => `<div class="${/⚠/.test(x) ? 'warn' : ''}">${esc(x)}</div>`).join('');
-    body = (s.warn ? `<div class="info warn">${esc(s.warn)}</div>` : '') + (info ? `<div class="info">${info}</div>` : '') +
-      (s.tables.length ? '<div class="tiles">' + s.tables.map(t =>
-        `<div class="tile ${t.s}"><b>${esc(t.t)}</b>${t.s !== 'free' ? '<div>' + SNAME[t.s] + '</div>' : ''}<div class="x">${t.x.map(esc).join('<br>')}</div></div>`).join('') + '</div>' : '') +
-      (s.pending.length ? '<div class="pend"><div style="border:0;background:none;padding:0">📅 还没分配到桌的预约</div>' + s.pending.map(p => `<div>${p.map(esc).join('　')}</div>`).join('') + '</div>' : '');
+  const cnt = k => s.tables.filter(t => t.s === k).length;
+  let big, sub = '', best = '', badges = '', seg = '';
+  if (s.status === 'closed') { big = '<small>🌙 已打烊</small>'; sub = esc(s.note); }
+  else if (s.status === 'air') { big = '<small>—</small>'; sub = esc(s.note); }
+  else if (!s.n) { big = '<small class="r">' + (/抓取失败/.test(s.warn) ? '⚠ 这轮没读到' : '没有桌位数据') + '</small>'; sub = s.warn ? '<span class="r">' + esc(s.warn) + '</span>（下一轮会再读）' : ''; }
+  else {
+    big = `<b class="${cls}">${s.free}</b><small>空 / ${s.n} 桌</small>`;
+    sub = [s.ppl != null ? '在店 ' + s.ppl + ' 人' : '', '使用中 ' + s.busy].filter(Boolean).join('　');
+    const w = k => (k / s.n * 100).toFixed(2) + '%';
+    seg = `<div class="seg"><i style="width:${w(s.free)};background:var(--free)"></i><i style="width:${w(s.held)};background:var(--held)"></i><i style="width:${w(cnt('over'))};background:var(--over)"></i><i style="width:${w(cnt('lo'))};background:var(--lo)"></i><i style="width:${w(cnt('remind'))};background:var(--remind)"></i></div>`;
+    badges = [['held', s.held, '🟦 留桌'], ['over', cnt('over'), '放题超时'], ['lo', cnt('lo'), 'L.O.'], ['remind', cnt('remind'), '快结束']]
+      .filter(x => x[1]).map(([c, k, t]) => `<span class="bd ${c}">${t} ${k}</span>`).join('');
+    const b = s.info.find(x => /^②/.test(x));
+    if (b) best = `<div class="best">⏱ <b>最早有位</b>　${esc(b.replace(/^②\s*最早有位：/, ''))}</div>`;
   }
-  return `<div class="card${isOpen ? ' open' : ''}${s.status !== 'open' ? ' closed' : ''}">
+  let body = '';
+  if (isOpen) body = detail(s);
+  const canOpen = s.tables.length || s.info.length || s.pending.length || s.notes.length;
+  return `<div class="card${s.status !== 'open' ? ' closed' : ''}">
     <div class="hd" onclick="toggleOpen(${L})">
       <button class="star${fav ? ' on' : ''}" onclick="toggleFav(event, ${L})" aria-label="设为我的店">${fav ? '★' : '☆'}</button>
-      <div class="nm"><div class="area">${esc(s.area)}</div><div class="sn">${esc(s.name)}</div><div class="meta">${meta}</div>${meter}</div>
+      <div class="nm"><div class="area">${esc(s.area)}</div><div class="sn">${esc(s.name)}</div>
+        <div class="area">${sub}</div>${badges ? '<div class="badges">' + badges + '</div>' : ''}${seg}</div>
       <div class="big">${big}</div>
     </div>
-    <div class="body">${body}</div>
+    ${best}
+    ${isOpen ? '<div class="body">' + body + '</div>' : ''}
+    ${canOpen ? `<button class="more" onclick="toggleOpen(${L})">${isOpen ? '收起 ▲' : '看桌位图 ▼'}</button>` : ''}
   </div>`;
 }
 
+function detail(s) {
+  const L = esc(JSON.stringify(s.label));
+  const f = tileF[s.label] || 'all';
+  const groups = { all: () => true, free: t => t.s === 'free', used: t => t.s !== 'free' && t.s !== 'held', held: t => t.s === 'held', alert: t => ['remind', 'lo', 'over'].includes(t.s) };
+  const names = { all: '全部', free: '空桌', used: '使用中', held: '留桌', alert: '放题要注意' };
+  let h = '';
+  if (s.warn) h += `<div class="note warn">${esc(s.warn)}</div>`;
+  if (s.tables.length) {
+    h += '<div class="filters">' + Object.keys(groups).map(k => {
+      const c = s.tables.filter(groups[k]).length;
+      return (k === 'all' || c) ? `<button class="chip${f === k ? ' on' : ''}" onclick='setTileF(${L},"${k}")'>${names[k]} ${c}</button>` : '';
+    }).join('') + '</div>';
+    h += '<div class="tiles">' + s.tables.map(t => tile(t, groups[f](t))).join('') + '</div>';
+  }
+  // ③ 空位时间 → 时间线
+  const third = s.info.find(x => /^③/.test(x));
+  if (third) {
+    const items = third.replace(/^③[^：]*：/, '').split('｜').map(x => x.trim()).filter(Boolean);
+    if (items.length) {
+      h += '<h3>什么时候会空出来（早→迟）</h3><div class="tl">' + items.map(x => {
+        const m = x.match(/^(现在～预约前|现在|快空[^）]*）|\d{1,2}:\d{2}|时间不明[^）]*）)\s*(.*)$/);
+        const label = m ? m[1].replace(/（.*$/, '') : '';
+        const rest = m ? m[2] : x;
+        return `<div class="${/^现在/.test(label) ? 'now' : ''}"><b>${esc(label || '')}</b> ${esc(rest)}</div>`;
+      }).join('') + '</div>';
+    }
+  }
+  s.notes.forEach(x => h += `<div class="note${/⚠/.test(x) ? ' warn' : ''}">${esc(x)}</div>`);
+  if (s.pending.length) h += '<h3>还没分配到桌的预约</h3><div class="pend">' + s.pending.map(p => `<div>${p.map(esc).join('　')}</div>`).join('') + '</div>';
+  return h;
+}
+
+function tile(t, show) {
+  const se = t.s === 'free' || t.s === 'held' ? null : seat(t);
+  let line = '';
+  if (t.s === 'free') line = '';
+  else if (se) line = esc(se.ppl) + '人 · ' + fmtMin(se.mins);
+  const rest = t.x.filter(x => !/开台$/.test(x));
+  // 坐了多久：底部细条，90 分满格
+  const bar = se && se.mins != null ? `<i class="tm" style="width:${Math.min(100, se.mins / 90 * 100)}%;color:${se.mins >= 120 ? 'var(--over)' : se.mins >= 90 ? 'var(--remind)' : 'var(--used)'}"></i>` : '';
+  return `<div class="tile ${t.s}${show ? '' : ' dim'}" onclick="toggleTile(event)">
+    <b>${esc(t.t)}</b><div class="st">${ST[t.s]}${line ? '<span style="font-weight:400;color:var(--ink)"> ' + line + '</span>' : ''}</div>
+    ${rest.length ? `<div class="x">${rest.map(esc).join('<br>')}</div>` : ''}${bar}</div>`;
+}
+
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+document.getElementById('nav').style.display = 'flex';
 load();
 setInterval(load, 60000);
+setInterval(() => { if (D) render(); }, 30000);  // 「几分前」「坐了多久」跟着走
 document.addEventListener('visibilitychange', () => { if (!document.hidden && K) load(); });
 </script>
 </body>
