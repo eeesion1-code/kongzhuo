@@ -162,6 +162,19 @@ nav button.on{color:var(--brand)}
 .legend i{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:-1px;margin-right:4px}
 .foot{font-size:11.5px;color:var(--faint);margin:8px 4px}
 #msg{padding:40px 10px;text-align:center;color:var(--sub)}
+/* 11/13 繁忙日排位 */
+.pwintro{font-size:12.5px;color:var(--sub);margin:10px 4px 2px;line-height:1.6}
+.pwday{display:flex;gap:6px;overflow-x:auto;margin:10px 0 4px;scrollbar-width:none}
+.pwday::-webkit-scrollbar{display:none}
+.pwday .chip{text-align:center;line-height:1.3;padding:6px 12px}
+.pwday .chip small{display:block;font-size:11px;opacity:.8}
+.pwsum{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin:8px 0 10px;font-size:13.5px;line-height:1.7}
+.pwsum b{font-size:18px}
+.pwd{padding:0 14px 12px;font-size:13px;line-height:1.65}
+.pwd h4{margin:10px 0 2px;font-size:12.5px;color:var(--sub);font-weight:600}
+.pwd ul{margin:0;padding-left:18px}
+.pwfree{display:grid;grid-template-columns:repeat(3,1fr);gap:2px 8px;font-size:12px;color:var(--sub);white-space:nowrap}
+.pwfree span b{color:var(--ink)}
 #keybox{display:none;padding:50px 24px;text-align:center}
 #keybox img{width:72px;height:72px;border-radius:18px}
 #keybox input{font:inherit;font-size:16px;padding:12px;border:1px solid var(--line);border-radius:12px;width:240px;max-width:80%;background:var(--card);color:var(--ink);text-align:center}
@@ -195,6 +208,7 @@ nav button.on{color:var(--brand)}
   <button data-tab="all" onclick="setTab('all')"><span>🏬</span>全部店</button>
   <button data-tab="fav" onclick="setTab('fav')"><span>⭐</span>我的店</button>
   <button data-tab="free" onclick="setTab('free')"><span>🪑</span>现在有空桌</button>
+  <button data-tab="pw" onclick="setTab('pw')"><span>📋</span>繁忙日排位</button>
 </nav>
 <script>
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
@@ -212,6 +226,7 @@ if (fromUrl) { K = decodeURIComponent(fromUrl); LS.set('k', K); history.replaceS
 
 let D = null, area = '', tab = LS.get('tab', 'all'), sortBy = LS.get('sort2', 'area');
 let openSet = new Set(), closedSet = new Set(), autoOpen = false, favs = [], tileF = {};
+let pwErr = false, PW = null, pwGot = 0, pwDate = '', pwOpen = new Set(), pwBusy = false;  // 11/13 繁忙日排位
 try { favs = JSON.parse(LS.get('favs', '[]')); } catch (e) {}
 if (tab === 'fav' && !favs.length) tab = 'all';
 
@@ -245,6 +260,7 @@ function load(manual) {
       D = d; D.offline = false; D.got = Date.now();
       LS.set('last', JSON.stringify(d));
       hideKey(); render();
+      if (tab === 'pw') loadPw();
     })
     .catch(() => {
       rf.classList.remove('spin');
@@ -270,7 +286,7 @@ function seat(t) {
 }
 const fmtMin = m => m == null ? '' : m < 60 ? m + '分' : Math.floor(m / 60) + '时' + String(m % 60).padStart(2, '0');
 
-function setTab(t) { tab = t; LS.set('tab', t); window.scrollTo(0, 0); render(); }
+function setTab(t) { tab = t; LS.set('tab', t); window.scrollTo(0, 0); render(); if (t === 'pw') loadPw(); }
 function toggleSort() { sortBy = sortBy === 'free' ? 'area' : 'free'; LS.set('sort2', sortBy); render(); }
 function toggleFav(ev, label) {
   ev.stopPropagation();
@@ -334,6 +350,8 @@ function render() {
     `<button class="chip${a === area ? ' on' : ''}" onclick='area=${esc(JSON.stringify(a))};render()'>${a ? esc(a) : '全部地区'}</button>`).join('');
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
 
+  document.getElementById('sort').style.display = tab === 'pw' ? 'none' : '';
+  if (tab === 'pw') { document.getElementById('list').innerHTML = pwView(); return; }
   // 列表
   const q = document.getElementById('q').value.trim();
   let list = D.stores.filter(s => (!area || s.area === area) && (!q || s.label.indexOf(q) >= 0));
@@ -361,6 +379,86 @@ function render() {
   h += '<div class="foot">桌子格子：桌号、人数、坐了多久（从开台算）。点格子看详细。营业额和预约客人姓名不显示。<br>每分钟自动更新；数据来自实时桌位程序，约每 10 分钟读一次收银台。</div>';
   document.getElementById('list').innerHTML = h;
 }
+
+// ===== 11/13 繁忙日排位：未来 14 天的周五・周六・祝日・12 月忙日，各店有没有提前把预约排到桌上（每天读 2 次）=====
+function loadPw(force) {
+  if (!K || pwBusy || (!force && PW && Date.now() - pwGot < 5 * 60000)) return;
+  pwBusy = true;
+  fetch(API + '?fmt=json&what=pw&k=' + encodeURIComponent(K), { cache: 'no-store' })
+    .then(r => r.json())
+    .then(d => { pwBusy = false; if (d.error) throw new Error(d.error); PW = d; pwGot = Date.now(); LS.set('pw', JSON.stringify(d)); if (tab === 'pw') render(); })
+    .catch(() => { pwBusy = false; if (!PW) { try { PW = JSON.parse(LS.get('pw', 'null')); } catch (e) {} } if (!PW) pwErr = true; if (tab === 'pw') render(); });
+}
+const WD = '日一二三四五六';
+function pwDayLabel(ds) {
+  const [y, m, d] = ds.split('-').map(Number), dt = new Date(y, m - 1, d);
+  const t = parseT(D && D.now) || new Date(), t0 = new Date(t.getFullYear(), t.getMonth(), t.getDate());
+  const left = Math.round((dt - t0) / 86400000);
+  return { md: m + '/' + d + '(' + WD[dt.getDay()] + ')', left: left <= 0 ? '今天' : left === 1 ? '明天' : '还有 ' + left + ' 天' };
+}
+const pwRateCls = r => r >= 90 ? 'g' : r >= 50 ? 'm' : 'rr';
+const pwAssigned = r => Math.round(r.groups * (r.rate || 0) / 100);
+function pwStore(r) { return D.stores.find(s => s.rbKey && s.rbKey === r.key) || null; }
+function pwView() {
+  if (!PW) { if (pwErr) { pwErr = false; return '<div id="msg">暂时读不到排位数据，过几分钟再点一次「繁忙日排位」</div>'; } loadPw(); return '<div id="msg">读取中…</div>'; }
+  const rows = PW.rows || [];
+  const dates = [...new Set(rows.map(r => r.date))].sort();
+  let h = `<div class="pwintro">📋 <b>繁忙日排位检查</b>：未来 14 天里的周五・周六・祝日（12 月加忙日），看各店有没有<b>提前把预约排到桌上</b>、2・3 回转有没有排在同一张桌、大团有没有连好桌。<br>每天 10:30・13:30 读 レストランボード（只读，不改预约）。最后读取：${esc(PW.at || '—')}</div>`;
+  if (!dates.length) return h + '<div id="msg">还没有数据（每天 10:30 读完后出现）</div>';
+  if (!dates.includes(pwDate)) pwDate = dates[0];
+  h += '<div class="pwday">' + dates.map(ds => {
+    const rs = rows.filter(r => r.date === ds), g = rs.reduce((a, r) => a + r.groups, 0), as = rs.reduce((a, r) => a + pwAssigned(r), 0);
+    const L = pwDayLabel(ds), rate = g ? Math.round(100 * as / g) : 0;
+    return `<button class="chip${ds === pwDate ? ' on' : ''}" onclick='pwDate=${esc(JSON.stringify(ds))};render()'>${L.md}<small>${L.left} · 排了 ${rate}%</small></button>`;
+  }).join('') + '</div>';
+  const q = document.getElementById('q').value.trim();
+  // 后端已按排位率低→高排好；这里只把「我的店」提到最前
+  const list = rows.filter(r => r.date === pwDate).map(r => ({ r, s: pwStore(r) }))
+    .filter(x => (!area || (x.s && x.s.area === area)) && (!q || (x.s ? x.s.label : x.r.store).indexOf(q) >= 0));
+  const isFav = x => !!(x.s && favs.includes(x.s.label));
+  list.sort((a, b) => isFav(b) - isFav(a));
+  const g = list.reduce((a, x) => a + x.r.groups, 0), as = list.reduce((a, x) => a + pwAssigned(x.r), 0);
+  const big = list.reduce((a, x) => a + (x.r.big_unassigned || 0), 0), clash = list.reduce((a, x) => a + x.r.clash.length, 0);
+  const bad = list.filter(x => (x.r.rate || 0) < 90).length, rate = g ? Math.round(100 * as / g) : 0;
+  const L = pwDayLabel(pwDate);
+  h += `<div class="pwsum">${L.md}（${L.left}）　预约 <b>${g}</b> 组，已排桌 <b class="${pwRateCls(rate)}">${rate}%</b><br>`
+    + `还没排好的店 <b class="${bad ? 'rr' : 'g'}">${bad}</b> 家　大团（8 人以上）没排 <b class="${big ? 'rr' : 'g'}">${big}</b> 组${clash ? `　撞桌 <b class="rr">${clash}</b> 处` : ''}</div>`;
+  if (!list.length) h += '<div id="msg">这一天没有符合的店（或还没有预约）</div>';
+  h += '<div class="grid">' + list.map(pwCard).join('') + '</div>';
+  h += '<div class="foot">排位率＝已经指定桌号的预约组数 ÷ 全部预约组数（90% 以上算排好）。点店名看还没排的预约和「建议排法」——是程序按桌子大小、2 回转叠在同一张桌自动算的参考，请店长在 レストランボード 里自己确认后排桌。<br>列表里没有的店＝那天还没有预约，或店名还没对上。</div>';
+  return h;
+}
+function pwCard(x) {
+  const r = x.r, s = x.s, id = r.date + '|' + r.key, open = pwOpen.has(id), fav = !!(s && favs.includes(s.label));
+  const name = s ? s.name : r.store.replace(/[◆★]/g, '').trim();
+  const un = r.groups - pwAssigned(r);
+  const bd = [];
+  if (r.big_unassigned) bd.push(`<span class="bd over">大团没排 ${r.big_unassigned}</span>`);
+  if (r.clash.length) bd.push(`<span class="bd over">撞桌 ${r.clash.length}</span>`);
+  if (r.over.length) bd.push(`<span class="bd over">人比桌多 ${r.over.length}</span>`);
+  if (r.cannot.length) bd.push(`<span class="bd lo">按现排法放不下 ${r.cannot.length}</span>`);
+  if (r.tight.length) bd.push(`<span class="bd remind">回转太紧 ${r.tight.length}</span>`);
+  if (r.status_odd) bd.push(`<span class="bd remind">状态是退店等 ${r.status_odd}</span>`);
+  if (!r.has_seats) bd.push('<span class="bd">没读到桌子设定</span>');
+  const li = (t, a) => a && a.length ? `<h4>${t}</h4><ul>${a.map(v => '<li>' + esc(v) + '</li>').join('')}</ul>` : '';
+  let body = '';
+  if (open) {
+    const fr = r.free ? Object.entries(r.free).map(([t, v]) => `<span>${t} <b>${v['桌']}</b>桌(${v['6人以上']})</span>`).join('') : '';
+    body = '<div class="pwd">' + li('还没排桌的预约（🔴＝8 人以上大团）', r.unassigned) + li('撞桌（同一张桌时间重叠）', r.clash) + li('人比桌子坐得多', r.over)
+      + li('连结席不完整', r.broken) + li('回转间隔太紧（15 分钟以内）', r.tight) + li('按现在的排法放不下', r.cannot) + li('建议排法（参考）', r.plan)
+      + (fr ? '<h4>各时段还空几桌（照建议排好后还能接的；括号＝其中 6 人以上的桌）</h4><div class="pwfree">' + fr + '</div>' : '')
+      + (!r.unassigned.length && !r.clash.length && !r.over.length && !r.cannot.length ? '<p class="g">✅ 都排好了</p>' : '') + '</div>';
+  }
+  return `<div class="card">
+    <div class="hd" onclick='pwToggle(${esc(JSON.stringify(id))})'>
+      <span class="star${fav ? ' on' : ''}" aria-hidden="true">${fav ? '★' : ''}</span>
+      <div class="nm"><div class="area"><span class="stn">${esc(s ? s.area : '')}</span></div><div class="sn">${esc(name)}</div>
+        <div class="area">${r.groups} 组 ${r.people} 人　${un ? '<span class="rr">没排 ' + un + ' 组</span>' : '<span class="g">全部排好</span>'}</div>
+        ${bd.length ? '<div class="badges">' + bd.join('') + '</div>' : ''}</div>
+      <div class="big"><b class="${pwRateCls(r.rate || 0)}">${r.rate || 0}</b><small>% 已排</small></div>
+    </div>${body}</div>`;
+}
+function pwToggle(id) { pwOpen.has(id) ? pwOpen.delete(id) : pwOpen.add(id); render(); }
 
 function card(s) {
   const isOpen = isOpenS(s.label), fav = favs.includes(s.label);
