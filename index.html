@@ -97,6 +97,24 @@ main{padding:4px 14px 20px;max-width:1400px;margin:0 auto}
 .mini i.remind{background:var(--remindBg);color:var(--remind);box-shadow:inset 0 0 0 1.5px var(--remind)}
 .mini i.lo{background:var(--loBg);color:var(--lo);box-shadow:inset 0 0 0 1.5px var(--lo)}
 .mini i.over{background:var(--over);color:#fff}
+.mini i.cl{outline:2px solid var(--over);outline-offset:1px}
+/* 预约 */
+.best.sn{margin-top:-6px;background:var(--heldBg);color:var(--held)}
+.tile .nx{font-size:11px;margin-top:3px;color:var(--held);line-height:1.35}
+.tile .nx.cl{color:var(--over);font-weight:600}
+.tile.clash{border:2px solid var(--over)}
+h3 small{font-weight:400;color:var(--sub);font-size:12px}
+.ldg{display:grid;gap:4px;margin-top:6px}
+.ldg>div{display:grid;grid-template-columns:44px 1fr auto;gap:8px;align-items:center;padding:7px 10px;border-radius:8px;background:var(--soft);font-size:13px;line-height:1.35}
+.ldg>div.gone{opacity:.5}
+.ldg .lt{font-variant-numeric:tabular-nums;font-weight:600}
+.ldg small{color:var(--sub);font-size:11.5px}
+.ldg .ln{min-width:0;overflow-wrap:anywhere}
+.rc{font-size:11.5px;font-weight:600;padding:2px 8px;border-radius:999px;background:var(--usedBg);color:var(--used);white-space:nowrap}
+.rc.in{background:var(--freeBg);color:var(--free)}
+.rc.gone{background:transparent}
+.rc.late1{background:var(--remindBg);color:var(--remind)}
+.rc.late2{background:var(--overBg);color:var(--over)}
 .best.wn{margin-top:-6px;background:#fef3c7;color:#92400e}
 .body>.best.wn{margin:8px 0}
 .badges{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
@@ -366,6 +384,11 @@ function card(s) {
         if (isOpen) warnFull = `<div class="best wn">${esc(wn)}</div>`;
       }
     }
+    // 预约：这桌有人、下一组 30 分内要到；没排桌的预约 30 分内要到几组
+    const clashN = s.tables.filter(t => clashOf(s, t)).length;
+    if (clashN) badges += `<span class="bd over">⚠ 下一组快到、桌还没空 ${clashN}</span>`;
+    const sn = soon(s);
+    if (sn.length) best += `<div class="best ${sn.length > s.free ? 'wn' : 'sn'}">📅 30 分内要到 ${sn.length} 组 ${sn.reduce((a, r) => a + r.ppl, 0)} 人（没排桌）　现在空 ${s.free} 桌</div>`;
   }
   let body = '';
   if (isOpen) body = warnFull + detail(s);
@@ -387,10 +410,12 @@ function card(s) {
 // 卡片上的小桌位图：不用点开就能看到哪几桌空（点一下展开详细）
 function mini(s, L) {
   return `<div class="mini" onclick="toggleOpen(${L})">` + s.tables.map(t =>
-    `<i class="${t.s}">${esc(String(t.t).replace(/（.*$/, ''))}</i>`).join('') + '</div>';
+    `<i class="${t.s}${clashOf(s, t) ? ' cl' : ''}">${esc(String(t.t).replace(/（.*$/, ''))}</i>`).join('') + '</div>';
 }
 
+let curStore = null;  // tile() 要知道是哪家店（看这桌的下一组预约）
 function detail(s) {
+  curStore = s;
   const L = esc(JSON.stringify(s.label));
   const f = tileF[s.label] || 'all';
   const groups = { all: () => true, free: t => t.s === 'free', used: t => t.s !== 'free' && t.s !== 'held', held: t => t.s === 'held', alert: t => ['remind', 'lo', 'over'].includes(t.s) };
@@ -418,11 +443,69 @@ function detail(s) {
     }
   }
   s.notes.forEach(x => h += `<div class="note${/⚠/.test(x) ? ' warn' : ''}">${esc(x)}</div>`);
-  if (s.pending.length) h += '<h3>还没分配到桌的预约</h3><div class="pend">' + s.pending.map(p => `<div>${p.map(esc).join('　')}</div>`).join('') + '</div>';
+  if (s.rsv) h += ledger(s);
+  else if (s.pending.length) h += '<h3>还没分配到桌的预约</h3><div class="pend">' + s.pending.map(p => `<div>${p.map(esc).join('　')}</div>`).join('') + '</div>';
   return h;
 }
 
+// ---------- 预约（11/12）：今日预约清单、每桌下一组、「下一组快到了这桌还没空」 ----------
+// 营业到半夜：5 点前的时间算前一天的延续（+24 小时）
+const toM = hm => { const m = String(hm || '').match(/(\d{1,2}):(\d{2})/); if (!m) return null; const v = +m[1] * 60 + +m[2]; return +m[1] < 5 ? v + 1440 : v; };
+const nowM = () => { const v = nowMin(); return v == null ? null : (v < 300 ? v + 1440 : v); };
+const rbM = () => { const m = String(D.rbStamp || '').match(/\s(\d{1,2}:\d{2})/); return m ? toM(m[1]) : null; };
+const isWait = r => /来店待/.test(r.status);
+const isIn = r => /来店済/.test(r.status);
+const isGone = r => /会計済|退店/.test(r.status);
+// 桌号统一成数字：PE「11（4人桌）」「カウンター13」→ 11、13；レストランボード「テーブル席51+テーブル席52」「1卓（テ・個）※…」→ 51、52、1
+const numOf = s => { const m = String(s || '').replace(/（.*$/, '').replace(/※.*$/, '').match(/(\d+)/); return m ? String(+m[1]) : null; };
+// 「個室9」「半個室」「6名~」这种和 PE 桌号对不准，不硬对（只在预约清单里显示原文）
+const rbNums = tbl => String(tbl || '').split(/[+＋,，、・\/]/).filter(p => !/個室|名/.test(p)).map(numOf).filter(Boolean);
+// 某桌接下来还没到的预约（开始前 / 开始后 60 分内）
+function nextFor(s, t) {
+  if (!s.rsv) return null;
+  const n = numOf(t.t), now = nowM();
+  if (!n || now == null) return null;
+  return s.rsv.filter(r => isWait(r) && rbNums(r.tbl).includes(n) && toM(r.st) >= now - 60)
+    .sort((a, b) => toM(a.st) - toM(b.st))[0] || null;
+}
+// 这桌有人在坐，下一组 30 分内要到（或已过点）→ 提醒
+function clashOf(s, t) {
+  if (t.s === 'free' || t.s === 'held') return null;
+  const r = nextFor(s, t), now = nowM();
+  if (!r) return null;
+  const d = toM(r.st) - now;
+  return d <= 30 ? { r, d } : null;
+}
+// 30 分内要到、还没排桌的预约
+function soon(s) {
+  const now = nowM();
+  if (!s.rsv || now == null) return [];
+  return s.rsv.filter(r => isWait(r) && !r.tbl && toM(r.st) >= now - 15 && toM(r.st) <= now + 30);
+}
+function rsvChip(r) {
+  if (isIn(r)) return '<span class="rc in">已到</span>';
+  if (isGone(r)) return '<span class="rc gone">已走</span>';
+  if (!isWait(r)) return `<span class="rc">${esc(r.status || '—')}</span>`;
+  const now = nowM(), st = toM(r.st), rb = rbM();
+  if (now == null || st == null) return '<span class="rc">未到</span>';
+  if (now < st) return `<span class="rc">${st - now} 分后</span>`;
+  // 预约状态是 レストランボード 上次读到的；开始时间比那次还晚，就还不知道到没到
+  if (rb != null && st > rb) return '<span class="rc">状态待更新</span>';
+  const late = now - st;
+  return `<span class="rc ${late > 15 ? 'late2' : late >= 5 ? 'late1' : ''}">${late < 5 ? '刚到点' : '迟到 ' + late + ' 分'}</span>`;
+}
+function ledger(s) {
+  const list = s.rsv.slice().sort((a, b) => toM(a.st) - toM(b.st));
+  if (!list.length) return '<h3>今日预约</h3><div class="note">今天没有 レストランボード 的预约</div>';
+  const ppl = list.reduce((a, r) => a + r.ppl, 0), wait = list.filter(isWait).length;
+  const hm = (String(D.rbStamp || '').match(/\s(\d{1,2}:\d{2})/) || [])[1] || '?';
+  return `<h3>今日预约　${list.length} 组 ${ppl} 人<small>　未到 ${wait} 组 · 状态是 ${esc(hm)} 读到的</small></h3><div class="ldg">` +
+    list.map(r => `<div class="${isGone(r) ? 'gone' : ''}"><span class="lt">${esc(r.st)}</span><span class="ln"><b>${esc(r.name)} 様</b> ${r.ppl}名<br><small>${r.tbl ? '🪑 ' + esc(r.tbl) : '没排桌'}${r.course ? '　' + esc(r.course) : ''}</small></span>${rsvChip(r)}</div>`).join('') + '</div>';
+}
+
 function tile(t, show) {
+  const S = curStore;
+  const nx = S ? nextFor(S, t) : null, cl = S ? clashOf(S, t) : null;
   const se = t.s === 'free' || t.s === 'held' ? null : seat(t);
   let line = '';
   if (t.s === 'free') line = '';
@@ -430,9 +513,10 @@ function tile(t, show) {
   const rest = t.x.filter(x => !/开台$/.test(x));
   // 坐了多久：底部细条，90 分满格
   const bar = se && se.mins != null ? `<i class="tm" style="width:${Math.min(100, se.mins / 90 * 100)}%;color:${se.mins >= 120 ? 'var(--over)' : se.mins >= 90 ? 'var(--remind)' : 'var(--used)'}"></i>` : '';
-  return `<div class="tile ${t.s}${show ? '' : ' dim'}" onclick="toggleTile(event)">
+  const nxt = nx && t.s !== 'held' ? `<div class="nx${cl ? ' cl' : ''}">${cl ? '⚠ ' + (cl.d >= 0 ? cl.d + ' 分后' : '已过 ' + (-cl.d) + ' 分') + '下一组到，还没空<br>' : '📅 下一组 '}${esc(nx.st)} ${nx.ppl}名 ${esc(nx.name)}</div>` : '';
+  return `<div class="tile ${t.s}${show ? '' : ' dim'}${cl ? ' clash' : ''}" onclick="toggleTile(event)">
     <b>${esc(t.t)}</b><div class="st">${ST[t.s]}${line ? '<span style="font-weight:400;color:var(--ink)"> ' + line + '</span>' : ''}</div>
-    ${rest.length ? `<div class="x">${rest.map(esc).join('<br>')}</div>` : ''}${bar}</div>`;
+    ${nxt}${rest.length ? `<div class="x">${rest.map(esc).join('<br>')}</div>` : ''}${bar}</div>`;
 }
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
