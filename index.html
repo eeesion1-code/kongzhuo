@@ -315,11 +315,13 @@ function render() {
   else banner.style.display = 'none';
   // 合计
   const free = open.reduce((a, s) => a + s.free, 0), n = open.reduce((a, s) => a + s.n, 0);
+  const airOpen = D.stores.filter(s => s.status === 'air').length;
   const statsEl = document.getElementById('stats');
   statsEl.className = 'stats' + (D.owner ? ' own' : '');
   statsEl.innerHTML =
     (D.owner ? `<div class="stat sales"><small>今日营业额（含税）</small><b>${esc(D.sales || '—')}</b>${D.salesEx ? `<small>税抜 ${esc(D.salesEx)}</small>` : ''}</div>` : '') +
-    `<div class="stat"><small>营业中</small><b>${open.length}<em> 家</em></b></div>` +
+    // 11/12：Airレジ 的店（町田）没有桌位数据，但在营业，也算进「营业中」
+    `<div class="stat"><small>营业中</small><b>${open.length + airOpen}<em> 家</em></b>${airOpen ? `<small>其中 ${airOpen} 家没有桌位数据</small>` : ''}</div>` +
     `<div class="stat"><small>空桌</small><b class="g">${free}<em> / ${n}</em></b></div>` +
     `<div class="stat"><small>在店</small><b>${D.ppl != null ? D.ppl : '—'}<em> 人</em></b></div>`;
   document.getElementById('sort').textContent = sortBy === 'free' ? '空桌多→少' : '按地区';
