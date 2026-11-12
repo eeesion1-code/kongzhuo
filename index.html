@@ -82,6 +82,13 @@ main{padding:4px 14px 20px;max-width:920px;margin:0 auto}
 .seg i{height:100%}
 .best{margin:0 12px 10px;padding:8px 10px;border-radius:10px;background:var(--soft);font-size:13px}
 .best b{font-weight:600}
+.mini{display:flex;flex-wrap:wrap;gap:3px;margin:0 12px 10px;cursor:pointer}
+.mini i{font-style:normal;min-width:26px;height:20px;padding:0 3px;border-radius:5px;font-size:10px;line-height:20px;text-align:center;background:var(--usedBg);color:var(--used);box-sizing:border-box}
+.mini i.free{background:var(--free);color:#fff}
+.mini i.held{background:var(--held);color:#fff}
+.mini i.remind{background:var(--remindBg);color:var(--remind);box-shadow:inset 0 0 0 1.5px var(--remind)}
+.mini i.lo{background:var(--loBg);color:var(--lo);box-shadow:inset 0 0 0 1.5px var(--lo)}
+.mini i.over{background:var(--over);color:#fff}
 .best.wn{margin-top:-6px;background:#fef3c7;color:#92400e}
 .body>.best.wn{margin:8px 0}
 .badges{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
@@ -178,7 +185,7 @@ const fromUrl = (location.hash.match(/k=([^&]+)/) || location.search.match(/[?&]
 if (fromUrl) { K = decodeURIComponent(fromUrl); LS.set('k', K); history.replaceState(null, '', location.pathname); }
 
 let D = null, area = '', tab = LS.get('tab', 'all'), sortBy = LS.get('sort', 'free');
-let openSet = new Set(), favs = [], tileF = {};
+let openSet = new Set(), closedSet = new Set(), autoOpen = false, favs = [], tileF = {};
 try { favs = JSON.parse(LS.get('favs', '[]')); } catch (e) {}
 if (tab === 'fav' && !favs.length) tab = 'all';
 
@@ -244,7 +251,13 @@ function toggleFav(ev, label) {
   favs = favs.includes(label) ? favs.filter(x => x !== label) : favs.concat(label);
   LS.set('favs', JSON.stringify(favs)); render();
 }
-function toggleOpen(label) { openSet.has(label) ? openSet.delete(label) : openSet.add(label); render(); }
+// 列表里 3 家以内（选了地区、搜了店名、我的店）时自动展开桌位图；手动收起的记在 closedSet
+function isOpenS(label) { return openSet.has(label) || (autoOpen && !closedSet.has(label)); }
+function toggleOpen(label) {
+  if (isOpenS(label)) { openSet.delete(label); closedSet.add(label); }
+  else { closedSet.delete(label); openSet.add(label); }
+  render();
+}
 function setTileF(label, f) { tileF[label] = f; render(); }
 function toggleTile(ev) { ev.currentTarget.classList.toggle('open'); }
 
@@ -280,6 +293,7 @@ function render() {
   if (tab === 'free') list = list.filter(s => s.status === 'open' && s.free > 0);
   const rank = s => s.status === 'open' && s.n ? 0 : s.status === 'air' ? 1 : 2;
   if (sortBy === 'free') list = list.slice().sort((a, b) => rank(a) - rank(b) || b.free / (b.n || 1) - a.free / (a.n || 1) || b.free - a.free);
+  autoOpen = list.length <= 3;
   let h = '';
   if (tab === 'all') {
     const fav = list.filter(s => favs.includes(s.label)), rest = list.filter(s => !favs.includes(s.label));
@@ -294,7 +308,7 @@ function render() {
 }
 
 function card(s) {
-  const isOpen = openSet.has(s.label), fav = favs.includes(s.label);
+  const isOpen = isOpenS(s.label), fav = favs.includes(s.label);
   const pct = s.n ? s.free / s.n : 0, cls = pct >= 0.5 ? 'g' : pct >= 0.2 ? 'm' : 'rr';
   const L = esc(JSON.stringify(s.label));
   const cnt = k => s.tables.filter(t => t.s === k).length;
@@ -332,9 +346,16 @@ function card(s) {
       <div class="big">${big}</div>
     </div>
     ${best}
+    ${!isOpen && s.tables.length ? mini(s, L) : ''}
     ${isOpen ? '<div class="body">' + body + '</div>' : ''}
     ${canOpen ? `<button class="more" onclick="toggleOpen(${L})">${isOpen ? '收起 ▲' : '看桌位图 ▼'}</button>` : ''}
   </div>`;
+}
+
+// 卡片上的小桌位图：不用点开就能看到哪几桌空（点一下展开详细）
+function mini(s, L) {
+  return `<div class="mini" onclick="toggleOpen(${L})">` + s.tables.map(t =>
+    `<i class="${t.s}">${esc(String(t.t).replace(/（.*$/, ''))}</i>`).join('') + '</div>';
 }
 
 function detail(s) {
