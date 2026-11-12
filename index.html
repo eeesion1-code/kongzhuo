@@ -82,6 +82,8 @@ main{padding:4px 14px 20px;max-width:920px;margin:0 auto}
 .seg i{height:100%}
 .best{margin:0 12px 10px;padding:8px 10px;border-radius:10px;background:var(--soft);font-size:13px}
 .best b{font-weight:600}
+.best.wn{margin-top:-6px;background:#fef3c7;color:#92400e}
+.body>.best.wn{margin:8px 0}
 .badges{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .bd{font-size:11.5px;padding:2px 8px;border-radius:999px;background:var(--soft);color:var(--sub)}
 .bd.held{background:var(--heldBg);color:var(--held)} .bd.remind{background:var(--remindBg);color:var(--remind)}
@@ -296,7 +298,7 @@ function card(s) {
   const pct = s.n ? s.free / s.n : 0, cls = pct >= 0.5 ? 'g' : pct >= 0.2 ? 'm' : 'rr';
   const L = esc(JSON.stringify(s.label));
   const cnt = k => s.tables.filter(t => t.s === k).length;
-  let big, sub = '', best = '', badges = '', seg = '';
+  let big, sub = '', best = '', badges = '', seg = '', warnFull = '';
   if (s.status === 'closed') { big = '<small>🌙 已打烊</small>'; sub = esc(s.note); }
   else if (s.status === 'air') { big = '<small>—</small>'; sub = esc(s.note); }
   else if (!s.n) { big = '<small class="r">' + (/抓取失败/.test(s.warn) ? '⚠ 这轮没读到' : '没有桌位数据') + '</small>'; sub = s.warn ? '<span class="r">' + esc(s.warn) + '</span>（下一轮会再读）' : ''; }
@@ -308,10 +310,19 @@ function card(s) {
     badges = [['held', s.held, '🟦 留桌'], ['over', cnt('over'), '放题超时'], ['lo', cnt('lo'), 'L.O.'], ['remind', cnt('remind'), '快结束']]
       .filter(x => x[1]).map(([c, k, t]) => `<span class="bd ${c}">${t} ${k}</span>`).join('');
     const b = s.info.find(x => /^②/.test(x));
-    if (b) best = `<div class="best">⏱ <b>最早有位</b>　${esc(b.replace(/^②\s*最早有位：/, ''))}</div>`;
+    if (b) {
+      // ② 后面常接一长段「⚠ 1 小时内的预约还有…没点来店」，卡片上只留一行，全文放到展开后
+      const [main, ...rest] = b.replace(/^②\s*最早有位：/, '').split(/；(?=⚠)/);
+      best = `<div class="best">⏱ <b>最早有位</b>　${esc(main)}</div>`;
+      if (rest.length) {
+        const wn = rest.join('；'), m = wn.match(/还有\s*(\d+)\s*组\s*(\d+)\s*人/);
+        best += `<div class="best wn">${m ? `⚠ 1 小时内有 ${m[1]} 组 ${m[2]} 人预约还没点来店` : esc(wn.slice(0, 40) + '…')}</div>`;
+        if (isOpen) warnFull = `<div class="best wn">${esc(wn)}</div>`;
+      }
+    }
   }
   let body = '';
-  if (isOpen) body = detail(s);
+  if (isOpen) body = warnFull + detail(s);
   const canOpen = s.tables.length || s.info.length || s.pending.length || s.notes.length;
   return `<div class="card${s.status !== 'open' ? ' closed' : ''}">
     <div class="hd" onclick="toggleOpen(${L})">
