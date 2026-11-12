@@ -51,6 +51,11 @@ h1{font-size:20px;margin:0;flex:1;letter-spacing:.5px}
 #banner{display:none;margin-top:8px;padding:8px 12px;border-radius:10px;background:var(--overBg);color:var(--over);font-size:13px}
 
 .stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}
+.stats.own{grid-template-columns:repeat(2,1fr)}
+@media (min-width:700px){.stats.own{grid-template-columns:1.4fr 1fr 1fr 1fr}}
+.stat.sales b{color:var(--brand)}
+.yen{color:var(--brand);font-weight:600}
+#banner.stop{font-size:14px;font-weight:600;padding:10px 12px;border:1.5px solid var(--over)}
 .stat{background:var(--card);border-radius:12px;padding:8px 10px;box-shadow:var(--shadow);border:1px solid var(--line)}
 .stat small{display:block;font-size:11px;color:var(--sub)}
 .stat b{font-size:20px;font-variant-numeric:tabular-nums}
@@ -274,12 +279,28 @@ function render() {
   live.className = 'live' + (age == null ? '' : age > 25 && open.length ? ' bad' : age > 15 ? ' warn' : '');
   document.getElementById('age').textContent = age == null ? '—' : (st.getHours() + ':' + String(st.getMinutes()).padStart(2, '0') + ' 更新 · ' + (age < 1 ? '刚刚' : age + ' 分前'));
   const banner = document.getElementById('banner');
+  // 程序应该在跑的时间（14:20〜0:30；周五・周六营业日到 4:45）：超过 25 分钟没新数据 = 程序可能停了
+  let inHours = false;
+  if (nm) {
+    const t = new Date(nm.getTime() + (D.got ? Date.now() - D.got : 0)), m = t.getHours() * 60 + t.getMinutes();
+    const bizDow = m < 300 ? (t.getDay() + 6) % 7 : t.getDay();   // 5 点前算前一天的营业日
+    const endM = bizDow === 5 || bizDow === 6 ? 285 : 30;
+    inHours = m >= 14 * 60 + 20 || m <= endM;
+  }
+  const hm = st ? st.getHours() + ':' + String(st.getMinutes()).padStart(2, '0') : '';
+  banner.className = '';
   if (D.offline) { banner.style.display = 'block'; banner.textContent = '⚠ 现在连不上网络，显示的是上次读到的数据'; }
-  else if (age != null && age > 25 && open.length) { banner.style.display = 'block'; banner.textContent = '⚠ 已经 ' + age + ' 分钟没更新，空桌可能不准'; }
+  else if (age != null && age > 25 && (inHours || open.length)) {
+    banner.style.display = 'block'; banner.className = 'stop';
+    banner.textContent = '🚨 实时桌位程序可能停了：最后一次数据是 ' + hm + '（' + age + ' 分钟前），空桌不准。请检查跑程序的电脑。';
+  }
   else banner.style.display = 'none';
   // 合计
   const free = open.reduce((a, s) => a + s.free, 0), n = open.reduce((a, s) => a + s.n, 0);
-  document.getElementById('stats').innerHTML =
+  const statsEl = document.getElementById('stats');
+  statsEl.className = 'stats' + (D.owner ? ' own' : '');
+  statsEl.innerHTML =
+    (D.owner ? `<div class="stat sales"><small>今日营业额（含税）</small><b>${esc(D.sales || '—')}</b>${D.salesEx ? `<small>税抜 ${esc(D.salesEx)}</small>` : ''}</div>` : '') +
     `<div class="stat"><small>营业中</small><b>${open.length}<em> 家</em></b></div>` +
     `<div class="stat"><small>空桌</small><b class="g">${free}<em> / ${n}</em></b></div>` +
     `<div class="stat"><small>在店</small><b>${D.ppl != null ? D.ppl : '—'}<em> 人</em></b></div>`;
@@ -323,12 +344,13 @@ function card(s) {
   const L = esc(JSON.stringify(s.label));
   const cnt = k => s.tables.filter(t => t.s === k).length;
   let big, sub = '', best = '', badges = '', seg = '', warnFull = '';
-  if (s.status === 'closed') { big = '<small>🌙 已打烊</small>'; sub = esc(s.note); }
-  else if (s.status === 'air') { big = '<small>—</small>'; sub = esc(s.note); }
+  const yen = s.sales ? '　<span class="yen">' + esc(s.sales) + '</span>' : '';
+  if (s.status === 'closed') { big = '<small>🌙 已打烊</small>'; sub = esc(s.note) + yen; }
+  else if (s.status === 'air') { big = '<small>—</small>'; sub = esc(s.note) + yen; }
   else if (!s.n) { big = '<small class="r">' + (/抓取失败/.test(s.warn) ? '⚠ 这轮没读到' : '没有桌位数据') + '</small>'; sub = s.warn ? '<span class="r">' + esc(s.warn) + '</span>（下一轮会再读）' : ''; }
   else {
     big = `<b class="${cls}">${s.free}</b><small>空 / ${s.n} 桌</small>`;
-    sub = [s.ppl != null ? '在店 ' + s.ppl + ' 人' : '', '使用中 ' + s.busy].filter(Boolean).join('　');
+    sub = [s.ppl != null ? '在店 ' + s.ppl + ' 人' : '', '使用中 ' + s.busy, s.sales ? '<span class="yen">' + esc(s.sales) + '</span>' : ''].filter(Boolean).join('　');
     const w = k => (k / s.n * 100).toFixed(2) + '%';
     seg = `<div class="seg"><i style="width:${w(s.free)};background:var(--free)"></i><i style="width:${w(s.held)};background:var(--held)"></i><i style="width:${w(cnt('over'))};background:var(--over)"></i><i style="width:${w(cnt('lo'))};background:var(--lo)"></i><i style="width:${w(cnt('remind'))};background:var(--remind)"></i></div>`;
     badges = [['held', s.held, '🟦 留桌'], ['over', cnt('over'), '放题超时'], ['lo', cnt('lo'), 'L.O.'], ['remind', cnt('remind'), '快结束']]
