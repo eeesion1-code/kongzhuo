@@ -277,7 +277,7 @@ nav button.on{color:var(--brand)}
 <script>
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v11';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v12';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -646,6 +646,8 @@ const SV_HOLI = new Set(['2025-10-13', '2025-11-03', '2025-11-23', '2025-11-24',
 function svShort(x) { return !x.live && x.d >= '2026-11-01' && x.n < 32 ? 32 - x.n : 0; }
 // 缺店估计：最近一个同星期几（店数齐的那天）有、这天没有的店，按那天的营业额算少了多少
 function svMissEst(x) {
+  // 11/13：有实时程序那天的读数就用它（营业额历史.py 写的 est：[车站, 店名, 金额]）
+  if (x.est && x.est.length) { const ms = x.est; return { ref: null, rt: true, ms, sum: ms.reduce((a, r) => a + r[2], 0) }; }
   let ref = null; for (let k = 7; k <= 35 && !ref; k += 7) { const r = SV.map[svAdd(x.d, -k)]; if (r && !svShort(r)) ref = r; }
   // 只算之后还在营业的店（已闭店的不算缺）：之后 7 天里出现过；这天是最后一天就不查
   const after = new Set(); for (let k = 1; k <= 7; k++) { const r = SV.map[svAdd(x.d, k)]; if (r) r.s.forEach(q => after.add(q[1])); }
@@ -738,7 +740,7 @@ function renderSales() {
     let miss = '';
     const E = short ? svMissEst(x) : null;
     if (E) miss = `<div class="svmiss">⚠ 少 ${short} 家：${E.ms.map(r => esc(r[0] + ' ' + r[1].slice(0, 14))).join('、')}<br>`
-      + `那天收银台下载的数据里没有这几家（多半是店里没做レジ締め或网络掉线），所以合计少算了。按 ${E.ref.d.slice(5).replace('-', '/')} 同星期几估计少了约 ${cnBig(E.sum)}。</div>`;
+      + `那天收银台下载的数据里没有这几家（多半是店里没做レジ締め或网络掉线），所以合计少算了。${E.rt ? `实时程序那天读到这几家共约 ${cnBig(E.sum)}（参考值，通常比日报多一点）` : `按 ${E.ref.d.slice(5).replace('-', '/')} 同星期几估计少了约 ${cnBig(E.sum)}`}。每天早上 9:30 会自动重下补上。</div>`;
     h += `<div class="svtot">${yen(x.t)}<small>　含税 · ${x.n} 家${short ? `　<span class="rr">少 ${short} 家</span>` : ''}</small></div>` + miss
       + `<div class="svsub">${x.g ? `${x.g} 组 · ${x.c} 人 · 客单价 ${yen(x.c ? x.t / x.c : 0)}<br>` : ''}`
       + `${x.live ? '今天还在营业，数字会一直涨；和上周比要等明天 12 点日报。' : ''}${lw ? `上周同日 ${yen(lw.t)} ${svPct(x.t, lw.t)}` : ''}${ly2 ? `　去年同周同日 ${yen(ly2.t)} ${svPct(x.t, ly2.t)}` : ''}</div>`;
