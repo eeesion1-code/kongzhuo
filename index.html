@@ -277,7 +277,7 @@ nav button.on{color:var(--brand)}
 <script>
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v13';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v14';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -644,7 +644,8 @@ const SV_HOLI = new Set(['2025-10-13', '2025-11-03', '2025-11-23', '2025-11-24',
   '2026-11-03', '2026-11-23', '2027-01-01', '2027-01-11', '2027-02-11', '2027-02-23', '2027-03-22', '2027-04-29', '2027-05-03', '2027-05-04', '2027-05-05']);
 // 缺店：11 月起收银台 32 个（31 家店），少于这个数＝那天日报缺数据（实时的不算）
 // 收银台数据的店数（est＝收银后台没有、用实时程序读数补进合计的店，不算）
-function svShort(x) { const n = x.n - (x.est ? x.est.length : 0); return !x.live && x.d >= '2026-11-01' && n < 32 ? 32 - n : 0; }
+function svShort(x) { const n = x.n - (x.est ? x.est.length : 0) + (x.rest ? x.rest.length : 0);   // rest＝确认休息的店，不算缺
+  return !x.live && x.d >= '2026-11-01' && n < 32 ? 32 - n : 0; }
 // 缺店估计：最近一个同星期几（店数齐的那天）有、这天没有的店，按那天的营业额算少了多少
 function svMissEst(x) {
   // 11/13：有实时程序那天的读数就用它（营业额历史.py 写的 est：[车站, 店名, 金额]）
@@ -744,7 +745,7 @@ function renderSales() {
       + `合计里先用实时程序那天的最后读数 ${cnBig(E.sum)} 补上（下面标「实时估计」，通常比收银数据多一点）。店里补做レジ締め、数据一出来，会自动换成收银数据，那天的日报也自动重做。</div>`;
     else if (E) miss = `<div class="svmiss">⚠ 少 ${short} 家：${E.ms.map(r => esc(r[0] + ' ' + r[1].slice(0, 14))).join('、')}<br>`
       + `那天收银台下载的数据里没有这几家（多半是店里没做レジ締め或网络掉线），所以合计少算了。按 ${E.ref.d.slice(5).replace('-', '/')} 同星期几估计少了约 ${cnBig(E.sum)}。每天 9:30 会自动重下，有数据就补上、日报也自动重做。</div>`;
-    h += `<div class="svtot">${yen(x.t)}<small>　含税 · ${x.n} 家${short ? `　<span class="rr">${x.est ? `含 ${x.est.length} 家实时估计` : `少 ${short} 家`}</span>` : ''}</small></div>` + miss
+    h += `<div class="svtot">${yen(x.t)}<small>　含税 · ${x.n} 家${short ? `　<span class="rr">${x.est ? `含 ${x.est.length} 家实时估计` : `少 ${short} 家`}</span>` : ''}${x.rest ? `　休息：${x.rest.map(r => esc(r[0] + ' ' + r[1].slice(0, 10))).join('、')}` : ''}</small></div>` + miss
       + `<div class="svsub">${x.g ? `${x.g} 组 · ${x.c} 人 · 客单价 ${yen(x.c ? x.t / x.c : 0)}<br>` : ''}`
       + `${x.live ? '今天还在营业，数字会一直涨；和上周比要等明天 12 点日报。' : ''}${lw ? `上周同日 ${yen(lw.t)} ${svPct(x.t, lw.t)}` : ''}${ly2 ? `　去年同周同日 ${yen(ly2.t)} ${svPct(x.t, ly2.t)}` : ''}</div>`;
     // 时段营业额
