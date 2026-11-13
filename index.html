@@ -65,6 +65,39 @@ h1{font-size:20px;margin:0;flex:1;letter-spacing:.5px}
 .tools{display:flex;gap:8px;margin-top:10px}
 #q{flex:1;min-width:0;font:inherit;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}
 .sortbtn{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:0 12px;font-size:13px;white-space:nowrap}
+/* 11/13 集团总营业额（老板） */
+.salesbtn{display:none;border:0;background:var(--brand);color:#fff;border-radius:10px;padding:0 12px;font-size:13px;font-weight:600;white-space:nowrap}
+.stat.sales{cursor:pointer}
+#salesView{display:none;position:fixed;inset:0;z-index:30;background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch}
+.svwrap{max-width:720px;margin:0 auto;padding:12px 14px calc(30px + env(safe-area-inset-bottom))}
+.svtop{display:flex;align-items:center;gap:8px;position:sticky;top:0;background:var(--bg);padding:6px 0 8px;z-index:2}
+.svtop h2{flex:1;margin:0;font-size:19px}
+.svtools{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin:6px 0}
+.svtools input{font:inherit;font-size:16px;padding:6px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}
+.svmon{display:flex;align-items:center;justify-content:space-between;margin:10px 0 4px}
+.svmon b{font-size:16px}
+.svmsum{font-size:13px;color:var(--sub);margin:2px 2px 6px;line-height:1.6}
+.svmsum b{color:var(--ink)}
+.svcal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.svcal>b{text-align:center;font-size:12px;color:var(--sub);font-weight:500}
+.svcal .bl{color:#2563eb}
+.svd{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:4px 0 3px;min-height:46px;display:flex;flex-direction:column;align-items:center;gap:1px;color:var(--ink)}
+.svd i{font-style:normal;font-size:13px;font-weight:600}
+.svd small{font-size:10.5px;font-variant-numeric:tabular-nums}
+.svd:disabled{opacity:.35}
+.svd.td{border-color:var(--brand)}
+.svd.on{outline:2.5px solid var(--ink);outline-offset:-1px}
+.svday{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin-top:12px}
+.svhd{font-weight:600;font-size:15px}
+.svhd small{font-weight:400;color:var(--sub);margin-left:6px;font-size:12px}
+.svtot{font-size:28px;font-weight:700;margin:4px 0 2px;font-variant-numeric:tabular-nums}
+.svtot small{font-size:13px;font-weight:400;color:var(--sub)}
+.svsub{font-size:13px;color:var(--sub);line-height:1.6;margin-bottom:8px}
+.svlist>div{display:grid;grid-template-columns:22px auto 1fr auto;gap:2px 8px;align-items:center;padding:7px 0;border-top:1px solid var(--line);font-size:13.5px}
+.svlist em{font-style:normal;color:var(--faint);font-size:12px;text-align:right}
+.svlist .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.svlist b{font-variant-numeric:tabular-nums}
+.svlist small{grid-column:3/5;color:var(--sub);font-size:11.5px;margin-top:-4px}
 .chips{display:flex;gap:6px;overflow-x:auto;margin-top:8px;padding-bottom:2px;scrollbar-width:none}
 .chips::-webkit-scrollbar{display:none}
 .chip{flex:none;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:4px 12px;font-size:13px}
@@ -194,6 +227,7 @@ nav button.on{color:var(--brand)}
   <div class="tools">
     <input id="q" placeholder="🔍 搜店名 / 地区" oninput="render()">
     <button class="sortbtn" id="sort" onclick="toggleSort()"></button>
+    <button class="salesbtn" id="salesBtn" onclick="openSales()">💴 集团总营业额</button>
   </div>
   <div class="chips" id="chips"></div>
 </header>
@@ -205,6 +239,10 @@ nav button.on{color:var(--brand)}
   <button onclick="saveKey()">开始使用</button>
   <p id="kerr" class="r"></p>
 </div>
+<div id="salesView"><div class="svwrap">
+  <div class="svtop"><button class="iconbtn" onclick="closeSales()" aria-label="返回">‹</button><h2>💴 集团总营业额</h2></div>
+  <div id="svBody"></div>
+</div></div>
 <nav id="nav">
   <button data-tab="all" onclick="setTab('all')"><span>🏬</span>全部店</button>
   <button data-tab="fav" onclick="setTab('fav')"><span>⭐</span>我的店</button>
@@ -347,7 +385,7 @@ function render() {
   const statsEl = document.getElementById('stats');
   statsEl.className = 'stats' + (D.owner ? ' own' : '');
   statsEl.innerHTML =
-    (D.owner ? `<div class="stat sales"><small>今日营业额（含税）</small><b>${esc(D.sales || '—')}</b>${D.salesEx ? `<small>税抜 ${esc(D.salesEx)}</small>` : ''}</div>` : '') +
+    (D.owner ? `<div class="stat sales" onclick="openSales()"><small>今日营业额（含税）›</small><b>${esc(D.sales || '—')}</b>${D.salesEx ? `<small>税抜 ${esc(D.salesEx)}</small>` : ''}</div>` : '') +
     // 11/12：Airレジ 的店（町田）没有桌位数据，但在营业，也算进「营业中」
     `<div class="stat"><small>营业中</small><b>${openShops}<em> 家</em></b>${airOpen ? `<small>其中 ${airOpen} 家没有桌位数据</small>` : ''}</div>` +
     `<div class="stat"><small>空桌</small><b class="g">${free}<em> / ${n}</em></b></div>` +
@@ -359,6 +397,8 @@ function render() {
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
 
   document.getElementById('sort').style.display = tab === 'pw' ? 'none' : '';
+  document.getElementById('salesBtn').style.display = D.owner ? 'block' : 'none';
+  if (document.getElementById('salesView').style.display === 'block') renderSales();
   if (tab === 'pw') { document.getElementById('list').innerHTML = pwView(); return; }
   // 列表
   const q = document.getElementById('q').value.trim();
@@ -495,6 +535,85 @@ function pwCard(x) {
     </div>${body}</div>`;
 }
 function pwToggle(id) { pwOpen.has(id) ? pwOpen.delete(id) : pwOpen.add(id); render(); }
+
+// ===== 11/13 集团总营业额（只给老板密码）：日历看每天集团合计，点某天看各店；今天用实时数据 =====
+let SV = null, svBusy = false, svDay = '', svMon = '', svErr = '';
+const yen = n => '¥' + Math.round(n || 0).toLocaleString('ja-JP');
+const man = n => (n / 10000).toFixed(n >= 1e6 ? 0 : 1) + '万';
+const yenNum = s => +(String(s || '').replace(/[^\d]/g, '')) || 0;
+function svDate(ds) { const [y, m, d] = ds.split('-').map(Number); return new Date(y, m - 1, d); }
+function svStr(dt) { return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0'); }
+function svAdd(ds, n) { const t = svDate(ds); t.setDate(t.getDate() + n); return svStr(t); }
+// 营业日：凌晨 5 点前算前一天
+function svToday() { const t = pwNow(); if (t.getHours() < 5) t.setDate(t.getDate() - 1); return svStr(t); }
+function openSales(ds) {
+  if (!D || !D.owner) return;
+  document.getElementById('salesView').style.display = 'block';
+  document.body.style.overflow = 'hidden';
+  if (ds) svDay = ds;
+  if (!svDay) svDay = svToday();
+  svMon = svDay.slice(0, 7);
+  renderSales();
+  if (!SV && !svBusy) {
+    svBusy = true; svErr = '';
+    fetch(API + '?fmt=json&what=sales&k=' + encodeURIComponent(K), { cache: 'no-store' })
+      .then(r => r.json())
+      .then(d => { svBusy = false; if (d.error) throw new Error(d.error); SV = d; SV.map = {}; d.days.forEach(x => SV.map[x.d] = x); renderSales(); })
+      .catch(e => { svBusy = false; svErr = String(e.message || e); renderSales(); });
+  }
+}
+function closeSales() { document.getElementById('salesView').style.display = 'none'; document.body.style.overflow = ''; }
+// 某天的数据：今天用实时（D.sales、各店 s.sales），以前用日报
+function svGet(ds) {
+  if (ds === svToday() && D.sales) {
+    const st = D.stores.filter(s => yenNum(s.sales) > 0).map(s => [s.area, s.name, yenNum(s.sales), null, null]).sort((a, b) => b[2] - a[2]);
+    return { d: ds, t: yenNum(D.sales), n: st.length, s: st, live: true };
+  }
+  return SV && SV.map[ds] || null;
+}
+function svMove(n) { const [y, m] = svMon.split('-').map(Number); const t = new Date(y, m - 1 + n, 1); svMon = svStr(t).slice(0, 7); renderSales(); }
+function svPick(ds) { if (!ds) return; svDay = ds; svMon = ds.slice(0, 7); renderSales(); }
+function svPct(a, b) { if (!a || !b) return ''; const p = Math.round(100 * (a - b) / b); return `<span class="${p >= 0 ? 'g' : 'rr'}">${p >= 0 ? '+' : ''}${p}%</span>`; }
+function renderSales() {
+  const el = document.getElementById('svBody');
+  if (!SV) { el.innerHTML = `<div id="msg">${svErr ? '读不到营业额历史（' + esc(svErr) + '）。过几分钟再试' : '读取中…'}</div>`; return; }
+  const today = svToday(), first = SV.days.length ? SV.days[0].d : today;
+  // 月历
+  const [y, m] = svMon.split('-').map(Number), d1 = new Date(y, m - 1, 1), nd = new Date(y, m, 0).getDate();
+  const vals = [], full = []; let last = 0, live = 0;
+  for (let i = 1; i <= nd; i++) { const x = svGet(svStr(new Date(y, m - 1, i))); if (x) { vals.push(x.t); if (x.live) live = x.t; else { full.push(x.t); last = i; } } }
+  const mx = Math.max(1, ...full, live), sum = full.reduce((a, b) => a + b, 0);
+  // 去年同期：同一个月的 1〜last 日（今天实时的不算进去比较）
+  const ly = y - 1 + '-' + String(m).padStart(2, '0');
+  const lyDays = SV.days.filter(x => x.d.startsWith(ly) && +x.d.slice(8) <= last), lySum = lyDays.reduce((a, x) => a + x.t, 0);
+  let cal = '<div class="svcal">' + [...'日一二三四五六'].map((w, i) => `<b class="${i === 0 ? 'rr' : i === 6 ? 'bl' : ''}">${w}</b>`).join('');
+  for (let i = 0; i < d1.getDay(); i++) cal += '<span></span>';
+  for (let i = 1; i <= nd; i++) {
+    const ds = svStr(new Date(y, m - 1, i)), x = svGet(ds), dow = (d1.getDay() + i - 1) % 7;
+    const a = x ? 0.12 + 0.55 * x.t / mx : 0;
+    cal += `<button class="svd${ds === svDay ? ' on' : ''}${ds === today ? ' td' : ''}" ${x ? `style="background:rgba(22,163,74,${a.toFixed(2)})"` : 'disabled'} onclick='svPick(${JSON.stringify(ds)})'>`
+      + `<i class="${dow === 0 ? 'rr' : dow === 6 ? 'bl' : ''}">${i}</i><small>${x ? man(x.t) + (x.live ? '*' : '') : ''}</small></button>`;
+  }
+  cal += '</div>';
+  let h = `<div class="svtools"><input type="date" id="svq" value="${svDay}" min="${first}" max="${today}" onchange="svPick(this.value)">`
+    + `<button class="chip" onclick="svPick(svToday())">今天</button><button class="chip" onclick="svPick(svAdd(svToday(),-1))">昨天</button><button class="chip" onclick="svPick(svAdd(svDay,-7))">上周同日</button></div>`
+    + `<div class="svmon"><button class="iconbtn" onclick="svMove(-1)">‹</button><b>${y} 年 ${m} 月</b><button class="iconbtn" onclick="svMove(1)">›</button></div>`
+    + `<div class="svmsum">${m} 月合计 <b>${yen(sum)}</b>（${full.length} 天${last ? '，到 ' + m + '/' + last : ''}，日均 ${yen(full.length ? sum / full.length : 0)}）${live ? `　＋今天实时 ${yen(live)}` : ''}${lyDays.length ? `<br>去年同期（${m}/1〜${m}/${last}）${yen(lySum)}　${svPct(sum, lySum)}` : ''}</div>` + cal;
+  // 选中的那天
+  const x = svGet(svDay), w = svDate(svDay), wk = '日一二三四五六'[w.getDay()];
+  h += `<div class="svday"><div class="svhd">${svDay.replace(/-/g, '/')}（${wk}）${x && x.live ? '<small>实时・日报出来后以日报为准</small>' : ''}</div>`;
+  if (!x) h += `<div class="foot">这一天没有数据${svDay < first ? '（营业额历史从 ' + first + ' 开始）' : '（2025/12〜2026/6 没有存；昨天的要等今天 12 点日报做完）'}</div>`;
+  else {
+    const lw = x.live ? null : svGet(svAdd(svDay, -7)), ly2 = x.live ? null : svGet(svAdd(svDay, -364));
+    const short = !x.live && svDay >= '2026-11-01' && x.n < 32 ? 32 - x.n : 0;  // 11 月起收银台 32 个（31 家店）
+    h += `<div class="svtot">${yen(x.t)}<small>　含税 · ${x.n} 家${short ? `　<span class="rr">少 ${short} 家（那天日报缺数据）</span>` : ''}</small></div>`
+      + `<div class="svsub">${x.g ? `${x.g} 组 · ${x.c} 人 · 客单价 ${yen(x.c ? x.t / x.c : 0)}<br>` : ''}`
+      + `${x.live ? '今天还在营业，数字会一直涨；和上周比要等明天 12 点日报。' : ''}${lw ? `上周同日 ${yen(lw.t)} ${svPct(x.t, lw.t)}` : ''}${ly2 ? `　去年同周同日 ${yen(ly2.t)} ${svPct(x.t, ly2.t)}` : ''}</div>`
+      + '<div class="svlist">' + x.s.map((r, i) => `<div><em>${i + 1}</em><span class="stn">${esc(r[0])}</span><span class="nm">${esc(r[1])}</span><b>${yen(r[2])}</b>${r[3] != null ? `<small>${r[3]} 组 ${r[4]} 人</small>` : ''}</div>`).join('') + '</div>';
+  }
+  h += `</div><div class="foot">每天的数字来自 12 点日报（收银台下载，含税）；今天是实时程序读的，晚上会变。最后更新：${esc(SV.at || '')}</div>`;
+  el.innerHTML = h;
+}
 
 function card(s) {
   const isOpen = isOpenS(s.label), fav = favs.includes(s.label);
