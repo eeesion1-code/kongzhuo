@@ -67,6 +67,11 @@ h1{font-size:20px;margin:0;flex:1;letter-spacing:.5px}
 .rlres{background:var(--soft);border-radius:10px;padding:8px 10px;font-size:13px;line-height:1.6;margin:8px 0}
 .rlnote{font-size:12.5px;color:var(--sub);line-height:1.55;margin:8px 0}
 .rlgo{display:block;width:100%;margin-top:10px;padding:12px;border:0;border-radius:12px;background:var(--brand);color:#fff;font-size:15px;font-weight:600}
+.rlpw{border-top:1px solid var(--line);margin-top:14px;padding-top:10px}
+.rlpw b{font-size:14.5px}
+.rlpw select,.rlpw input{display:block;width:100%;box-sizing:border-box;margin-top:8px;padding:10px;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}
+.rlpw .rlgo{background:#16a34a}
+.rlerr{color:var(--over);font-size:13px;margin-top:6px}
 .stat{background:var(--card);border-radius:12px;padding:8px 10px;box-shadow:var(--shadow);border:1px solid var(--line)}
 .stat small{display:block;font-size:11px;color:var(--sub)}
 .stat b{font-size:20px;font-variant-numeric:tabular-nums}
@@ -292,7 +297,7 @@ nav button.on{color:var(--brand)}
 <script>
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v18';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v19';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -849,8 +854,36 @@ function openRelogin() {
     if (st.error) throw new Error(st.error === 'owner' ? '要用老板密码' : st.error);
     if (!('req' in st)) throw new Error('后台还没部署新版本');
     rlShow(rlStatus(st) + '<p class="rlnote">电脑会用自己保存的账号密码，重新登录レストランボード、Airレジ 和预约副账号（有楽町・川崎）。<b>密码改过的话，要先在电脑上双击「保存登录密码.bat」存新密码</b>，不然多点几次会把账号锁住。3 分钟内重复点只算一次。</p>'
-      + '<button class="rlgo" onclick="rlGo()">🖥️ 让电脑现在重新登录</button>');
+      + '<button class="rlgo" onclick="rlGo()">🖥️ 让电脑现在重新登录</button>'
+      + '<div class="rlpw"><b>🔐 密码改了？在这里输新密码</b>'
+      + '<select id="rlSite"><option value="レストランボード">レストランボード（AirID）</option><option value="Airレジ">Airレジ（AirID）</option><option value="RB川崎">预约副账号 川崎</option><option value="RB有楽町">预约副账号 有楽町</option></select>'
+      + '<input id="rlUser" placeholder="AirID（没改就不用填）" autocomplete="off" autocapitalize="off" spellcheck="false">'
+      + '<input id="rlPw" type="password" placeholder="新密码" autocomplete="new-password">'
+      + '<div id="rlErr" class="rlerr"></div>'
+      + '<button class="rlgo" onclick="rlSendPw()">🔐 加密发给电脑并登录</button>'
+      + '<p class="rlnote">手机先用电脑的钥匙加密再发出去，云端只存密文、解不开；只有这台电脑能解开，存进电脑里（和「保存登录密码.bat」同一处）以后马上登录。几个账号都改了就一个一个发。</p></div>');
   }).catch(e => rlShow('读不到：' + esc(e.message || e)));
+}
+// 11/13：手机输新密码 → 用电脑上传的公钥（RSA-OAEP）加密 → 云端只存密文 → 电脑 remote_login.py 解开存进凭据管理器、马上登录
+async function rlSendPw() {
+  const err = m => { document.getElementById('rlErr').textContent = m; };
+  const site = document.getElementById('rlSite').value, u = document.getElementById('rlUser').value.trim(), pwEl = document.getElementById('rlPw');
+  if (!pwEl.value) { err('请输入新密码'); return; }
+  try {
+    if (!(window.crypto && crypto.subtle)) throw new Error('这个浏览器不能加密，换 Safari 或 Chrome 打开');
+    const st = await rlApi();
+    if (!st.pub) throw new Error('电脑还没准备好（电脑端小程序没在跑），过几分钟再试');
+    const key = await crypto.subtle.importKey('jwk', JSON.parse(st.pub), { name: 'RSA-OAEP', hash: 'SHA-1' }, false, ['encrypt']);
+    const data = new TextEncoder().encode(JSON.stringify({ s: site, u, p: pwEl.value }));
+    pwEl.value = '';
+    if (data.length > 200) throw new Error('AirID 或密码太长');
+    const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, key, data));
+    let bin = ''; ct.forEach(b => bin += String.fromCharCode(b));
+    rlShow('🔐 加密好了，发送中…');
+    const r = await fetch(API + '?fmt=json&what=relogin&k=' + encodeURIComponent(K) + '&act=setpw&c=' + encodeURIComponent(btoa(bin)), { cache: 'no-store' }).then(x => x.json());
+    if (r.error) throw new Error(r.error);
+    rlWait(r.req);
+  } catch (e) { pwEl.value = ''; err('没发出去：' + (e.message || e)); }
 }
 function rlGo() {
   rlShow('发送中…');
