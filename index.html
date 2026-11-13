@@ -454,11 +454,11 @@ function pwView() {
   const bad = list.filter(x => (x.r.rate || 0) < 90).length, rate = S.g ? Math.round(100 * S.as / S.g) : 0;
   const L = pwDayLabel(pwDate);
   h += `<div class="pwsum">${L.md}（${L.left}）　预约 <b>${S.g}</b> 组 <b>${S.p}</b> 人，已排桌 <b class="${pwRateCls(rate)}">${rate}%</b><br>`
-    + (withCap.length ? `最大容量（台账有桌子人数的 ${withCap.length} 家）：<b>${cT}</b> 组 <b>${cP}</b> 人，这 ${withCap.length} 家已订 ${cG} 组 ${cPp} 人（人数 ${Math.round(100 * cPp / (cP || 1))}%，一轮算）<br>` : '')
+    + (withCap.length ? `最大容量（${withCap.length} 家合计）：<b>${cT}</b> 组 <b>${cP}</b> 人　已订人数占 <b>${Math.round(100 * cPp / (cP || 1))}%</b>（坐一轮算）<br>` : '')
     + `还没排好的店 <b class="${bad ? 'rr' : 'g'}">${bad}</b> 家　大团（8 人以上）没排 <b class="${big ? 'rr' : 'g'}">${big}</b> 组${clash ? `　撞桌 <b class="rr">${clash}</b> 处` : ''}</div>`;
   if (!list.length) h += '<div id="msg">这一天没有符合的店（或还没有预约）</div>';
   h += '<div class="grid">' + list.map(pwCard).join('') + '</div>';
-  h += '<div class="foot">排位率＝已经指定桌号的预约组数 ÷ 全部预约组数（90% 以上算排好）。最大＝预约台账（レストランボード）上有写人数的桌子：几张桌＝最多几组、「N名席」加起来＝最多几人（坐一轮）；台账没读到或没写人数的店不显示。<br>点店名看还没排的预约和「建议排法」——是程序按桌子大小、2 回转叠在同一张桌自动算的参考，请店长在 レストランボード 里自己确认后排桌。列表里没有的店＝那天还没有预约，或店名还没对上。</div>';
+  h += '<div class="foot">排位率＝已经指定桌号的预约组数 ÷ 全部预约组数（90% 以上算排好）。最大＝各店座位表格（11/13 老板发的）：席位数＝最多几组、人数＝最多几人（坐一轮；2 回转可以再多接）。<br>点店名看还没排的预约和「建议排法」——是程序按桌子大小、2 回转叠在同一张桌自动算的参考，请店长在 レストランボード 里自己确认后排桌。列表里没有的店＝那天还没有预约，或店名还没对上。</div>';
   return h;
 }
 function pwCard(x) {
@@ -473,7 +473,7 @@ function pwCard(x) {
   if (A('tight').length) bd.push(`<span class="bd remind">回转太紧 ${A('tight').length}</span>`);
   if (r.status_odd) bd.push(`<span class="bd remind">状态是退店等 ${r.status_odd}</span>`);
   if (!r.has_seats) bd.push('<span class="bd">没读到桌子设定</span>');
-  const capTxt = c ? `／ 最大 <b>${c[0]}</b> 组 <b>${c[1]}</b> 人${c[2] ? `<small>（另有 ${c[2]} 桌台账没写人数）</small>` : ''}` : '<small>／ 最大：台账桌子人数没读到</small>';
+  const capTxt = c ? `／ 最大 <b>${c[0]}</b> 组 <b>${c[1]}</b> 人${c[1] ? `<small>（${Math.round(100 * (r.people || 0) / c[1])}%）</small>` : ''}${c[3] ? `<br><small>${esc(c[3])}</small>` : ''}${c[2] ? `<small>（另有 ${c[2]} 桌台账没写人数）</small>` : ''}` : '<small>／ 最大：还没有</small>';
   const li = (t, a) => a && a.length ? `<h4>${t}</h4><ul>${a.map(v => '<li>' + esc(v) + '</li>').join('')}</ul>` : '';
   let body = '';
   if (open) {
