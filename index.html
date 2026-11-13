@@ -213,6 +213,8 @@ nav button.on{color:var(--brand)}
 #keybox img{width:72px;height:72px;border-radius:18px}
 #keybox input{font:inherit;font-size:16px;padding:12px;border:1px solid var(--line);border-radius:12px;width:240px;max-width:80%;background:var(--card);color:var(--ink);text-align:center}
 #keybox button{display:block;margin:12px auto 0;width:240px;max-width:80%;padding:12px;border:0;border-radius:12px;background:var(--brand);color:#fff;font-weight:600}
+#keybox .kback{display:none;background:var(--soft);color:var(--ink);font-weight:400}
+.keylink{color:var(--sub);text-decoration:underline;cursor:pointer}
 </style>
 </head>
 <body>
@@ -234,9 +236,10 @@ nav button.on{color:var(--brand)}
 <main id="list"><div id="msg">读取中…</div></main>
 <div id="keybox">
   <img src="icon-192.png" alt="">
-  <p>第一次打开，请输入负责人给的访问密码</p>
+  <p id="ktip">第一次打开，请输入负责人给的访问密码</p>
   <input id="kin" autocomplete="off" autocapitalize="off" enterkeyhint="go" onkeydown="if(event.key==='Enter')saveKey()">
   <button onclick="saveKey()">开始使用</button>
+  <button id="kcancel" class="kback" onclick="hideKey()">取消</button>
   <p id="kerr" class="r"></p>
 </div>
 <div id="salesView"><div class="svwrap">
@@ -273,8 +276,21 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp
 const ST = { free: '空', used: '使用中', remind: '放题快结束', lo: 'L.O.', over: '放题超时', held: '预约留桌' };
 const COLOR = { free: 'var(--free)', held: 'var(--held)', remind: 'var(--remind)', lo: 'var(--lo)', over: 'var(--over)' };
 
-function saveKey() { K = document.getElementById('kin').value.trim(); if (!K) return; LS.set('k', K); document.getElementById('kerr').textContent = ''; load(true); }
+function saveKey() {
+  const v = document.getElementById('kin').value.trim(); if (!v) return;
+  K = v; LS.set('k', K); document.getElementById('kerr').textContent = '';
+  SV = null; svErr = ''; PW = null; pwGot = 0; LS.del('pw');  // 换了密码：老板 / 店长看到的不一样，重新读
+  load(true);
+}
+// 11/13 换密码（老板 / 店长）：iPhone 加到主屏幕的 APP 记着旧密码，只能在这里换
+function changeKey() {
+  document.getElementById('kin').value = '';
+  document.getElementById('ktip').textContent = '输入新密码（老板密码可以看集团总营业额）';
+  showKey('');
+  document.getElementById('kcancel').style.display = D ? 'block' : 'none';
+}
 function showKey(msg) {
+  document.getElementById('kcancel').style.display = 'none';
   document.getElementById('keybox').style.display = 'block';
   ['hdr', 'list', 'nav'].forEach(id => document.getElementById(id).style.display = 'none');
   document.getElementById('kerr').textContent = msg || '';
@@ -424,7 +440,7 @@ function render() {
   if (!list.length) h += `<div id="msg">${tab === 'fav' ? '还没有「我的店」。在店名左边点 ☆ 就能加进来。' : tab === 'free' ? '现在没有空桌的店' : '没有符合的店'}</div>`;
   h += '<div class="legend">' + [['free', '空桌'], ['used', '使用中'], ['remind', '放题快结束'], ['lo', 'L.O.'], ['over', '放题超时'], ['held', '预约留桌（不算空桌）']]
     .map(([c, t]) => `<span><i style="background:${c === 'used' ? 'var(--usedBg);border:1px solid var(--line)' : COLOR[c]}"></i>${t}</span>`).join('') + '</div>';
-  h += '<div class="foot">桌子格子：桌号、人数、坐了多久（从开台算）。点格子看详细。营业额和预约客人姓名不显示。<br>每分钟自动更新；数据来自实时桌位程序，约每 10 分钟读一次收银台。</div>';
+  h += '<div class="foot">桌子格子：桌号、人数、坐了多久（从开台算）。点格子看详细。营业额和预约客人姓名不显示。<br>每分钟自动更新；数据来自实时桌位程序，约每 10 分钟读一次收银台。<br><a class="keylink" onclick="changeKey()">🔑 换密码（老板 / 店长）</a></div>';
   document.getElementById('list').innerHTML = h;
 }
 
@@ -558,7 +574,7 @@ function openSales(ds) {
     svBusy = true; svErr = '';
     fetch(API + '?fmt=json&what=sales&k=' + encodeURIComponent(K), { cache: 'no-store' })
       .then(r => r.json())
-      .then(d => { svBusy = false; if (d.error) throw new Error(d.error); SV = d; SV.map = {}; d.days.forEach(x => SV.map[x.d] = x); renderSales(); })
+      .then(d => { svBusy = false; if (d.error) throw new Error(d.error === 'owner' ? '要用老板密码' : d.error); if (!d.days) throw new Error('后台还没部署新版本'); SV = d; SV.map = {}; d.days.forEach(x => SV.map[x.d] = x); renderSales(); })
       .catch(e => { svBusy = false; svErr = String(e.message || e); renderSales(); });
   }
 }
@@ -576,7 +592,7 @@ function svPick(ds) { if (!ds) return; svDay = ds; svMon = ds.slice(0, 7); rende
 function svPct(a, b) { if (!a || !b) return ''; const p = Math.round(100 * (a - b) / b); return `<span class="${p >= 0 ? 'g' : 'rr'}">${p >= 0 ? '+' : ''}${p}%</span>`; }
 function renderSales() {
   const el = document.getElementById('svBody');
-  if (!SV) { el.innerHTML = `<div id="msg">${svErr ? '读不到营业额历史（' + esc(svErr) + '）。过几分钟再试' : '读取中…'}</div>`; return; }
+  if (!SV) { el.innerHTML = `<div id="msg">${svErr ? '读不到营业额历史（' + esc(svErr) + '）。关掉再点一次试试' : '读取中…'}</div>`; return; }
   const today = svToday(), first = SV.days.length ? SV.days[0].d : today;
   // 月历
   const [y, m] = svMon.split('-').map(Number), d1 = new Date(y, m - 1, 1), nd = new Date(y, m, 0).getDate();
