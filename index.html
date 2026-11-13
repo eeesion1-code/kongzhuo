@@ -297,7 +297,7 @@ nav button.on{color:var(--brand)}
 <script>
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v19';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v20';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -880,7 +880,7 @@ async function rlSendPw() {
     const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'RSA-OAEP' }, key, data));
     let bin = ''; ct.forEach(b => bin += String.fromCharCode(b));
     rlShow('🔐 加密好了，发送中…');
-    const r = await fetch(API + '?fmt=json&what=relogin&k=' + encodeURIComponent(K) + '&act=setpw&c=' + encodeURIComponent(btoa(bin)), { cache: 'no-store' }).then(x => x.json());
+    const r = await fetch(API + '?fmt=json&what=relogin&k=' + encodeURIComponent(K) + '&act=setpw&ct=' + encodeURIComponent(btoa(bin)), { cache: 'no-store' }).then(x => x.json());
     if (r.error) throw new Error(r.error);
     rlWait(r.req);
   } catch (e) { pwEl.value = ''; err('没发出去：' + (e.message || e)); }
