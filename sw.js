@@ -1,5 +1,5 @@
 // 只缓存网页外壳（断网也能打开）；数据每次都从网上读，读不到时网页自己显示上次的数据
-const V = 'kongzhuo-v14';
+const V = 'kongzhuo-v15';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 self.addEventListener('install', e => { e.waitUntil(caches.open(V).then(c => c.addAll(SHELL))); self.skipWaiting(); });
 self.addEventListener('activate', e => {

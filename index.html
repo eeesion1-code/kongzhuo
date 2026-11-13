@@ -277,7 +277,7 @@ nav button.on{color:var(--brand)}
 <script>
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v14';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v15';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -680,22 +680,31 @@ function svFc(ds, ty) {
 }
 const cnBig = n => n >= 1e8 ? `${Math.floor(n / 1e8)} 亿 ${Math.round((n % 1e8) / 1e4).toLocaleString('ja-JP')} 万` : `${Math.round(n / 1e4).toLocaleString('ja-JP')} 万`;
 // 一个月的预测：今天以前有日报的用实际，其余（含今天）用预测；另外按去年同月走势算一个（364 天前同星期几 × 今年比去年的增减）
+// 最近 4 周（有日报、364 天前也有、店数齐的日子）今年÷去年
+function svGrowth28() {
+  let a = 0, b = 0, n = 0; const today = svToday();
+  for (let k = 1; k <= 70 && n < 28; k++) { const ds = svAdd(today, -k), x = SV.map[ds], l = SV.map[svAdd(ds, -364)]; if (x && l && !svShort(x) && !svShort(l)) { a += x.t; b += l.t; n++; } }
+  return n >= 7 && b ? a / b : null;
+}
+// 一个月的预测（11/13 用户：按去年走势为主）：今天以前有日报的用实际；其余每天＝去年同一星期几（364 天前）× 今年比去年的增减；
+// 增减＝本月到现在（≥7 天）÷去年同期，不够 7 天用最近 4 周。去年同期一半以上没有数据（例：2025/12〜2026/6 没存）→ 改用最近 4 个同星期几平均。
 function svMonthFc(y, m) {
   const today = svToday(), nd = new Date(y, m, 0).getDate();
-  let act = 0, actN = 0, fc = 0, fcN = 0, lyAct = 0, lyRest = 0, lyHit = 0, miss = 0, missN = 0;
+  let act = 0, actN = 0, fc = 0, lyAct = 0, miss = 0, missN = 0;
   const rest = [];
   for (let i = 1; i <= nd; i++) {
     const ds = svStr(new Date(y, m - 1, i)), x = ds < today && SV.map[ds];
     if (x) { act += x.t; actN++; const e = svShort(x) && !x.est && svMissEst(x); if (e) { miss += e.sum; missN++; } const l = SV.map[svAdd(ds, -364)]; if (l) lyAct += l.t; else lyAct = NaN; }
-    else { const f = svFc(ds); fc += f; fcN++; rest.push([ds, f]); }
+    else { const f = svFc(ds); fc += f; rest.push([ds, f]); }
   }
-  let ly = null;
-  if (actN && lyAct > 0) {
-    const g = (act + miss) / lyAct;
-    rest.forEach(([ds, f]) => { const l = SV.map[svAdd(ds, -364)]; if (l) { lyRest += l.t * g; lyHit++; } else lyRest += f; });
-    if (lyHit >= rest.length / 2) ly = { t: act + lyRest, g };
-  }
-  return { act, actN, fc, fcN, t: act + fc + miss, ly: ly && { t: ly.t + miss, g: ly.g }, miss, missN };
+  let g = null, gsrc = '';
+  if (actN >= 7 && lyAct > 0) { g = (act + miss) / lyAct; gsrc = '本月到现在'; }
+  else { g = svGrowth28(); gsrc = '最近 4 周'; }
+  let lyRest = 0, lyHit = 0; const day = {}, wk = {};
+  rest.forEach(([ds, f]) => { wk[ds] = f; const l = SV.map[svAdd(ds, -364)]; if (g && l) { day[ds] = l.t * g; lyHit++; } else day[ds] = f; lyRest += day[ds]; });
+  const useLy = !!g && rest.length > 0 && lyHit >= rest.length / 2;
+  const tWk = act + miss + fc, tLy = act + miss + lyRest;
+  return { act, actN, miss, missN, n: rest.length, rest: useLy ? lyRest : fc, t: useLy ? tLy : tWk, alt: useLy ? tWk : null, useLy, g, gsrc, day: useLy ? day : wk };
 }
 function renderSales() {
   const el = document.getElementById('svBody');
@@ -719,7 +728,7 @@ function renderSales() {
     const ds = svStr(new Date(y, m - 1, i)), x = svGet(ds), dow = (d1.getDay() + i - 1) % 7;
     const a = x ? 0.12 + 0.55 * x.t / mx : 0;
     cal += `<button class="svd${ds === svDay ? ' on' : ''}${ds === today ? ' td' : ''}" ${x ? `style="background:rgba(22,163,74,${a.toFixed(2)})"` : 'disabled'} onclick='svPick(${JSON.stringify(ds)})'>`
-      + `<i class="${dow === 0 ? 'rr' : dow === 6 ? 'bl' : ''}">${i}${x && svShort(x) ? '<span class="rr">⚠</span>' : ''}</i><small>${x ? man(x.t) + (x.live ? '*' : '') : F && ds >= today ? '<span class="fc">约' + man(svFc(ds)) + '</span>' : ''}</small></button>`;
+      + `<i class="${dow === 0 ? 'rr' : dow === 6 ? 'bl' : ''}">${i}${x && svShort(x) ? '<span class="rr">⚠</span>' : ''}</i><small>${x ? man(x.t) + (x.live ? '*' : '') : F && F.day[ds] != null ? '<span class="fc">约' + man(F.day[ds]) + '</span>' : ''}</small></button>`;
   }
   cal += '</div>';
   let h = `<div class="svtools"><input type="date" id="svq" value="${svDay}" min="${first}" max="${today}" onchange="svPick(this.value)">`
@@ -727,10 +736,12 @@ function renderSales() {
     + `<div class="svmon"><button class="iconbtn" onclick="svMove(-1)">‹</button><b>${y} 年 ${m} 月</b><button class="iconbtn" onclick="svMove(1)">›</button></div>`
     + (!vals.length ? `<div class="svmsum">${svMon > today.slice(0, 7) ? '这个月还没开始' : '这个月没有存营业额'}</div>` : `<div class="svmsum">${m} 月合计 <b>${yen(sum)}</b>（${full.length} 天${last ? '，到 ' + m + '/' + last : ''}，日均 ${yen(full.length ? sum / full.length : 0)}）${live ? `　＋今天实时 ${yen(live)}` : ''}${lyDays.length ? `<br>去年同期（${m}/1〜${m}/${last}）${yen(lySum)}　${svPct(sum, lySum)}` : ''}</div>`)
     + (F ? `<div class="svfc"><div>📈 ${m} 月预测 <b>约 ${cnBig(F.t)}</b></div>`
-      + `<small>${F.actN ? `已到 ${cnBig(F.act)}（${F.actN} 天）＋ ` : ''}${F.actN ? '剩下' : '全月'} ${F.fcN} 天约 ${cnBig(F.fc)}（每天按最近 4 个同星期几平均）`
-      + `${F.ly ? `<br>按去年 ${m} 月走势：约 ${cnBig(F.ly.t)}（今年比去年 ${svPct(F.ly.g, 1)}）` : ''}`
+      + `<small>${F.actN ? `已到 ${cnBig(F.act)}（${F.actN} 天）＋ ` : ''}${F.actN ? '剩下' : '全月'} ${F.n} 天约 ${cnBig(F.rest)}`
+      + (F.useLy ? `<br>按去年同期走势：剩下的每天＝去年同一星期几 × ${F.g.toFixed(2)}（今年比去年 ${svPct(F.g, 1)}，按${F.gsrc}算）`
+                 : `<br>每天按最近 4 个同星期几平均（去年同期没有数据，没法按去年走势）`)
+      + `${F.alt ? `<br>参考：按最近 4 个同星期几平均 约 ${cnBig(F.alt)}` : ''}`
       + `${F.miss ? `<br>含 ⚠ 缺店 ${F.missN} 天估计少算的约 ${cnBig(F.miss)}。` : ''}`
-      + `${m === 12 || m === 1 ? '<br>没算忘年会・年末年始等季节因素，实际可能更多。' : ''}</small></div>` : '') + cal;
+      + `${!F.useLy && (m === 12 || m === 1) ? '<br>没算忘年会・年末年始等季节因素，实际可能更多（去年 12 月的数据补下载以后就能按去年走势算）。' : ''}</small></div>` : '') + cal;
   // 选中的那天
   const x = svGet(svDay), w = svDate(svDay), wk = '日一二三四五六'[w.getDay()];
   h += `<div class="svday"><div class="svhd">${svDay.replace(/-/g, '/')}（${wk}）${x && x.live ? '<small>实时・日报出来后以日报为准</small>' : ''}</div>`;
