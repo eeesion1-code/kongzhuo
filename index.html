@@ -98,6 +98,13 @@ h1{font-size:20px;margin:0;flex:1;letter-spacing:.5px}
 .svlist .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .svlist b{font-variant-numeric:tabular-nums}
 .svlist small{grid-column:3/5;color:var(--sub);font-size:11.5px;margin-top:-4px}
+/* 11/13 月预测 */
+.svfc{background:var(--card);border:1px solid var(--line);border-left:4px solid var(--brand);border-radius:10px;padding:8px 10px;margin:4px 0 8px;font-size:14px}
+.svfc b{font-size:16px}
+.svfc small{display:block;color:var(--sub);font-size:12px;line-height:1.55;margin-top:2px}
+.svd .fc{color:var(--sub);font-size:10px}
+.svd i .rr{font-size:9px;margin-left:1px}
+.svmiss{background:#fef3c7;color:#78350f;border-radius:8px;padding:7px 9px;font-size:12.5px;line-height:1.55;margin:6px 0 4px}
 /* 11/13 时段营业额 */
 .svseg{display:flex;gap:6px;align-items:center;margin:14px 0 4px}
 .svseg>b{flex:1;font-size:14.5px}
@@ -270,7 +277,7 @@ nav button.on{color:var(--brand)}
 <script>
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v10';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v11';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -630,6 +637,62 @@ function svPeak(arr, h0) {
   let best = 0, bi = 0; for (let j = 0; j + 2 < arr.length; j++) { const s = arr[j] + arr[j + 1] + arr[j + 2]; if (s > best) { best = s; bi = j; } }
   return `最多 ${(h0 + i) % 24}时 ${man(arr[i] * 100)}；${(h0 + bi) % 24}〜${(h0 + bi + 3) % 24}时 这 3 小时占 ${Math.round(100 * best / tot)}%`;
 }
+// ===== 11/13 月营业额预测 =====
+// 每天预测＝最近 4 个「同类日子」的营业额平均：平日按星期几；祝日、祝日前一天（例：连休前的星期天）各自单独一类。
+// 缺店的日子（比平常少 2 个收银台以上）不拿来平均。没有季节因素（忘年会、年末年始），12 月实际会比预测多。
+const SV_HOLI = new Set(['2025-10-13', '2025-11-03', '2025-11-23', '2025-11-24', '2026-07-20', '2026-08-11', '2026-09-21', '2026-09-22', '2026-09-23', '2026-10-12',
+  '2026-11-03', '2026-11-23', '2027-01-01', '2027-01-11', '2027-02-11', '2027-02-23', '2027-03-22', '2027-04-29', '2027-05-03', '2027-05-04', '2027-05-05']);
+// 缺店：11 月起收银台 32 个（31 家店），少于这个数＝那天日报缺数据（实时的不算）
+function svShort(x) { return !x.live && x.d >= '2026-11-01' && x.n < 32 ? 32 - x.n : 0; }
+// 缺店估计：最近一个同星期几（店数齐的那天）有、这天没有的店，按那天的营业额算少了多少
+function svMissEst(x) {
+  let ref = null; for (let k = 7; k <= 35 && !ref; k += 7) { const r = SV.map[svAdd(x.d, -k)]; if (r && !svShort(r)) ref = r; }
+  // 只算之后还在营业的店（已闭店的不算缺）：之后 7 天里出现过；这天是最后一天就不查
+  const after = new Set(); for (let k = 1; k <= 7; k++) { const r = SV.map[svAdd(x.d, k)]; if (r) r.s.forEach(q => after.add(q[1])); }
+  const ms = ref ? ref.s.filter(r => !x.s.some(q => q[1] === r[1]) && (!after.size || after.has(r[1]))) : [];
+  return ms.length ? { ref, ms, sum: ms.reduce((a, r) => a + r[2], 0) } : null;
+}
+function svType(ds) { return SV_HOLI.has(ds) ? 'H' : SV_HOLI.has(svAdd(ds, 1)) ? 'P' : 'w' + svDate(ds).getDay(); }
+const SV_TYPE = { H: '祝日', P: '祝日前一天' };
+let svFcMemo = {};
+function svNTyp() {   // 平常几个收银台：最近 28 天店数的中位数
+  if (svFcMemo._n) return svFcMemo._n;
+  const ns = SV.days.slice(-28).map(x => x.n).sort((a, b) => a - b);
+  return svFcMemo._n = ns.length ? ns[Math.floor(ns.length / 2)] : 0;
+}
+function svFc(ds, ty) {
+  ty = ty || svType(ds);
+  const key = ds + ty; if (key in svFcMemo) return svFcMemo[key];
+  const today = svToday(), nmin = svNTyp() - 1, pool = [];
+  for (let k = 1; k <= 240 && pool.length < 4; k++) {
+    const p = svAdd(ds, -k); if (p >= today) continue;
+    const x = SV.map[p]; if (!x || x.n < nmin || svType(p) !== ty) continue;
+    pool.push(x.t);
+  }
+  let v = pool.length ? pool.reduce((a, b) => a + b, 0) / pool.length : 0;
+  if (!pool.length && ty === 'H') v = svFc(ds, 'w0');   // 没有祝日的记录 → 当星期天
+  if (!pool.length && ty === 'P') v = svFc(ds, 'w6');   // 没有祝日前一天的记录 → 当星期六
+  return svFcMemo[key] = v;
+}
+const cnBig = n => n >= 1e8 ? `${Math.floor(n / 1e8)} 亿 ${Math.round((n % 1e8) / 1e4).toLocaleString('ja-JP')} 万` : `${Math.round(n / 1e4).toLocaleString('ja-JP')} 万`;
+// 一个月的预测：今天以前有日报的用实际，其余（含今天）用预测；另外按去年同月走势算一个（364 天前同星期几 × 今年比去年的增减）
+function svMonthFc(y, m) {
+  const today = svToday(), nd = new Date(y, m, 0).getDate();
+  let act = 0, actN = 0, fc = 0, fcN = 0, lyAct = 0, lyRest = 0, lyHit = 0, miss = 0, missN = 0;
+  const rest = [];
+  for (let i = 1; i <= nd; i++) {
+    const ds = svStr(new Date(y, m - 1, i)), x = ds < today && SV.map[ds];
+    if (x) { act += x.t; actN++; const e = svShort(x) && svMissEst(x); if (e) { miss += e.sum; missN++; } const l = SV.map[svAdd(ds, -364)]; if (l) lyAct += l.t; else lyAct = NaN; }
+    else { const f = svFc(ds); fc += f; fcN++; rest.push([ds, f]); }
+  }
+  let ly = null;
+  if (actN && lyAct > 0) {
+    const g = (act + miss) / lyAct;
+    rest.forEach(([ds, f]) => { const l = SV.map[svAdd(ds, -364)]; if (l) { lyRest += l.t * g; lyHit++; } else lyRest += f; });
+    if (lyHit >= rest.length / 2) ly = { t: act + lyRest, g };
+  }
+  return { act, actN, fc, fcN, t: act + fc + miss, ly: ly && { t: ly.t + miss, g: ly.g }, miss, missN };
+}
 function renderSales() {
   const el = document.getElementById('svBody');
   if (!SV) { el.innerHTML = `<div id="msg">${svErr ? '读不到营业额历史（' + esc(svErr) + '）。关掉再点一次试试' : '读取中…'}</div>`; return; }
@@ -642,27 +705,41 @@ function renderSales() {
   // 去年同期：同一个月的 1〜last 日（今天实时的不算进去比较）
   const ly = y - 1 + '-' + String(m).padStart(2, '0');
   const lyDays = SV.days.filter(x => x.d.startsWith(ly) && +x.d.slice(8) <= last), lySum = lyDays.reduce((a, x) => a + x.t, 0);
+  // 预测：这个月还没过完（或是以后的月份，最多看到 2 个月后）才算
+  svFcMemo = {};
+  const curMon = today.slice(0, 7), maxMon = svStr(new Date(+today.slice(0, 4), +today.slice(5, 7) + 1, 1)).slice(0, 7);
+  const F = svMon >= curMon && svMon <= maxMon ? svMonthFc(y, m) : null;
   let cal = '<div class="svcal">' + [...'日一二三四五六'].map((w, i) => `<b class="${i === 0 ? 'rr' : i === 6 ? 'bl' : ''}">${w}</b>`).join('');
   for (let i = 0; i < d1.getDay(); i++) cal += '<span></span>';
   for (let i = 1; i <= nd; i++) {
     const ds = svStr(new Date(y, m - 1, i)), x = svGet(ds), dow = (d1.getDay() + i - 1) % 7;
     const a = x ? 0.12 + 0.55 * x.t / mx : 0;
     cal += `<button class="svd${ds === svDay ? ' on' : ''}${ds === today ? ' td' : ''}" ${x ? `style="background:rgba(22,163,74,${a.toFixed(2)})"` : 'disabled'} onclick='svPick(${JSON.stringify(ds)})'>`
-      + `<i class="${dow === 0 ? 'rr' : dow === 6 ? 'bl' : ''}">${i}</i><small>${x ? man(x.t) + (x.live ? '*' : '') : ''}</small></button>`;
+      + `<i class="${dow === 0 ? 'rr' : dow === 6 ? 'bl' : ''}">${i}${x && svShort(x) ? '<span class="rr">⚠</span>' : ''}</i><small>${x ? man(x.t) + (x.live ? '*' : '') : F && ds >= today ? '<span class="fc">约' + man(svFc(ds)) + '</span>' : ''}</small></button>`;
   }
   cal += '</div>';
   let h = `<div class="svtools"><input type="date" id="svq" value="${svDay}" min="${first}" max="${today}" onchange="svPick(this.value)">`
     + `<button class="chip" onclick="svPick(svToday())">今天</button><button class="chip" onclick="svPick(svAdd(svToday(),-1))">昨天</button><button class="chip" onclick="svPick(svAdd(svDay,-7))">上周同日</button></div>`
     + `<div class="svmon"><button class="iconbtn" onclick="svMove(-1)">‹</button><b>${y} 年 ${m} 月</b><button class="iconbtn" onclick="svMove(1)">›</button></div>`
-    + `<div class="svmsum">${m} 月合计 <b>${yen(sum)}</b>（${full.length} 天${last ? '，到 ' + m + '/' + last : ''}，日均 ${yen(full.length ? sum / full.length : 0)}）${live ? `　＋今天实时 ${yen(live)}` : ''}${lyDays.length ? `<br>去年同期（${m}/1〜${m}/${last}）${yen(lySum)}　${svPct(sum, lySum)}` : ''}</div>` + cal;
+    + (!vals.length ? `<div class="svmsum">${svMon > today.slice(0, 7) ? '这个月还没开始' : '这个月没有存营业额'}</div>` : `<div class="svmsum">${m} 月合计 <b>${yen(sum)}</b>（${full.length} 天${last ? '，到 ' + m + '/' + last : ''}，日均 ${yen(full.length ? sum / full.length : 0)}）${live ? `　＋今天实时 ${yen(live)}` : ''}${lyDays.length ? `<br>去年同期（${m}/1〜${m}/${last}）${yen(lySum)}　${svPct(sum, lySum)}` : ''}</div>`)
+    + (F ? `<div class="svfc"><div>📈 ${m} 月预测 <b>约 ${cnBig(F.t)}</b></div>`
+      + `<small>${F.actN ? `已到 ${cnBig(F.act)}（${F.actN} 天）＋ ` : ''}${F.actN ? '剩下' : '全月'} ${F.fcN} 天约 ${cnBig(F.fc)}（每天按最近 4 个同星期几平均）`
+      + `${F.ly ? `<br>按去年 ${m} 月走势：约 ${cnBig(F.ly.t)}（今年比去年 ${svPct(F.ly.g, 1)}）` : ''}`
+      + `${F.miss ? `<br>含 ⚠ 缺店 ${F.missN} 天估计少算的约 ${cnBig(F.miss)}。` : ''}`
+      + `${m === 12 || m === 1 ? '<br>没算忘年会・年末年始等季节因素，实际可能更多。' : ''}</small></div>` : '') + cal;
   // 选中的那天
   const x = svGet(svDay), w = svDate(svDay), wk = '日一二三四五六'[w.getDay()];
   h += `<div class="svday"><div class="svhd">${svDay.replace(/-/g, '/')}（${wk}）${x && x.live ? '<small>实时・日报出来后以日报为准</small>' : ''}</div>`;
   if (!x) h += `<div class="foot">这一天没有数据${svDay < first ? '（营业额历史从 ' + first + ' 开始）' : '（2025/12〜2026/6 没有存；昨天的要等今天 12 点日报做完）'}</div>`;
   else {
     const lw = x.live ? null : svGet(svAdd(svDay, -7)), ly2 = x.live ? null : svGet(svAdd(svDay, -364));
-    const short = !x.live && svDay >= '2026-11-01' && x.n < 32 ? 32 - x.n : 0;  // 11 月起收银台 32 个（31 家店）
-    h += `<div class="svtot">${yen(x.t)}<small>　含税 · ${x.n} 家${short ? `　<span class="rr">少 ${short} 家（那天日报缺数据）</span>` : ''}</small></div>`
+    const short = svShort(x);
+    // 缺的店：最近一个同星期几（店数齐的那天）有、这天没有的店，用那天的营业额估计少算了多少
+    let miss = '';
+    const E = short ? svMissEst(x) : null;
+    if (E) miss = `<div class="svmiss">⚠ 少 ${short} 家：${E.ms.map(r => esc(r[0] + ' ' + r[1].slice(0, 14))).join('、')}<br>`
+      + `那天收银台下载的数据里没有这几家（多半是店里没做レジ締め或网络掉线），所以合计少算了。按 ${E.ref.d.slice(5).replace('-', '/')} 同星期几估计少了约 ${cnBig(E.sum)}。</div>`;
+    h += `<div class="svtot">${yen(x.t)}<small>　含税 · ${x.n} 家${short ? `　<span class="rr">少 ${short} 家</span>` : ''}</small></div>` + miss
       + `<div class="svsub">${x.g ? `${x.g} 组 · ${x.c} 人 · 客单价 ${yen(x.c ? x.t / x.c : 0)}<br>` : ''}`
       + `${x.live ? '今天还在营业，数字会一直涨；和上周比要等明天 12 点日报。' : ''}${lw ? `上周同日 ${yen(lw.t)} ${svPct(x.t, lw.t)}` : ''}${ly2 ? `　去年同周同日 ${yen(ly2.t)} ${svPct(x.t, ly2.t)}` : ''}</div>`;
     // 时段营业额
