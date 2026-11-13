@@ -58,8 +58,9 @@ h1{font-size:20px;margin:0;flex:1;letter-spacing:.5px}
 #banner.stop{font-size:14px;font-weight:600;padding:10px 12px;border:1.5px solid var(--over)}
 #banner.info{background:var(--soft);color:var(--sub)}
 /* 11/13 手机「让电脑重新登录」（老板） */
-#rlhint{display:none;margin-top:8px;padding:8px 10px;border-radius:10px;background:#fef3c7;color:#78350f;font-size:13px;line-height:1.6}
-#rlhint button{margin-left:6px;border:0;background:var(--brand);color:#fff;border-radius:8px;padding:4px 10px;font-size:13px;font-weight:600}
+#rlhint{display:none;margin-top:8px;padding:6px 6px 6px 10px;border-radius:10px;background:var(--soft);color:var(--sub);font-size:12.5px;line-height:1.5;align-items:center;justify-content:space-between;gap:8px}
+#rlhint.warn{background:#fef3c7;color:#78350f}
+#rlhint button{flex:none;border:0;background:var(--brand);color:#fff;border-radius:8px;padding:5px 10px;font-size:13px;font-weight:600}
 #rlView{display:none;position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.45);align-items:flex-end;justify-content:center}
 .rlbox{background:var(--card);color:var(--ink);width:100%;max-width:520px;border-radius:16px 16px 0 0;padding:14px 16px calc(20px + env(safe-area-inset-bottom))}
 .rlbox h3{margin:0 0 8px;font-size:17px;display:flex;justify-content:space-between;align-items:center}
@@ -301,7 +302,7 @@ nav button.on{color:var(--brand)}
 <script>
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v21';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v22';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -440,9 +441,11 @@ function render() {
   else banner.style.display = 'none';
   // 11/13：预约 45 分钟以上没更新（多半 AirID 掉线）→ 老板看到「让电脑重新登录」
   const rh = document.getElementById('rlhint'), rbT = parseT(D.rbStamp), nowT = parseT(D.now);
-  const rbStale = D.owner && !D.offline && rbT && nowT && nowT - rbT > 45 * 60000 && nowT.getHours() >= 14;
-  rh.style.display = rbStale ? 'block' : 'none';
-  if (rbStale) rh.innerHTML = `⚠ 预约 ${rbT.getHours()}:${String(rbT.getMinutes()).padStart(2, '0')} 以后没读到（多半是 AirID 掉线）<button onclick="openRelogin()">🖥️ 让电脑重新登录</button>`;
+  // 11/13 用户：按钮要一直看得到 → 老板密码时常驻一条：平时灰色写预约几点更新，45 分钟没更新变黄
+  const rbStale = rbT && nowT && nowT - rbT > 45 * 60000 && nowT.getHours() >= 14, rbHm = rbT ? `${rbT.getHours()}:${String(rbT.getMinutes()).padStart(2, '0')}` : '—';
+  rh.style.display = D.owner && !D.offline ? 'flex' : 'none';
+  rh.className = rbStale ? 'warn' : '';
+  if (D.owner) rh.innerHTML = `<span>${rbStale ? `⚠ 预约 ${rbHm} 以后没读到（多半是 AirID 掉线）` : `📒 预约 ${rbHm} 更新`}</span><button onclick="openRelogin()">🖥️ 让电脑重新登录</button>`;
   // 合计
   const free = open.reduce((a, s) => a + s.free, 0), n = open.reduce((a, s) => a + s.n, 0);
   const airOpen = D.stores.filter(s => s.status === 'air').length;
