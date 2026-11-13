@@ -255,6 +255,7 @@ nav button.on{color:var(--brand)}
 <script>
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
+const APPV = 'kongzhuo-v9';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -440,7 +441,7 @@ function render() {
   if (!list.length) h += `<div id="msg">${tab === 'fav' ? '还没有「我的店」。在店名左边点 ☆ 就能加进来。' : tab === 'free' ? '现在没有空桌的店' : '没有符合的店'}</div>`;
   h += '<div class="legend">' + [['free', '空桌'], ['used', '使用中'], ['remind', '放题快结束'], ['lo', 'L.O.'], ['over', '放题超时'], ['held', '预约留桌（不算空桌）']]
     .map(([c, t]) => `<span><i style="background:${c === 'used' ? 'var(--usedBg);border:1px solid var(--line)' : COLOR[c]}"></i>${t}</span>`).join('') + '</div>';
-  h += '<div class="foot">桌子格子：桌号、人数、坐了多久（从开台算）。点格子看详细。营业额和预约客人姓名不显示。<br>每分钟自动更新；数据来自实时桌位程序，约每 10 分钟读一次收银台。<br><a class="keylink" onclick="changeKey()">🔑 换密码（老板 / 店长）</a></div>';
+  h += '<div class="foot">桌子格子：桌号、人数、坐了多久（从开台算）。点格子看详细。营业额和预约客人姓名不显示。<br>每分钟自动更新；数据来自实时桌位程序，约每 10 分钟读一次收银台。<br><a class="keylink" onclick="changeKey()">🔑 换密码（老板 / 店长）</a>　版本 ' + APPV.replace('kongzhuo-v', '') + '</div>';
   document.getElementById('list').innerHTML = h;
 }
 
@@ -795,11 +796,25 @@ function tile(t, show) {
 }
 
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+// 11/13 自动换新版：手机 APP 从后台切回来不会重新载入网页，改版就一直看不到。
+// 打开 / 切回来时看 sw.js 里的版本号，和这一页的 APPV 不一样就重新载入一次（同一版本只重载一次，防止死循环）。
+// 改版时 sw.js 的 V 和这里的 APPV 要一起改。
+function checkUpdate() {
+  fetch('sw.js', { cache: 'no-store' }).then(r => r.text()).then(t => {
+    const v = (t.match(/kongzhuo-v\d+/) || [])[0];
+    if (!v || v === APPV || LS.get('reloadFor', '') === v) return;
+    LS.set('reloadFor', v);
+    const reg = navigator.serviceWorker && navigator.serviceWorker.getRegistration ? navigator.serviceWorker.getRegistration() : Promise.resolve(null);
+    reg.then(r => r && r.update()).catch(() => {}).then(() => location.reload());
+  }).catch(() => {});
+}
 document.getElementById('nav').style.display = 'flex';
 load();
+checkUpdate();
 setInterval(load, 60000);
 setInterval(() => { if (D) render(); }, 30000);  // 「几分前」「坐了多久」跟着走
-document.addEventListener('visibilitychange', () => { if (!document.hidden && K) load(); });
+setInterval(checkUpdate, 30 * 60000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { if (K) load(); checkUpdate(); } });
 </script>
 </body>
 </html>
