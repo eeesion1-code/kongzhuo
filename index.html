@@ -57,6 +57,16 @@ h1{font-size:20px;margin:0;flex:1;letter-spacing:.5px}
 .yen{color:var(--brand);font-weight:600}
 #banner.stop{font-size:14px;font-weight:600;padding:10px 12px;border:1.5px solid var(--over)}
 #banner.info{background:var(--soft);color:var(--sub)}
+/* 11/13 手机「让电脑重新登录」（老板） */
+#rlhint{display:none;margin-top:8px;padding:8px 10px;border-radius:10px;background:#fef3c7;color:#78350f;font-size:13px;line-height:1.6}
+#rlhint button{margin-left:6px;border:0;background:var(--brand);color:#fff;border-radius:8px;padding:4px 10px;font-size:13px;font-weight:600}
+#rlView{display:none;position:fixed;inset:0;z-index:40;background:rgba(0,0,0,.45);align-items:flex-end;justify-content:center}
+.rlbox{background:var(--card);color:var(--ink);width:100%;max-width:520px;border-radius:16px 16px 0 0;padding:14px 16px calc(20px + env(safe-area-inset-bottom))}
+.rlbox h3{margin:0 0 8px;font-size:17px;display:flex;justify-content:space-between;align-items:center}
+.rlst{font-size:14px;margin:6px 0}
+.rlres{background:var(--soft);border-radius:10px;padding:8px 10px;font-size:13px;line-height:1.6;margin:8px 0}
+.rlnote{font-size:12.5px;color:var(--sub);line-height:1.55;margin:8px 0}
+.rlgo{display:block;width:100%;margin-top:10px;padding:12px;border:0;border-radius:12px;background:var(--brand);color:#fff;font-size:15px;font-weight:600}
 .stat{background:var(--card);border-radius:12px;padding:8px 10px;box-shadow:var(--shadow);border:1px solid var(--line)}
 .stat small{display:block;font-size:11px;color:var(--sub)}
 .stat b{font-size:20px;font-variant-numeric:tabular-nums}
@@ -247,6 +257,7 @@ nav button.on{color:var(--brand)}
     <button class="iconbtn" id="rf" onclick="load(true)" aria-label="刷新">↻</button>
   </div>
   <div id="banner"></div>
+  <div id="rlhint"></div>
   <div class="stats" id="stats"></div>
   <div class="tools">
     <input id="q" placeholder="🔍 搜店名 / 地区" oninput="render()">
@@ -268,6 +279,10 @@ nav button.on{color:var(--brand)}
   <div class="svtop"><button class="iconbtn" onclick="closeSales()" aria-label="返回">‹</button><h2>💴 集团总营业额</h2></div>
   <div id="svBody"></div>
 </div></div>
+<div id="rlView" onclick="if(event.target===this)closeRelogin()"><div class="rlbox">
+  <h3>🖥️ 让电脑重新登录<button class="iconbtn" onclick="closeRelogin()" aria-label="关闭">✕</button></h3>
+  <div id="rlBody"></div>
+</div></div>
 <nav id="nav">
   <button data-tab="all" onclick="setTab('all')"><span>🏬</span>全部店</button>
   <button data-tab="fav" onclick="setTab('fav')"><span>⭐</span>我的店</button>
@@ -277,7 +292,7 @@ nav button.on{color:var(--brand)}
 <script>
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v17';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v18';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -414,6 +429,11 @@ function render() {
     banner.textContent = '🚨 实时桌位程序可能停了：最后一次数据是 ' + hm + '（' + age + ' 分钟前），空桌不准。请检查跑程序的电脑。';
   }
   else banner.style.display = 'none';
+  // 11/13：预约 45 分钟以上没更新（多半 AirID 掉线）→ 老板看到「让电脑重新登录」
+  const rh = document.getElementById('rlhint'), rbT = parseT(D.rbStamp), nowT = parseT(D.now);
+  const rbStale = D.owner && !D.offline && rbT && nowT && nowT - rbT > 45 * 60000 && nowT.getHours() >= 14;
+  rh.style.display = rbStale ? 'block' : 'none';
+  if (rbStale) rh.innerHTML = `⚠ 预约 ${rbT.getHours()}:${String(rbT.getMinutes()).padStart(2, '0')} 以后没读到（多半是 AirID 掉线）<button onclick="openRelogin()">🖥️ 让电脑重新登录</button>`;
   // 合计
   const free = open.reduce((a, s) => a + s.free, 0), n = open.reduce((a, s) => a + s.n, 0);
   const airOpen = D.stores.filter(s => s.status === 'air').length;
@@ -463,7 +483,7 @@ function render() {
   if (!list.length) h += `<div id="msg">${tab === 'fav' ? '还没有「我的店」。在店名左边点 ☆ 就能加进来。' : tab === 'free' ? '现在没有空桌的店' : '没有符合的店'}</div>`;
   h += '<div class="legend">' + [['free', '空桌'], ['used', '使用中'], ['remind', '放题快结束'], ['lo', 'L.O.'], ['over', '放题超时'], ['held', '预约留桌（不算空桌）']]
     .map(([c, t]) => `<span><i style="background:${c === 'used' ? 'var(--usedBg);border:1px solid var(--line)' : COLOR[c]}"></i>${t}</span>`).join('') + '</div>';
-  h += '<div class="foot">桌子格子：桌号、人数、坐了多久（从开台算）。点格子看详细。营业额和预约客人姓名不显示。<br>每分钟自动更新；数据来自实时桌位程序，约每 10 分钟读一次收银台。<br><a class="keylink" onclick="changeKey()">🔑 换密码（老板 / 店长）</a>　版本 ' + APPV.replace('kongzhuo-v', '') + '</div>';
+  h += '<div class="foot">桌子格子：桌号、人数、坐了多久（从开台算）。点格子看详细。营业额和预约客人姓名不显示。<br>每分钟自动更新；数据来自实时桌位程序，约每 10 分钟读一次收银台。<br><a class="keylink" onclick="changeKey()">🔑 换密码（老板 / 店长）</a>' + (D.owner ? '　<a class="keylink" onclick="openRelogin()">🖥️ 让电脑重新登录</a>' : '') + '　版本 ' + APPV.replace('kongzhuo-v', '') + '</div>';
   document.getElementById('list').innerHTML = h;
 }
 
@@ -810,6 +830,43 @@ function renderSales() {
   el.innerHTML = h;
 }
 
+// ===== 11/13 手机「🖥️ 让电脑重新登录」（只给老板）：手机发请求 → 云端（Code.gs what=relogin）→ 电脑 remote_login.py 每分钟查，
+// 用电脑凭据管理器里保存的账号密码登录 レストランボード・Airレジ・预约副账号 → 结果写回，手机显示。密码不经过手机和云端。=====
+let rlTimer = null;
+function rlApi(act) { return fetch(API + '?fmt=json&what=relogin&k=' + encodeURIComponent(K) + (act ? '&act=' + act : ''), { cache: 'no-store' }).then(r => r.json()); }
+const rlHm = s => s ? s.replace(/^\d{4}\/(\d+)\/(\d+)\s*/, '$1/$2 ').replace(/:\d{2}$/, '') : '—';
+function rlShow(html) { document.getElementById('rlBody').innerHTML = html; }
+function rlStatus(st) {
+  const sm = st.seen && st.now ? Math.round((parseT(st.now) - parseT(st.seen)) / 60000) : null;
+  return `<div class="rlst">电脑：${sm == null ? '还没连上过（电脑端小程序没在跑）' : sm <= 3 ? '🟢 在线' : '🔴 ' + sm + ' 分钟没回应（电脑可能关了或睡眠）'}</div>`
+    + (st.done && st.result ? `<div class="rlres"><b>结果（${rlHm(st.done)}）</b><br>${esc(st.result).replace(/\n/g, '<br>')}</div>` : '');
+}
+function openRelogin() {
+  if (!D || !D.owner) return;
+  document.getElementById('rlView').style.display = 'flex';
+  rlShow('读取中…');
+  rlApi().then(st => {
+    if (st.error) throw new Error(st.error === 'owner' ? '要用老板密码' : st.error);
+    if (!('req' in st)) throw new Error('后台还没部署新版本');
+    rlShow(rlStatus(st) + '<p class="rlnote">电脑会用自己保存的账号密码，重新登录レストランボード、Airレジ 和预约副账号（有楽町・川崎）。<b>密码改过的话，要先在电脑上双击「保存登录密码.bat」存新密码</b>，不然多点几次会把账号锁住。3 分钟内重复点只算一次。</p>'
+      + '<button class="rlgo" onclick="rlGo()">🖥️ 让电脑现在重新登录</button>');
+  }).catch(e => rlShow('读不到：' + esc(e.message || e)));
+}
+function rlGo() {
+  rlShow('发送中…');
+  rlApi('req').then(st => rlWait(st.req)).catch(e => rlShow('没发出去：' + esc(e.message || e)));
+}
+function rlWait(req) {
+  clearInterval(rlTimer); let n = 0;
+  const tick = () => rlApi().then(st => {
+    n++;
+    if (st.done && st.done >= req) { clearInterval(rlTimer); rlShow(rlStatus(st) + '<button class="rlgo" onclick="closeRelogin();load(true)">好了，刷新</button>'); return; }
+    rlShow(`<div class="rlst">⏳ 已发给电脑（${rlHm(req)}）。${st.take && st.take >= req ? '电脑正在登录，约 1〜2 分钟…' : '电脑每分钟查一次，最多 1 分钟内开始…'}</div><small>已等 ${n * 10} 秒</small>` + rlStatus(Object.assign({}, st, { done: '' })));
+    if (n >= 60) { clearInterval(rlTimer); rlShow('10 分钟还没有结果，电脑可能没开或睡眠了。' + rlStatus(st)); }
+  }).catch(() => {});
+  tick(); rlTimer = setInterval(tick, 10000);
+}
+function closeRelogin() { clearInterval(rlTimer); document.getElementById('rlView').style.display = 'none'; }
 function card(s) {
   const isOpen = isOpenS(s.label), fav = favs.includes(s.label);
   const pct = s.n ? s.free / s.n : 0, cls = pct >= 0.5 ? 'g' : pct >= 0.2 ? 'm' : 'rr';
