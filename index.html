@@ -277,7 +277,7 @@ nav button.on{color:var(--brand)}
 <script>
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v15';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v16';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -664,6 +664,23 @@ function svNTyp() {   // 平常几个收银台：最近 28 天店数的中位数
   const ns = SV.days.slice(-28).map(x => x.n).sort((a, b) => a - b);
   return svFcMemo._n = ns.length ? ns[Math.floor(ns.length / 2)] : 0;
 }
+// 11/13 月内位置系数（用户：后半月比前半月好，日本 15・25 日发薪）：每天 ÷ 前后 3 周同星期几平均，按 1〜5/6〜10/11〜14/15〜19/20〜24/25〜月底 分组平均。
+// 历史：0.88/0.95/0.93/1.00/1.09/1.16。回测（9・10 月）全强度会多算 4〜7%（4 周平均里已经含了上个月同一段），所以 svFc 只用一半强度。
+const SV_B = [5, 10, 14, 19, 24, 31];
+const svBk = ds => SV_B.findIndex(z => +ds.slice(8) <= z);
+function svDomF() {
+  if (svFcMemo._f) return svFcMemo._f;
+  const today = svToday(), res = SV_B.map(() => []), plain = d => { const t = svType(d); return t !== 'H' && t !== 'P'; };
+  SV.days.forEach(x => {
+    if (x.d >= today || !plain(x.d) || svShort(x)) return;
+    const xs = [-21, -14, -7, 7, 14, 21].map(k => SV.map[svAdd(x.d, k)]).filter(r => r && r.d < today && plain(r.d) && !svShort(r)).map(r => r.t);
+    if (xs.length >= 3) res[svBk(x.d)].push(x.t / (xs.reduce((a, b) => a + b, 0) / xs.length));
+  });
+  let f = res.map(v => v.length ? v.reduce((a, b) => a + b, 0) / v.length : 1);
+  const mean = f.reduce((a, b) => a + b, 0) / f.length; f = f.map(v => v / mean);
+  return svFcMemo._f = f;
+}
+const svDF = ds => Math.sqrt(svDomF()[svBk(ds)]);   // 一半强度（开平方）
 function svFc(ds, ty) {
   ty = ty || svType(ds);
   const key = ds + ty; if (key in svFcMemo) return svFcMemo[key];
@@ -671,9 +688,9 @@ function svFc(ds, ty) {
   for (let k = 1; k <= 240 && pool.length < 4; k++) {
     const p = svAdd(ds, -k); if (p >= today) continue;
     const x = SV.map[p]; if (!x || x.n < nmin || svType(p) !== ty) continue;
-    pool.push(x.t);
+    pool.push(x.t / svDF(p));   // 先去掉那天的月内位置影响
   }
-  let v = pool.length ? pool.reduce((a, b) => a + b, 0) / pool.length : 0;
+  let v = pool.length ? pool.reduce((a, b) => a + b, 0) / pool.length * svDF(ds) : 0;   // 再乘上要预测那天的位置
   if (!pool.length && ty === 'H') v = svFc(ds, 'w0');   // 没有祝日的记录 → 当星期天
   if (!pool.length && ty === 'P') v = svFc(ds, 'w6');   // 没有祝日前一天的记录 → 当星期六
   return svFcMemo[key] = v;
@@ -704,7 +721,9 @@ function svMonthFc(y, m) {
   rest.forEach(([ds, f]) => { wk[ds] = f; const l = SV.map[svAdd(ds, -364)]; if (g && l) { day[ds] = l.t * g; lyHit++; } else day[ds] = f; lyRest += day[ds]; });
   const useLy = !!g && rest.length > 0 && lyHit >= rest.length / 2;
   const tWk = act + miss + fc, tLy = act + miss + lyRest;
-  return { act, actN, miss, missN, n: rest.length, rest: useLy ? lyRest : fc, t: useLy ? tLy : tWk, alt: useLy ? tWk : null, useLy, g, gsrc, day: useLy ? day : wk };
+  const dd = useLy ? day : wk, half = [0, 0], hn = [0, 0];
+  for (let i = 1; i <= nd; i++) { const ds = svStr(new Date(y, m - 1, i)), x = ds < today && SV.map[ds], v = x ? x.t : dd[ds] || 0, h = i >= 15 ? 1 : 0; half[h] += v; hn[h]++; }
+  return { act, actN, miss, missN, n: rest.length, rest: useLy ? lyRest : fc, t: useLy ? tLy : tWk, alt: useLy ? tWk : null, useLy, g, gsrc, day: dd, half, hn };
 }
 function renderSales() {
   const el = document.getElementById('svBody');
@@ -738,7 +757,8 @@ function renderSales() {
     + (F ? `<div class="svfc"><div>📈 ${m} 月预测 <b>约 ${cnBig(F.t)}</b></div>`
       + `<small>${F.actN ? `已到 ${cnBig(F.act)}（${F.actN} 天）＋ ` : ''}${F.actN ? '剩下' : '全月'} ${F.n} 天约 ${cnBig(F.rest)}`
       + (F.useLy ? `<br>按去年同期走势：剩下的每天＝去年同一星期几 × ${F.g.toFixed(2)}（今年比去年 ${svPct(F.g, 1)}，按${F.gsrc}算）`
-                 : `<br>每天按最近 4 个同星期几平均（去年同期没有数据，没法按去年走势）`)
+                 : `<br>每天按最近 4 个同星期几平均，再按发薪日前后调整（去年同期没有数据，没法按去年走势）`)
+      + `<br>上半月（1〜14 日）约 ${cnBig(F.half[0])}　下半月（15 日〜）约 ${cnBig(F.half[1])}（日均多 ${svPct(F.half[1] / F.hn[1], F.half[0] / F.hn[0])}，15・25 日发薪）`
       + `${F.alt ? `<br>参考：按最近 4 个同星期几平均 约 ${cnBig(F.alt)}` : ''}`
       + `${F.miss ? `<br>含 ⚠ 缺店 ${F.missN} 天估计少算的约 ${cnBig(F.miss)}。` : ''}`
       + `${!F.useLy && (m === 12 || m === 1) ? '<br>没算忘年会・年末年始等季节因素，实际可能更多（去年 12 月的数据补下载以后就能按去年走势算）。' : ''}</small></div>` : '') + cal;
