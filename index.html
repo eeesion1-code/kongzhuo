@@ -391,7 +391,7 @@ nav button.on{color:var(--brand)}
 <script>
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v26';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v27';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -416,7 +416,7 @@ const COLOR = { free: 'var(--free)', held: 'var(--held)', remind: 'var(--remind)
 function saveKey() {
   const v = document.getElementById('kin').value.trim(); if (!v) return;
   K = v; LS.set('k', K); document.getElementById('kerr').textContent = '';
-  SV = null; svErr = ''; PW = null; pwGot = 0; LS.del('pw');  // 换了密码：老板 / 店长看到的不一样，重新读
+  SV = null; svErr = ''; svGot = 0; svCacheDel(); PW = null; pwGot = 0; LS.del('pw');  // 换了密码：老板 / 店长看到的不一样，重新读（手机里存的营业额也删掉）
   load(true);
 }
 // 11/13 换密码（老板 / 店长）：iPhone 加到主屏幕的 APP 记着旧密码，只能在这里换
@@ -441,6 +441,8 @@ function hideKey() {
 
 function load(manual) {
   if (!K) { showKey(); return; }
+  // 11/14 用户：网页卡 → 一打开先显示手机里存的上次数据（「几分前」照实算），新数据回来再换，不用干等
+  if (!D) { try { D = JSON.parse(LS.get('last', 'null')); } catch (e) {} if (D) { D.offline = false; hideKey(); render(); } }
   const rf = document.getElementById('rf');
   rf.classList.add('spin');
   fetch(API + '?fmt=json&k=' + encodeURIComponent(K), { cache: 'no-store' })
@@ -451,8 +453,10 @@ function load(manual) {
       if (d.error) throw new Error(d.error);
       D = d; D.offline = false; D.got = Date.now();
       LS.set('last', JSON.stringify(d));
-      hideKey(); render();
+      hideKey();
+      if (!svOpen()) render(); else if (svTab === 'ov') renderSales();   // 营业额页开着时不重画底下看不见的首页（关掉时再画）
       if (tab === 'pw') loadPw();
+      if (D.owner && !SV) setTimeout(svPrefetch, 2000);   // 老板：先把营业额准备好，点开就有
     })
     .catch(() => {
       rf.classList.remove('spin');
@@ -706,6 +710,40 @@ function svStr(dt) { return dt.getFullYear() + '-' + String(dt.getMonth() + 1).p
 function svAdd(ds, n) { const t = svDate(ds); t.setDate(t.getDate() + n); return svStr(t); }
 // 营业日：凌晨 5 点前算前一天
 function svToday() { const t = pwNow(); if (t.getHours() < 5) t.setDate(t.getDate() - 1); return svStr(t); }
+// 11/14 用户：网页卡 → 营业额历史（约 1.2MB，压缩后 250KB，要等 2〜4 秒）存在手机里（Cache API），点开马上显示；
+// 存的超过 10 分钟就在后台再读一次，日报更新了（at 变了）才重画。换密码时删掉。
+const SV_CK = 'kz-data', SV_KEY = './_sales.json';
+let svGot = 0;
+const svOpen = () => document.getElementById('salesView').style.display === 'block';
+function svUse(d) { SV = d; SV.map = {}; d.days.forEach(x => SV.map[x.d] = x); svFcMemo = {}; svErr = ''; }
+function svCacheGet() {
+  if (!window.caches) return Promise.resolve(null);
+  return caches.open(SV_CK).then(c => c.match(SV_KEY)).then(r => r ? r.json().then(d => ({ d, got: +(r.headers.get('x-got') || 0) })) : null).catch(() => null);
+}
+function svCachePut(txt) { if (window.caches) caches.open(SV_CK).then(c => c.put(SV_KEY, new Response(txt, { headers: { 'Content-Type': 'application/json', 'x-got': String(Date.now()) } }))).catch(() => {}); }
+function svCacheDel() { if (window.caches) caches.open(SV_CK).then(c => c.delete(SV_KEY)).catch(() => {}); }
+function svFetch() {
+  if (svBusy || !K) return; svBusy = true;
+  fetch(API + '?fmt=json&what=sales&k=' + encodeURIComponent(K), { cache: 'no-store' })
+    .then(r => r.text())
+    .then(txt => {
+      svBusy = false; const d = JSON.parse(txt);
+      if (d.error) throw new Error(d.error === 'owner' ? '要用老板密码' : d.error);
+      if (!d.days) throw new Error('后台还没部署新版本');
+      svGot = Date.now(); svCachePut(txt);
+      if (!SV || SV.at !== d.at || SV.days.length !== d.days.length) { svUse(d); if (svOpen()) renderSales(); }
+    })
+    .catch(e => { svBusy = false; if (!SV) { svErr = String(e.message || e); if (svOpen()) renderSales(); } });
+}
+// 先用手机里存的；没有或太旧就上网读
+function svPrefetch() {
+  if (!D || !D.owner) return Promise.resolve();
+  if (SV) { if (Date.now() - svGot > 10 * 60000) svFetch(); return Promise.resolve(); }
+  return svCacheGet().then(c => {
+    if (c && !SV && c.d && c.d.days) { svUse(c.d); svGot = c.got; if (svOpen()) renderSales(); }
+    if (!c || Date.now() - c.got > 10 * 60000) svFetch();
+  });
+}
 function openSales(ds) {
   if (!D || !D.owner) return;
   document.getElementById('salesView').style.display = 'block';
@@ -714,15 +752,9 @@ function openSales(ds) {
   if (!svDay) svDay = svToday();
   svMon = svDay.slice(0, 7);
   renderSales();
-  if (!SV && !svBusy) {
-    svBusy = true; svErr = '';
-    fetch(API + '?fmt=json&what=sales&k=' + encodeURIComponent(K), { cache: 'no-store' })
-      .then(r => r.json())
-      .then(d => { svBusy = false; if (d.error) throw new Error(d.error === 'owner' ? '要用老板密码' : d.error); if (!d.days) throw new Error('后台还没部署新版本'); SV = d; SV.map = {}; d.days.forEach(x => SV.map[x.d] = x); renderSales(); })
-      .catch(e => { svBusy = false; svErr = String(e.message || e); renderSales(); });
-  }
+  svPrefetch();
 }
-function closeSales() { document.getElementById('salesView').style.display = 'none'; document.body.style.overflow = ''; }
+function closeSales() { document.getElementById('salesView').style.display = 'none'; document.body.style.overflow = ''; if (D) render(); }
 // 某天的数据：今天用实时（D.sales、各店 s.sales），以前用日报
 function svGet(ds) {
   if (ds === svToday() && D.sales) {
@@ -1383,8 +1415,9 @@ function checkUpdate() {
 document.getElementById('nav').style.display = 'flex';
 load();
 checkUpdate();
-setInterval(load, 60000);
-setInterval(() => { if (D) render(); }, 30000);  // 「几分前」「坐了多久」跟着走
+// 11/14：APP 在后台（看不见）时不读不画；营业额页开着时不重画底下的首页（省电、不卡）
+setInterval(() => { if (!document.hidden) load(); }, 60000);
+setInterval(() => { if (D && !document.hidden && !svOpen()) render(); }, 30000);  // 「几分前」「坐了多久」跟着走
 setInterval(checkUpdate, 30 * 60000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) { if (K) load(); checkUpdate(); } });
 </script>
