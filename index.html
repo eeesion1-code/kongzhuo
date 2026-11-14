@@ -429,7 +429,7 @@ button.svdlab{color:var(--ink);font-family:inherit;line-height:1.3}
 <script>
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v32';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v33';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -1352,7 +1352,8 @@ function svTabSt(today) {
 
 // ---- 预测（11/14 用户：要看到明年 12 月）----
 const svMaxFcMon = today => (+today.slice(0, 4) + 1) + '-12';
-let svFcAcc = '';   // 回测误差说明（见下面 SV_FC_BT）
+// 11/14 回测（2026 年 10〜11 月，提前 0〜3 周预测的合计）：误差 +1%〜+9%，平均约 6%（偏多）。去年 12 月〜今年 3 月以前没有前年数据，12 月没法回测。
+const svFcAcc = '回测（今年 10〜11 月）：误差约 +1〜+9%，平均 6%，偏多。12 月要等今年 12 月过完才能验证。';
 function svTabFc(today) {
   const curMon = today.slice(0, 7), maxMon = svMaxFcMon(today);
   if (svMon < curMon || svMon > maxMon) svMon = curMon;
