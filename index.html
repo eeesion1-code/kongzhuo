@@ -23,6 +23,7 @@
   --lo:#c2410c;--loBg:#ffedd5;
   --over:#dc2626;--overBg:#fee2e2;
   --held:#2563eb;--heldBg:#dbeafe;
+  --cly:#c2410c;--clm:#7c3aed;--clw:#0369a1;   /* 11/14 对比：去年同期 橙・上个月同期 紫・上周同日 蓝 */
   --shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.08);
 }
 @media (prefers-color-scheme: dark){
@@ -30,6 +31,7 @@
     --brand:#3b82f6;
     --free:#22c55e;--freeBg:#11281a;--used:#94a3b8;--usedBg:#1f242c;--remind:#facc15;--remindBg:#2f2a10;
     --lo:#fb923c;--loBg:#33210f;--over:#f87171;--overBg:#361515;--held:#60a5fa;--heldBg:#132544;
+    --cly:#fb923c;--clm:#c4b5fd;--clw:#7dd3fc;
     --shadow:none;}
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -376,7 +378,11 @@ nav button.on{color:var(--brand)}
 .wkh{white-space:nowrap}
 .svholi{font-size:12.5px;margin:6px 2px 0;line-height:1.6}
 .svcmprule{font-size:12px;color:var(--sub);margin:4px 2px 6px;line-height:1.5}
-.svd em.cd{font-style:normal;font-size:9px;color:var(--sub);line-height:1.15;letter-spacing:-.2px;margin-top:1px;border-top:1px dashed var(--line);padding-top:1px;width:92%}
+.cly{color:var(--cly)}.clm{color:var(--clm)}.clw{color:var(--clw)}
+.cdot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:4px;vertical-align:0}.cdot.cly{background:var(--cly)}.cdot.clm{background:var(--clm)}.cdot.clw{background:var(--clw)}
+.svd.fut:disabled{opacity:.8}
+.svd.fut i{opacity:.55}
+.svd em.cd{font-style:normal;font-size:9px;font-weight:600;line-height:1.15;letter-spacing:-.2px;margin-top:1px;border-top:1px dashed var(--line);padding-top:1px;width:92%}
 .svd i{position:relative}
 .svd i .hdot{position:absolute;top:0;right:-7px;width:5px;height:5px;border-radius:50%;background:#dc2626}
 .svrgm{display:flex;gap:6px;margin:2px 0 8px}
@@ -436,7 +442,7 @@ button.svdlab{color:var(--ink);font-family:inherit;line-height:1.3}
 <script>
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v37';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v38';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -1077,7 +1083,7 @@ const svWan = n => (n >= 0 ? '+' : '−') + man(Math.abs(n));
 function svLastRep() { return SV.days.length ? SV.days[SV.days.length - 1] : null; }
 function svLastHr(before, mk) { for (let i = SV.days.length - 1; i >= 0; i--) { const x = SV.days[i]; if (x[mk || 'ho'] && (!before || x.d < before)) return x; } return null; }
 function svCmpBar() {
-  return `<div class="svcmpsel"><span>对比</span>${Object.keys(SV_CMP).reverse().map(k => `<button class="${svCmpM === k ? 'on' : ''}" onclick="svSetCmp('${k}')">${SV_CMP[k]}</button>`).join('')}</div>`;
+  return `<div class="svcmpsel"><span>对比</span>${Object.keys(SV_CMP).reverse().map(k => `<button class="${svCmpM === k ? 'on' : ''}" onclick="svSetCmp('${k}')"><i class="cdot c${k}"></i>${SV_CMP[k]}</button>`).join('')}</div>`;
 }
 function svDateBar() {
   const today = svToday(), first = SV.days.length ? SV.days[0].d : today;
@@ -1331,13 +1337,13 @@ function svTabDay(today) {
   let h = `<div class="svmon"><button class="iconbtn" onclick="svMove(-1)" aria-label="上个月">‹</button><b>${y} 年 ${m} 月</b><button class="iconbtn" onclick="svMove(1)" aria-label="下个月">›</button></div>`;
   h += !vals.length ? `<div class="svnote">${svMon > today.slice(0, 7) ? '这个月还没开始' : '这个月没有存营业额'}</div>`
     : `<div class="svmini"><div>合计（${full.length} 天）<b>${man(sum)}</b></div><div>日均<b>${man(full.length ? sum / full.length : 0)}</b></div><div>比去年同期<b>${LY.n ? svDl(LY.a, LY.b) : '—'}</b></div></div>`;
-  h += `<div class="svcmprule">对比：${SV_CMP[svCmpM]}＝${SV_CMP_RULE[svCmpM]}。每格小字＝拿去比的那天${svCmpM === 'ly' ? '（去年的）' : ''}和那天的营业额。</div>`;
+  h += `<div class="svcmprule">对比：${SV_CMP[svCmpM]}＝${SV_CMP_RULE[svCmpM]}。每格<span class="c${svCmpM}">彩色小字</span>＝拿去比的那天${svCmpM === 'ly' ? '（去年的）' : ''}和那天的营业额（还没到的日子也先写出来）。</div>`;
   let cal = '<div class="svcal">' + [...'日一二三四五六'].map((w, i) => `<b class="${i === 0 ? 'rr' : i === 6 ? 'bl' : ''}">${w}</b>`).join('');
   for (let i = 0; i < d1.getDay(); i++) cal += '<span></span>';
   for (let i = 1; i <= nd; i++) {
     const ds = svStr(new Date(y, m - 1, i)), x = svGet(ds), dow = (d1.getDay() + i - 1) % 7, a = x ? 0.12 + 0.55 * x.t / mx : 0;
-    cal += `<button class="svd${ds === svDay ? ' on' : ''}${ds === today ? ' td' : ''}" ${x ? `style="background:rgba(22,163,74,${a.toFixed(2)})"` : 'disabled'} onclick='svPick(${JSON.stringify(ds)})'>`
-      + `<i class="${dow === 0 || SV_HOLI.has(ds) ? 'rr' : dow === 6 ? 'bl' : ''}"${svHN(ds) ? ` title="${svHN(ds)}"` : ''}>${i}${svHN(ds) ? '<b class="hdot"></b>' : ''}${x && svShort(x) ? '<span class="rr">⚠</span>' : ''}</i><small>${x ? man(x.t) + (x.live ? '*' : '') : F && F.day[ds] != null ? '<span class="fc">约' + man(F.day[ds]) + '</span>' : ''}</small>${x && !x.live ? (b => b ? `<em class="cd">${svMD(b)}${svWk(b)}<br>${SV.map[b] ? man(SV.map[b].t) : '—'}</em>` : '')(svCmpDay(ds, svCmpM)) : ''}</button>`;
+    cal += `<button class="svd${ds === svDay ? ' on' : ''}${ds === today ? ' td' : ''}${!x && ds > today ? ' fut' : ''}" ${x ? `style="background:rgba(22,163,74,${a.toFixed(2)})"` : 'disabled'} onclick='svPick(${JSON.stringify(ds)})'>`
+      + `<i class="${dow === 0 || SV_HOLI.has(ds) ? 'rr' : dow === 6 ? 'bl' : ''}"${svHN(ds) ? ` title="${svHN(ds)}"` : ''}>${i}${svHN(ds) ? '<b class="hdot"></b>' : ''}${x && svShort(x) ? '<span class="rr">⚠</span>' : ''}</i><small>${x ? man(x.t) + (x.live ? '*' : '') : F && F.day[ds] != null ? '<span class="fc">约' + man(F.day[ds]) + '</span>' : ''}</small>${(b => b ? `<em class="cd c${svCmpM}">${svMD(b)}${svWk(b)}<br>${SV.map[b] ? man(SV.map[b].t) : '—'}</em>` : '')(svCmpDay(ds, svCmpM))}</button>`;
   }
   const mh = Object.keys(SV_HOLI_NAME).filter(d => d.startsWith(svMon + '-')).sort();
   h += cal + '</div>' + (mh.length ? `<div class="svholi">这个月的祝日：${mh.map(d => `${+d.slice(8)} 日（${svWk(d)}）<span class="hol">${SV_HOLI_NAME[d]}</span>`).join('、')}</div>` : '') + '<div class="svnote">颜色越深营业额越多；红字＝星期天・祝日（右上小红点＝祝日，选中那天会写名字）；灰字「约」＝预测；* ＝实时数（日报出来前）；⚠ ＝那天少了店的数据。</div>';
