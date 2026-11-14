@@ -149,6 +149,9 @@ h1{font-size:20px;margin:0;flex:1;letter-spacing:.5px}
 main{padding:4px 14px 20px;max-width:1400px;margin:0 auto}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,460px),1fr));gap:10px;align-items:start}
 .grid .card{margin-bottom:0}
+/* 11/14 不丝滑：屏幕外的卡片先不排版不画（滑到才画，看起来一样）；按钮去掉双击放大的等待 */
+.card{content-visibility:auto;contain-intrinsic-size:auto 170px}
+button,.hd,.mini,.tile,.svd,.chip{touch-action:manipulation}
 .stn{display:inline-block;padding:1px 8px;border-radius:6px;background:var(--soft);color:var(--ink);font-weight:600;font-size:12px}
 .sec{font-size:12px;color:var(--sub);margin:14px 4px 6px;letter-spacing:.5px}
 .card{background:var(--card);border:1px solid var(--line);border-radius:16px;margin-bottom:10px;box-shadow:var(--shadow);overflow:hidden}
@@ -359,7 +362,7 @@ nav button.on{color:var(--brand)}
   <div id="rlhint"></div>
   <div class="stats" id="stats"></div>
   <div class="tools">
-    <input id="q" placeholder="🔍 搜店名 / 地区" oninput="render()">
+    <input id="q" placeholder="🔍 搜店名 / 地区" oninput="onSearch()">
     <button class="sortbtn" id="sort" onclick="toggleSort()"></button>
     <button class="salesbtn" id="salesBtn" onclick="openSales()">💴 集团总营业额</button>
   </div>
@@ -391,7 +394,7 @@ nav button.on{color:var(--brand)}
 <script>
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v27';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v28';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -454,7 +457,7 @@ function load(manual) {
       D = d; D.offline = false; D.got = Date.now();
       LS.set('last', JSON.stringify(d));
       hideKey();
-      if (!svOpen()) render(); else if (svTab === 'ov') renderSales();   // 营业额页开着时不重画底下看不见的首页（关掉时再画）
+      if (!svOpen()) renderSoon(); else if (svTab === 'ov') renderSoon(renderSales);   // 营业额页开着时不重画底下看不见的首页（关掉时再画）
       if (tab === 'pw') loadPw();
       if (D.owner && !SV) setTimeout(svPrefetch, 2000);   // 老板：先把营业额准备好，点开就有
     })
@@ -548,22 +551,22 @@ function render() {
   const openShops = new Set(D.stores.filter(s => (s.status === 'open' && s.n) || s.status === 'air').map(shopKey)).size;
   const statsEl = document.getElementById('stats');
   statsEl.className = 'stats' + (D.owner ? ' own' : '');
-  statsEl.innerHTML =
+  patchList(statsEl,
     (D.owner ? `<div class="stat sales" onclick="openSales()"><small>今日营业额（含税）›</small><b>${esc(D.sales || '—')}</b>${D.salesEx ? `<small>税抜 ${esc(D.salesEx)}</small>` : ''}</div>` : '') +
     // 11/12：Airレジ 的店（町田）没有桌位数据，但在营业，也算进「营业中」
     `<div class="stat"><small>营业中</small><b>${openShops}<em> 家</em></b>${airOpen ? `<small>其中 ${airOpen} 家没有桌位数据</small>` : ''}</div>` +
     `<div class="stat"><small>空桌</small><b class="g">${free}<em> / ${n}</em></b></div>` +
-    `<div class="stat"><small>在店</small><b>${D.ppl != null ? D.ppl : '—'}<em> 人</em></b></div>`;
+    `<div class="stat"><small>在店</small><b>${D.ppl != null ? D.ppl : '—'}<em> 人</em></b></div>`);
   document.getElementById('sort').textContent = sortBy === 'free' ? '空桌多→少' : '按地区';
   const areas = [...new Set(D.stores.map(s => s.area).filter(Boolean))];
-  document.getElementById('chips').innerHTML = ['', ...areas].map(a =>
-    `<button class="chip${a === area ? ' on' : ''}" onclick='area=${esc(JSON.stringify(a))};render()'>${a ? esc(a) : '全部地区'}</button>`).join('');
+  patchList(document.getElementById('chips'), ['', ...areas].map(a =>   // 11/14：只换变了的按钮，横向滑过的地区按钮不会被弹回最左边
+    `<button class="chip${a === area ? ' on' : ''}" onclick='area=${esc(JSON.stringify(a))};render()'>${a ? esc(a) : '全部地区'}</button>`).join(''));
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
 
   document.getElementById('sort').style.display = tab === 'pw' ? 'none' : '';
   document.getElementById('salesBtn').style.display = D.owner ? 'block' : 'none';
   if (document.getElementById('salesView').style.display === 'block') renderSales();
-  if (tab === 'pw') { document.getElementById('list').innerHTML = pwView(); return; }
+  if (tab === 'pw') { patchList(document.getElementById('list'), pwView()); return; }
   // 列表
   const q = document.getElementById('q').value.trim();
   let list = D.stores.filter(s => (!area || s.area === area) && (!q || s.label.indexOf(q) >= 0));
@@ -589,8 +592,36 @@ function render() {
   h += '<div class="legend">' + [['free', '空桌'], ['used', '使用中'], ['remind', '放题快结束'], ['lo', 'L.O.'], ['over', '放题超时'], ['held', '预约留桌（不算空桌）']]
     .map(([c, t]) => `<span><i style="background:${c === 'used' ? 'var(--usedBg);border:1px solid var(--line)' : COLOR[c]}"></i>${t}</span>`).join('') + '</div>';
   h += '<div class="foot">桌子格子：桌号、人数、坐了多久（从开台算）。点格子看详细。营业额和预约客人姓名不显示。<br>每分钟自动更新；数据来自实时桌位程序，约每 10 分钟读一次收银台。<br><a class="keylink" onclick="changeKey()">🔑 换密码（老板 / 店长）</a>' + (D.owner ? '　<a class="keylink" onclick="openRelogin()">🖥️ 让电脑重新登录</a>' : '') + '　版本 ' + APPV.replace('kongzhuo-v', '') + '</div>';
-  document.getElementById('list').innerHTML = h;
+  patchList(document.getElementById('list'), h);
 }
+// 11/14 用户：手机上不丝滑 → 以前每 30 秒、每点一下都把整页（晚上 32 家・600 多张桌子、约 1,500 个元素）全部重画，手机上一次 40〜70 毫秒。
+// 现在只换真正变了的部分：新内容先在内存里排好，和屏幕上的逐个比（列表 → 每行格子 → 每家店卡片），一样的不动。
+function patchList(el, html) {
+  const tpl = document.createElement('template'); tpl.innerHTML = html;
+  morphKids(el, tpl.content, 0);
+}
+function morphKids(a, b, depth) {
+  const nb = [...b.children], na = a.children;
+  if (na.length !== nb.length || depth > 2) { a.replaceChildren(...nb); return; }
+  for (let i = 0; i < nb.length; i++) {
+    const x = na[i], y = nb[i];
+    if (x.isEqualNode(y)) continue;
+    if (x.tagName === y.tagName && x.className === y.className && x.className === 'grid') morphKids(x, y, depth + 1);
+    else a.replaceChild(y, x);
+  }
+}
+// 自动刷新（每 30 秒、每分钟新数据）碰上手指正在滑或刚滑完：等停下来 1.2 秒再画，不打断滑动；点按钮这些马上画
+let lastTouch = 0, rsT = null;
+['touchstart', 'touchmove', 'scroll', 'wheel'].forEach(ev => addEventListener(ev, () => { lastTouch = Date.now(); }, { passive: true, capture: true }));
+function renderSoon(fn) {
+  fn = fn || render;
+  const w = 1200 - (Date.now() - lastTouch);
+  clearTimeout(rsT);
+  if (w > 0) { rsT = setTimeout(() => renderSoon(fn), w); return; }
+  fn();
+}
+let qT = null;
+function onSearch() { clearTimeout(qT); qT = setTimeout(render, 150); }
 
 // ===== 11/13 繁忙日排位：未来 14 天的周五・周六・祝日・12 月忙日，各店有没有提前把预约排到桌上（每天读 2 次）=====
 // 「今天」用实时程序每 8 分钟读的预约（D.stores[].rsv）；最大容量＝预约台账每张桌「N名席」加总（PW 里 kind:'cap' 那行）
@@ -1417,7 +1448,7 @@ load();
 checkUpdate();
 // 11/14：APP 在后台（看不见）时不读不画；营业额页开着时不重画底下的首页（省电、不卡）
 setInterval(() => { if (!document.hidden) load(); }, 60000);
-setInterval(() => { if (D && !document.hidden && !svOpen()) render(); }, 30000);  // 「几分前」「坐了多久」跟着走
+setInterval(() => { if (D && !document.hidden && !svOpen()) renderSoon(); }, 30000);  // 「几分前」「坐了多久」跟着走
 setInterval(checkUpdate, 30 * 60000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) { if (K) load(); checkUpdate(); } });
 </script>
