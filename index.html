@@ -376,7 +376,7 @@ nav button.on{color:var(--brand)}
 .wkh{white-space:nowrap}
 .svholi{font-size:12.5px;margin:6px 2px 0;line-height:1.6}
 .svcmprule{font-size:12px;color:var(--sub);margin:4px 2px 6px;line-height:1.5}
-.svd em.cd{font-style:normal;font-size:9px;color:var(--sub);line-height:1.1;letter-spacing:-.2px}
+.svd em.cd{font-style:normal;font-size:9px;color:var(--sub);line-height:1.15;letter-spacing:-.2px;margin-top:1px;border-top:1px dashed var(--line);padding-top:1px;width:92%}
 .svd i{position:relative}
 .svd i .hdot{position:absolute;top:0;right:-7px;width:5px;height:5px;border-radius:50%;background:#dc2626}
 .svrgm{display:flex;gap:6px;margin:2px 0 8px}
@@ -436,7 +436,7 @@ button.svdlab{color:var(--ink);font-family:inherit;line-height:1.3}
 <script>
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v36';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v37';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -1283,9 +1283,9 @@ function svTabOv(today) {
     + `<div class="val">${yen(msum)}</div>`
     + `<div class="sub">日均 ${man(mdays.length ? msum / mdays.length : 0)}${LY.n ? `　去年同期 ${man(LY.b)} ${svDl(LY.a, LY.b)}` : ''}</div></div>`;
   h += '<div class="svtiles">'
-    + (fin ? `<button class="svtile" onclick="svGo('day','${fin.d}')"><small>${svMD(fin.d)}（${svWk(fin.d)}）实时最终</small><b>${man(fin.t)}</b><em>${bF ? `比${SV_CMP[svCmpM]}（${svCmpTag(fin.d)}）${svDl(fin.t, bF.t)}` : '12 点日报后为准'}</em></button>`
+    + (fin ? `<button class="svtile" onclick="svGo('day','${fin.d}')"><small>${svMD(fin.d)}（${svWk(fin.d)}）实时最终</small><b>${man(fin.t)}</b><em>${bF ? `比${SV_CMP[svCmpM]}（${svCmpTag(fin.d)}）${man(bF.t)} ${svDl(fin.t, bF.t)}` : '12 点日报后为准'}</em></button>`
       : `<button class="svtile" onclick="svGo('day','${today}')"><small>今天（实时）</small><b>${live ? man(live.t) : '—'}</b><em>${live ? '营业中，以明天日报为准' : '还没开始读（下午开始）'}</em></button>`)
-    + `<button class="svtile" onclick="svGo('day','${L.d}')"><small>${svMD(L.d)}（${svWk(L.d)}）日报</small><b>${man(L.t)}</b><em>${bL ? `比${SV_CMP[svCmpM]}（${svCmpTag(L.d)}）${svDl(L.t, bL.t)}` : `${SV_CMP[svCmpM]}没有数据`}</em></button>`
+    + `<button class="svtile" onclick="svGo('day','${L.d}')"><small>${svMD(L.d)}（${svWk(L.d)}）日报</small><b>${man(L.t)}</b><em>${bL ? `比${SV_CMP[svCmpM]}（${svCmpTag(L.d)}）${man(bL.t)} ${svDl(L.t, bL.t)}` : `${SV_CMP[svCmpM]}没有数据`}</em></button>`
     + `<button class="svtile" onclick="svGo('fc')"><small>${m} 月预测</small><b>约 ${cnBig(F.t).replace(/ /g, '')}</b><em>${lyMonSum ? `比去年 ${m} 月 ${svDl(F.t, lyMonSum)}` : '点开看怎么算'}</em></button>`
     + `<button class="svtile" onclick="svGo('day','${L.d}')"><small>客单价（${svMD(L.d)}）</small><b>${L.c ? yen(L.t / L.c) : '—'}</b><em>${L.c ? `${L.g} 组 ${L.c} 人${bL && bL.c ? `　${svDl(L.t / L.c, bL.t / bL.c)}` : ''}` : ''}</em></button>`
     + '</div>';
@@ -1331,13 +1331,13 @@ function svTabDay(today) {
   let h = `<div class="svmon"><button class="iconbtn" onclick="svMove(-1)" aria-label="上个月">‹</button><b>${y} 年 ${m} 月</b><button class="iconbtn" onclick="svMove(1)" aria-label="下个月">›</button></div>`;
   h += !vals.length ? `<div class="svnote">${svMon > today.slice(0, 7) ? '这个月还没开始' : '这个月没有存营业额'}</div>`
     : `<div class="svmini"><div>合计（${full.length} 天）<b>${man(sum)}</b></div><div>日均<b>${man(full.length ? sum / full.length : 0)}</b></div><div>比去年同期<b>${LY.n ? svDl(LY.a, LY.b) : '—'}</b></div></div>`;
-  h += `<div class="svcmprule">对比：${SV_CMP[svCmpM]}＝${SV_CMP_RULE[svCmpM]}。每格小字＝拿去比的那天${svCmpM === 'ly' ? '（去年的）' : ''}。</div>`;
+  h += `<div class="svcmprule">对比：${SV_CMP[svCmpM]}＝${SV_CMP_RULE[svCmpM]}。每格小字＝拿去比的那天${svCmpM === 'ly' ? '（去年的）' : ''}和那天的营业额。</div>`;
   let cal = '<div class="svcal">' + [...'日一二三四五六'].map((w, i) => `<b class="${i === 0 ? 'rr' : i === 6 ? 'bl' : ''}">${w}</b>`).join('');
   for (let i = 0; i < d1.getDay(); i++) cal += '<span></span>';
   for (let i = 1; i <= nd; i++) {
     const ds = svStr(new Date(y, m - 1, i)), x = svGet(ds), dow = (d1.getDay() + i - 1) % 7, a = x ? 0.12 + 0.55 * x.t / mx : 0;
     cal += `<button class="svd${ds === svDay ? ' on' : ''}${ds === today ? ' td' : ''}" ${x ? `style="background:rgba(22,163,74,${a.toFixed(2)})"` : 'disabled'} onclick='svPick(${JSON.stringify(ds)})'>`
-      + `<i class="${dow === 0 || SV_HOLI.has(ds) ? 'rr' : dow === 6 ? 'bl' : ''}"${svHN(ds) ? ` title="${svHN(ds)}"` : ''}>${i}${svHN(ds) ? '<b class="hdot"></b>' : ''}${x && svShort(x) ? '<span class="rr">⚠</span>' : ''}</i><small>${x ? man(x.t) + (x.live ? '*' : '') : F && F.day[ds] != null ? '<span class="fc">约' + man(F.day[ds]) + '</span>' : ''}</small>${x && !x.live ? `<em class="cd">${(b => b ? svMD(b) + svWk(b) : '')(svCmpDay(ds, svCmpM))}</em>` : ''}</button>`;
+      + `<i class="${dow === 0 || SV_HOLI.has(ds) ? 'rr' : dow === 6 ? 'bl' : ''}"${svHN(ds) ? ` title="${svHN(ds)}"` : ''}>${i}${svHN(ds) ? '<b class="hdot"></b>' : ''}${x && svShort(x) ? '<span class="rr">⚠</span>' : ''}</i><small>${x ? man(x.t) + (x.live ? '*' : '') : F && F.day[ds] != null ? '<span class="fc">约' + man(F.day[ds]) + '</span>' : ''}</small>${x && !x.live ? (b => b ? `<em class="cd">${svMD(b)}${svWk(b)}<br>${SV.map[b] ? man(SV.map[b].t) : '—'}</em>` : '')(svCmpDay(ds, svCmpM)) : ''}</button>`;
   }
   const mh = Object.keys(SV_HOLI_NAME).filter(d => d.startsWith(svMon + '-')).sort();
   h += cal + '</div>' + (mh.length ? `<div class="svholi">这个月的祝日：${mh.map(d => `${+d.slice(8)} 日（${svWk(d)}）<span class="hol">${SV_HOLI_NAME[d]}</span>`).join('、')}</div>` : '') + '<div class="svnote">颜色越深营业额越多；红字＝星期天・祝日（右上小红点＝祝日，选中那天会写名字）；灰字「约」＝预测；* ＝实时数（日报出来前）；⚠ ＝那天少了店的数据。</div>';
@@ -1377,7 +1377,7 @@ function svTabSt(today) {
   const x = svGet(svDay);
   if (!x) return h + '<div class="svnote">这一天没有数据</div>';
   const bd = x.live ? null : svCmpDay(svDay, svCmpM), base = bd && SV.map[bd];
-  h += `<div class="svcard"><div class="svct">${x.n} 家<small>${x.live ? '实时' : '日报'}　合计 ${man(x.t)}${base ? `　比${SV_CMP[svCmpM]}（${svCmpTag(svDay)}）${svDl(x.t, base.t)}` : ''}</small></div>`
+  h += `<div class="svcard"><div class="svct">${x.n} 家<small>${x.live ? '实时' : '日报'}　合计 ${man(x.t)}${base ? `　比${SV_CMP[svCmpM]}（${svCmpTag(svDay)}）${man(base.t)} ${svDl(x.t, base.t)}` : ''}</small></div>`
     + `<div class="svseg2 wide"><button class="${svStSort === 'amt' ? 'on' : ''}" onclick="svSetSort('amt')">按营业额</button><button class="${svStSort === 'up' ? 'on' : ''}" onclick="svSetSort('up')">按增减</button></div>`
     + svMissHtml(x) + svStoreRows(x, base)
     + `<div class="svnote">${base ? `增减＝比${SV_CMP[svCmpM]}（${svCmpTag(svDay)}）同一家店；「—」＝那天这家店没有数据。` : x.live ? '今天是实时读数，对比要等明天日报。' : ''}点有「⏰」的店看它每小时的营业额。</div></div>`;
