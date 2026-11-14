@@ -125,6 +125,17 @@ h1{font-size:20px;margin:0;flex:1;letter-spacing:.5px}
 .svseg{display:flex;gap:6px;align-items:center;margin:14px 0 4px}
 .svseg>b{flex:1;font-size:14.5px}
 .svpk{font-size:12.5px;color:var(--sub);margin:0 0 6px}
+.svhr2>div{display:grid;grid-template-columns:42px 1fr 50px 46px;gap:7px;align-items:center;font-size:12.5px;padding:3px 0}
+.svhr2.wg>div{grid-template-columns:42px 1fr 48px 34px 44px;gap:6px}
+.svhr2 span{color:var(--sub);text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.svhr2 .lu span{font-size:11.5px}
+.svhr2 i{position:relative;height:13px;background:var(--soft);border-radius:4px}
+.svhr2 u{position:absolute;left:0;top:0;bottom:0;background:var(--free);border-radius:0 4px 4px 0}
+.svhr2 s{position:absolute;top:-3px;bottom:-3px;width:2px;margin-left:-1px;background:var(--ink);opacity:.6}
+.svhr2 b{text-align:right;font-variant-numeric:tabular-nums;font-weight:600}
+.svhr2 em{font-style:normal;color:var(--faint);font-size:11.5px;text-align:right}
+.svhr2 .dl{text-align:right;font-size:12px}
+.svhr2 p{margin:8px 0 2px;font-size:11.5px;color:var(--faint);border-top:1px dashed var(--line);padding-top:6px}
 .svhr>div{display:grid;grid-template-columns:34px 1fr 50px 38px;gap:6px;align-items:center;font-size:12.5px;padding:2px 0}
 .svhr span{color:var(--sub);text-align:right}
 .svhr i{position:relative;height:14px;background:var(--soft);border-radius:4px}
@@ -394,7 +405,7 @@ nav button.on{color:var(--brand)}
 <script>
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v29';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v30';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -804,27 +815,31 @@ function svPct(a, b) { if (!a || !b) return ''; const p = Math.round(100 * (a - 
 let svMode = LS.get('svMode', 'o'), svOpenSt = new Set();   // o＝按进店时间，c＝按结账时间
 function svSetMode(m) { svMode = m; LS.set('svMode', m); renderSales(); }
 function svSt(i) { const x = svGet(svDay), n = x && x.s[i] && x.s[i][1]; if (!n) return; svOpenSt.has(n) ? svOpenSt.delete(n) : svOpenSt.add(n); renderSales(); }
-// arr＝24 格金额（百円）；grp＝每格组数（没有就显示占比）；cmp＝上周同日（画竖线）
-function svHours(arr, h0, grp, cmp) {
-  // 11/13：有对比（cmp）时每行最后加「比对比那天 +x%」（对比那天 0、这天有＝新）
-  // 两边都不到 1 万日元：百分比没意义，不写；对比那天是 0：写「新」（11/14 修：这句以前被注释吞掉，显示成 +Infinity%）
-  const dl = i => { if (!cmp) return ''; const c = cmp[i], v = arr[i]; if (Math.max(c, v) < 100) return '<var></var>'; if (!c) return '<var class="g">新</var>';
-    const p = Math.round(100 * (v - c) / c); return `<var class="${p >= 0 ? 'g' : 'rr'}">${p >= 0 ? '+' : ''}${p}%</var>`; };
-  let a = 0, b = arr.length - 1;
-  while (a < b && !arr[a] && !(cmp && cmp[a])) a++;
-  while (b > a && !arr[b] && !(cmp && cmp[b])) b--;
-  const mx = Math.max(1, ...arr.slice(a, b + 1), ...(cmp ? cmp.slice(a, b + 1) : [])), tot = arr.reduce((s, v) => s + v, 0) || 1;
-  let h = `<div class="svhr${cmp ? ' cmp' : ''}">`;
-  for (let i = a; i <= b; i++) {
-    h += `<div><span>${(h0 + i) % 24}时</span><i><u style="width:${(100 * arr[i] / mx).toFixed(1)}%"></u>${cmp && cmp[i] ? `<s style="left:${(100 * cmp[i] / mx).toFixed(1)}%"></s>` : ''}</i>`
-      + `<b>${arr[i] ? man(arr[i] * 100) : '—'}</b><em>${grp ? (grp[i] ? grp[i] + '组' : '') : (arr[i] ? Math.round(100 * arr[i] / tot) + '%' : '')}</em>${dl(i)}</div>`;
-  }
-  return h + '</div>';
+// 11/14 用户：晚上要每小时一行（15-16、16-17……到 24 点），通宵店接着到 5 点。
+// arr＝24 格金额（百円，第 0 格＝h0 时）；cmp＝对比那天（画竖线、写 ▲▼）；
+// opt.lunch＝15 点前也一小时一行（时段页），否则合成「15 点前」一行（总览）；opt.grp＝每格组数；opt.keep＝15-24 点没数也照样列（集团合计）
+const svHrLab = hh => hh >= 24 ? `${hh - 24}-${hh - 23}` : `${hh}-${hh + 1}`;
+function svHrRows(arr, cmp, h0, opt) {
+  opt = opt || {};
+  const at = (a, i) => a && a[i] || 0, E = [];
+  let L = null;
+  arr.forEach((_, i) => { const hh = h0 + i, e = { hh, l: svHrLab(hh), v: at(arr, i), c: at(cmp, i), g: at(opt.grp, i) };
+    if (hh < 15 && !opt.lunch) { if (!L) E.push(L = { hh, l: '15 点前', v: 0, c: 0, g: 0, lu: 1 }); L.v += e.v; L.c += e.c; L.g += e.g; }
+    else E.push(e); });
+  const has = e => e.v || e.c || (opt.keep && e.hh >= 15 && e.hh < 24);
+  let a = E.findIndex(has), b = E.length - 1; while (b > a && !has(E[b])) b--;
+  if (a < 0) return '<div class="svnote">没有时段数据</div>';
+  const R = E.slice(a, b + 1).filter(e => e.hh >= 15 || e.lu || e.v || e.c);   // 15 点前一小时一行时，空的钟头不列
+  const mx = Math.max(1, ...R.map(e => Math.max(e.v, e.c))), tot = R.reduce((t, e) => t + e.v, 0) || 1;
+  const dl = e => Math.max(e.v, e.c) < 100 ? '<span></span>' : !e.c ? '<span class="dl up">新</span>' : !e.v ? '<span class="dl dn">▼100%</span>' : svDl(e.v, e.c);
+  let late = false;
+  return `<div class="svhr2${opt.grp ? ' wg' : ''}">` + R.map(e => (e.hh >= 24 && !late ? (late = true, '<p>0 点以后（通宵店到 5 点）</p>') : '')
+    + `<div${e.lu ? ' class="lu"' : ''}><span>${e.l}</span><i><u style="width:${(100 * e.v / mx).toFixed(1)}%"></u>${cmp && e.c ? `<s style="left:${(100 * e.c / mx).toFixed(1)}%"></s>` : ''}</i>`
+    + `<b>${e.v ? man(e.v * 100) : '—'}</b>${opt.grp ? `<em>${e.g ? e.g + '组' : ''}</em>` : ''}${cmp ? dl(e) : `<em>${e.v ? Math.round(100 * e.v / tot) + '%' : ''}</em>`}</div>`).join('') + '</div>';
 }
 let svCmpM = LS.get('svCmp', 'ly');   // 11/13 用户（股东看）：时段对比 lw 上周同日 / lm 上个月同期 / ly 去年同期
 function svSetCmp(m) { svCmpM = m; LS.set('svCmp', m); renderSales(); }
 const SV_CMP = { lw: '上周同日', lm: '上个月同期', ly: '去年同期' };
-const SV_BAND = [['午市', 5, 14], ['傍晚', 15, 17], ['黄金', 18, 20], ['晚场', 21, 23], ['深夜', 24, 28]];   // 时段汇总（按进店／结账的钟头，0 时以后＝24〜28）
 // 上个月同期・去年同期：那个月里同一周（1〜7／8〜14／15〜21／22 日〜）、同一个星期几（11/14 用户：去年也要按「同一周同星期几」，不是 364 天前）
 // 同一周里有两个同星期几（22 日〜月底）时取日子最接近的
 function svSameWk(ds, y, mo) {
@@ -845,7 +860,8 @@ function svPeak(arr, h0) {
   const i = arr.indexOf(Math.max(...arr));
   // 连续 3 小时最多的时段
   let best = 0, bi = 0; for (let j = 0; j + 2 < arr.length; j++) { const s = arr[j] + arr[j + 1] + arr[j + 2]; if (s > best) { best = s; bi = j; } }
-  return `最多 ${(h0 + i) % 24}时 ${man(arr[i] * 100)}；${(h0 + bi) % 24}〜${(h0 + bi + 3) % 24}时 这 3 小时占 ${Math.round(100 * best / tot)}%`;
+  const t = hh => hh >= 24 ? hh - 24 : hh;
+  return `最多 ${svHrLab(h0 + i)} 点 ${man(arr[i] * 100)}；${t(h0 + bi)}-${t(h0 + bi + 3)} 点这 3 小时占 ${Math.round(100 * best / tot)}%`;
 }
 // ===== 11/13 月营业额预测 =====
 // 每天预测＝最近 4 个「同类日子」的营业额平均：平日按星期几；祝日、祝日前一天（例：连休前的星期天）各自单独一类。
@@ -981,20 +997,14 @@ function svDateBar() {
     + `<button class="iconbtn" onclick="svStep(1)" ${svDay >= today ? 'disabled' : ''} aria-label="后一天">›</button>`
     + `<button class="chip" onclick="svPick(svAdd(svToday(),-1))">昨天</button><button class="chip" onclick="svPick(svToday())">今天</button></div>`;
 }
-// 时段五段（午市・傍晚・黄金・晚场・深夜）：每段一行，条＝金额，竖线＝对比那天
-function svBands(arr, cmp, h0) {
-  const rows = SV_BAND.map(([nm, a, z]) => { let x = 0, y = 0; arr.forEach((v, i) => { const hh = h0 + i; if (hh >= a && hh <= z) { x += v; if (cmp) y += cmp[i]; } }); return [nm, a, z, x, y]; }).filter(r => r[3] || r[4]);
-  const mx = Math.max(1, ...rows.map(r => Math.max(r[3], r[4])));
-  const lab = (a, z) => a >= 24 ? '0 时〜' : a <= 5 ? `〜${z} 时` : `${a}〜${z} 时`;
-  return '<div class="svbands">' + rows.map(([nm, a, z, x, y]) => `<div><span><b>${nm}</b>${lab(a, z)}</span><i><u style="width:${(100 * x / mx).toFixed(1)}%"></u>${cmp && y ? `<s style="left:${(100 * y / mx).toFixed(1)}%"></s>` : ''}</i><b class="v">${man(x * 100)}</b>${cmp ? svDl(x, y) : '<span></span>'}</div>`).join('') + '</div>';
-}
+// 总览的时段：15 点前一行，15 点起每小时一行（11/14 用户：原来的五段太粗）
+const svBands = (arr, cmp, h0) => svHrRows(arr, cmp, h0, { keep: true });
 function svCmpLine(arr, cmp, h0, bd) {
   const A = arr.reduce((s, v) => s + v, 0), C = cmp.reduce((s, v) => s + v, 0);
   let up = -1, dn = -1;
   arr.forEach((v, i) => { const df = v - cmp[i]; if (up < 0 || df > arr[up] - cmp[up]) up = i; if (dn < 0 || df < arr[dn] - cmp[dn]) dn = i; });
-  const f = i => `${(h0 + i) % 24} 时 ${svWan((arr[i] - cmp[i]) * 100)}`;
+  const f = i => `${svHrLab(h0 + i)} 点 ${svWan((arr[i] - cmp[i]) * 100)}`;
   return `<div class="svcmpsum">时段合计 <b>${man(A * 100)}</b> ${svDl(A, C)}<small class="blk">${SV_CMP[svCmpM]}（${svYMD(bd)} ${svWk(bd)}）${man(C * 100)}</small></div>`
-    + svBands(arr, cmp, h0)
     + `<div class="svupdn">${arr[up] - cmp[up] > 0 ? `涨最多 <b class="dl up">${f(up)}</b>` : ''}${arr[dn] - cmp[dn] < 0 ? `　跌最多 <b class="dl dn">${f(dn)}</b>` : ''}</div>`;
 }
 // 一天的「⏰ 时段」整块。own＝是选中的那天
@@ -1002,8 +1012,8 @@ function svHourBlock(ds, x, own) {
   const mk = svMode === 'c' ? 'hc' : 'ho', bd = svCmpDay(ds, svCmpM), base = bd && SV.map[bd];
   const cmp = base && base[mk] && base.h0 === x.h0 ? base[mk] : null;
   return `<div class="svcard"><div class="svct">⏰ ${own ? '' : svMD(ds) + '（' + svWk(ds) + '）'}时段营业额<span class="svseg2"><button class="${svMode === 'o' ? 'on' : ''}" onclick="svSetMode('o')">按进店</button><button class="${svMode === 'c' ? 'on' : ''}" onclick="svSetMode('c')">按结账</button></span></div>`
-    + (cmp ? svCmpLine(x[mk], cmp, x.h0, bd) : `<div class="svnote">${SV_CMP[svCmpM]}${bd ? `（${svYMD(bd)}）` : ''}没有时段数据${svCmpM === 'ly' ? '（去年只存了 10・11 月）' : ''}</div>` + svBands(x[mk], null, x.h0))
-    + `<div class="svsub2">每小时　<small>${svPeak(x[mk], x.h0)}</small></div>` + svHours(x[mk], x.h0, svMode === 'c' ? x.gc : x.go, cmp)
+    + (cmp ? svCmpLine(x[mk], cmp, x.h0, bd) : `<div class="svnote">${SV_CMP[svCmpM]}${bd ? `（${svYMD(bd)}）` : ''}没有时段数据${svCmpM === 'ly' ? '（去年只存了 10・11 月）' : ''}</div>`)
+    + `<div class="svsub2">每小时　<small>${svPeak(x[mk], x.h0)}</small></div>` + svHrRows(x[mk], cmp, x.h0, { lunch: true, keep: true, grp: svMode === 'c' ? x.gc : x.go })
     + `<div class="svnote">${svMode === 'c' ? '按结账：单子算在结账的钟头（收银台时段报表的算法）。' : '按进店：那个钟头进店的组，整单金额算在那个钟头。'}${cmp ? `绿条＝这天，竖线＝${SV_CMP[svCmpM]}。` : ''}上个月同期・去年同期＝那个月同一周（1〜7/8〜14/15〜21/22 日〜）的同一个星期几。</div></div>`;
 }
 // 一天的各店：店名＝[车站, 店名, 金额, 组, 客, 进店时段, 结账时段]
@@ -1017,7 +1027,7 @@ function svStoreRows(x, base, lim) {
     const q = base && base.h0 === x.h0 && bm[r[1]];
     return `<div${hr ? ` class="can" onclick="svSt(${i})"` : ''}><em>${k + 1}</em><span class="nm"><small>${esc(r[0])}</small>${esc(r[1])}</span><b>${man(r[2])}</b>${base ? svDl(r[2], b) : '<span></span>'}`
       + `${r[3] != null || hr || (x.est && x.est.some(e => e[1] === r[1])) ? `<small class="ln">${x.est && x.est.some(e => e[1] === r[1]) ? '<span class="rr">实时估计</span>　' : ''}${r[3] != null ? `${r[3]} 组 ${r[4]} 人　客单价 ${yen(r[4] ? r[2] / r[4] : 0)}` : ''}${b ? `　${SV_CMP[svCmpM]} ${man(b)}` : ''}${hr ? `　<span class="ar">⏰ ${op ? '▲' : '▼'}</span>` : ''}</small>` : ''}`
-      + `${op ? `<div class="svst">${svHours(hr, x.h0, null, q && q[ix] ? q[ix] : null)}</div>` : ''}</div>`;
+      + `${op ? `<div class="svst">${svHrRows(hr, q && q[ix] ? q[ix] : null, x.h0, { lunch: true })}</div>` : ''}</div>`;
   }).join('') + '</div>';
 }
 function svMissHtml(x) {
