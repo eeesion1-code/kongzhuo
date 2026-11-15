@@ -444,7 +444,7 @@ button.svdlab{color:var(--ink);font-family:inherit;line-height:1.3}
 <script>
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v44';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v45';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -593,12 +593,14 @@ function render() {
   rh.className = rbStale ? 'warn' : '';
   if (D.owner) rh.innerHTML = `<span>${rbStale ? `⚠ 预约 ${rbHm} 以后没读到（多半是 AirID 掉线）` : `📒 预约 ${rbHm} 更新`}</span><button onclick="openRelogin()">🖥️ 让电脑重新登录</button>`;
   // 合计
-  const free = open.reduce((a, s) => a + s.free, 0), n = open.reduce((a, s) => a + s.n, 0);
+  // 11/15 三幸園（コーズ，另一个账号）：桌位照常列出来，但集团的空桌合计・营业中家数不算它
+  const isSk = s => s.name === '三幸園';
+  const free = open.filter(s => !isSk(s)).reduce((a, s) => a + s.free, 0), n = open.filter(s => !isSk(s)).reduce((a, s) => a + s.n, 0);
   const airOpen = D.stores.filter(s => s.status === 'air').length;
   // 11/13：立川 是一家店两台收银（渦潮×稲の和、権兵衛のいろり屋），桌位卡分开看，家数只算 1 家
   const ONE_SHOP_AREAS = ['立川'];
   const shopKey = s => ONE_SHOP_AREAS.includes(s.area) ? 'area:' + s.area : 'name:' + s.name;
-  const openShops = new Set(D.stores.filter(s => (s.status === 'open' && s.n) || s.status === 'air').map(shopKey)).size;
+  const openShops = new Set(D.stores.filter(s => !isSk(s) && ((s.status === 'open' && s.n) || s.status === 'air')).map(shopKey)).size;
   const statsEl = document.getElementById('stats');
   statsEl.className = 'stats' + (D.owner ? ' own' : '');
   patchList(statsEl,
@@ -847,8 +849,13 @@ function closeSales() { document.getElementById('salesView').style.display = 'no
 // 实时数据属于它最后一次读数的营业日（6 点前算前一天：5:20 是通宵店收尾）；那天日报还没出来时就用它（fin＝那天已经结束）
 function svLiveDay() { const t = parseT(D && D.stamp); if (!t) return svToday(); if (t.getHours() < 6) t.setDate(t.getDate() - 1); return svStr(t); }
 function svGet(ds) {
-  if (D && D.sales && !(SV && SV.sk) && ds === svLiveDay() && !(SV && SV.map[ds])) {
-    const st = D.stores.filter(s => yenNum(s.sales) > 0).map(s => [s.area, s.name, yenNum(s.sales), null, null]).sort((a, b) => b[2] - a[2]);
+  if (SV && SV.sk) {   // 11/15 三幸園实时：实时程序读的三幸園那一行（折扣前，以第二天日报为准）
+    const k = D && D.stores && D.stores.find(s => s.name === '三幸園' && yenNum(s.sales) > 0);
+    if (k && ds === svLiveDay() && !SV.map[ds]) return { d: ds, t: yenNum(k.sales), n: 1, s: [[k.area, k.name, yenNum(k.sales), null, null]], live: true, fin: ds !== svToday() };
+    return SV.map[ds] || null;
+  }
+  if (D && D.sales && ds === svLiveDay() && !(SV && SV.map[ds])) {
+    const st = D.stores.filter(s => yenNum(s.sales) > 0 && s.name !== '三幸園').map(s => [s.area, s.name, yenNum(s.sales), null, null]).sort((a, b) => b[2] - a[2]);
     return { d: ds, t: yenNum(D.sales), n: st.length, s: st, live: true, fin: ds !== svToday() };
   }
   return SV && SV.map[ds] || null;
@@ -1328,7 +1335,7 @@ function renderSales() {
     + '<div class="svtabs">' + SV_TABS.filter(([k]) => !(SV.sk && k === 'st')).map(([k, n]) => `<button class="${svTab === k ? 'on' : ''}" onclick="svGo('${k}')">${n}</button>`).join('') + '</div>';
   if (svTab !== 'fc') h += svCmpBar();
   h += ({ ov: svTabOv, day: svTabDay, hr: svTabHr, st: svTabSt, fc: svTabFc }[svTab] || svTabOv)(today);
-  h += SV.sk ? `<div class="foot">三幸園（麻布十番，コーズ经营）：每天的数字来自三幸園 ダイニー 后台（含税，取消的单不算），不算进集团合计；没有实时数据。营业额含外卖（Uber・便当）；外卖单都是晚上集中补登的，所以组数・客数・客单价・时段只算堂食。最后更新：${esc(SV.at || '')}</div>`
+  h += SV.sk ? `<div class="foot">三幸園（麻布十番，コーズ经营）：每天的数字来自三幸園 ダイニー 后台（含税，取消的单不算），不算进集团合计；今天是实时程序读的（折扣前，以第二天日报为准）。营业额含外卖（Uber・便当）；外卖单都是晚上集中补登的，所以组数・客数・客单价・时段只算堂食。最后更新：${esc(SV.at || '')}</div>`
     : `<div class="foot">每天的数字来自 12 点日报（收银台下载，含税）；今天是实时程序读的，晚上会变。集团不含三幸園（三幸園单独看）。最后更新：${esc(SV.at || '')}</div>`;
   el.innerHTML = h;
 }
@@ -1353,7 +1360,7 @@ function svTabOv(today) {
   if (SV.sk) h += svTkCard(mdays, `${m} 月 1〜${last} 日`);
   h += '<div class="svtiles">'
     + (fin ? `<button class="svtile" onclick="svGo('day','${fin.d}')"><small>${svMD(fin.d)}（${svWk(fin.d)}）实时最终</small><b>${man(fin.t)}</b><em>${bF ? `比${SV_CMP[svCmpM]}（${svCmpTag(fin.d)}）${man(bF.t)} ${svDl(fin.t, bF.t)}` : '12 点日报后为准'}</em></button>`
-      : `<button class="svtile" onclick="svGo('day','${today}')"><small>今天（实时）</small><b>${live ? man(live.t) : '—'}</b><em>${live ? '营业中，以明天日报为准' : SV.sk ? '三幸園没有实时数据，看日报' : '还没开始读（下午开始）'}</em></button>`)
+      : `<button class="svtile" onclick="svGo('day','${today}')"><small>今天（实时）</small><b>${live ? man(live.t) : '—'}</b><em>${live ? '营业中，以明天日报为准' : '还没开始读（下午开始）'}</em></button>`)
     + `<button class="svtile" onclick="svGo('day','${L.d}')"><small>${svMD(L.d)}（${svWk(L.d)}）日报</small><b>${man(L.t)}</b><em>${bL ? `比${SV_CMP[svCmpM]}（${svCmpTag(L.d)}）${man(bL.t)} ${svDl(L.t, bL.t)}` : `${SV_CMP[svCmpM]}没有数据`}</em></button>`
     + `<button class="svtile" onclick="svGo('fc')"><small>${m} 月预测</small><b>约 ${cnBig(F.t).replace(/ /g, '')}</b><em>${lyMonSum ? `比去年 ${m} 月 ${svDl(F.t, lyMonSum)}` : '点开看怎么算'}</em></button>`
     + `<button class="svtile" onclick="svGo('day','${L.d}')"><small>客单价（${svMD(L.d)}${SV.sk ? '，堂食' : ''}）</small><b>${L.c ? yen((L.t - (L.tk || 0)) / L.c) : '—'}</b><em>${L.c ? `${L.g} 组 ${L.c} 人${bL && bL.c ? `　${svDl((L.t - (L.tk || 0)) / L.c, (bL.t - (bL.tk || 0)) / bL.c)}` : ''}` : ''}</em></button>`
