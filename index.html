@@ -444,7 +444,7 @@ button.svdlab{color:var(--ink);font-family:inherit;line-height:1.3}
 <script>
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v42';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v43';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -1040,7 +1040,7 @@ function svFDay(ds) {
   const t = svType(ds), w = t === 'H' ? 0 : t === 'P' ? 6 : svDate(ds).getDay(), e = svRefDay(ds);
   let o = 0, bo = 0, on = 0, ly = 0; const nws = [];
   M.open.forEach(n => { const v = svFStore(M, n, ds); if (v == null) { nws.push(n); return; } o += v; bo += M.base[n][w]; on++; ly += svFLy(M, n, e) || 0; });
-  const ratio = bo ? o / bo : 1; let nw = 0; nws.forEach(n => nw += M.base[n][w] * ratio);
+  const ratio = bo ? o / bo : 1; let nw = 0; nws.forEach(n => nw += M.base[n][w] * (SV.sk ? 1 : ratio));   // 11/15 三幸園外卖：去年 12 月外卖没跟着忘年会涨 → 按最近 4 周水平持平，不乘堂食的季节变化
   let rec = 0; M.open.forEach(n => rec += M.base[n][w]);
   const h = Math.round((svDate(ds) - svDate(M.C)) / 864e5), a = FC_NEAR * Math.max(0, 1 - h / FC_NEAR_D), t0 = o + nw;
   return M.memo[key] = { t: (1 - a) * t0 + a * rec, t0, o, on, ly, nw, nn: nws.length };
@@ -1433,7 +1433,7 @@ function svTabFc(today) {
   const lyMonSum = svMonAct(y - 1, m);
   let h = `<div class="svmon"><button class="iconbtn" onclick="svMove(-1)" ${svMon <= curMon ? 'disabled' : ''} aria-label="上个月">‹</button><b>${y} 年 ${m} 月</b><button class="iconbtn" onclick="svMove(1)" ${svMon >= maxMon ? 'disabled' : ''} aria-label="下个月">›</button></div>`;
   h += `<div class="svcard svhero"><div class="lab">${m} 月预测</div><div class="val">约 ${cnBig(F.t)}</div>`
-    + `<div class="sub">${lyMonSum ? `去年 ${m} 月实际 ${cnBig(lyMonSum)}　${svDl(F.t, lyMonSum)}` : '去年同月没有完整数据'}　（全部 ${M.open.size} 家）</div></div>`;
+    + `<div class="sub">${lyMonSum ? `去年 ${m} 月实际 ${cnBig(lyMonSum)}　${svDl(F.t, lyMonSum)}` : '去年同月没有完整数据'}　${SV.sk ? '（堂食・外卖分开算）' : `（全部 ${M.open.size} 家）`}</div></div>`;
   const SS = svSameStore(y, m);
   if (SS.n && !SV.sk) h += `<div class="svcard"><div class="svct">① 同店预测<small>去年 ${m} 月也开着的 ${SS.n} 家（不算今年新开的 ${SS.all - SS.n} 家）</small></div>`
     + `<div class="svmini"><div>①预测<b>约 ${svOku(SS.fc)}</b></div><div>去年这 ${SS.n} 家<b>${svOku(SS.ly)}</b></div><div>同店增减<b>${svDl(SS.fc, SS.ly)}</b></div></div>`
@@ -1444,12 +1444,12 @@ function svTabFc(today) {
   const far = svRefDay(svStr(new Date(y, m - 1, nd))) >= today;   // 去年同月还没到（明年的月份）
   h += `<div class="svcard"><div class="svct">怎么算的<small>每家店分开算再加起来</small></div><table class="svcmpt">`
     + (F.actN ? `<tr><td>已到 ${F.actN} 天（日报实际）${F.miss ? `<br><small>含缺店估计 ${cnBig(F.miss)}</small>` : ''}</td><td></td><td>${cnBig(F.act + F.miss)}</td><td></td></tr>` : '')
-    + `<tr><td>老店 ${F.on} 家：${far ? '去年同月的预测' : '去年对应日子的营业额'}<br><small>${far ? '再 × 增减的一半' : '× 每家店自己的同店增减'}（全集团同店 ${svDl(M.G, 1)}）</small></td><td></td><td>${cnBig(F.ly)} → ${cnBig(F.o)}</td><td></td></tr>`
-    + (F.nn ? `<tr><td>新店・去年这时没有数据的店 ${F.nn} 家<br><small>最近 4 周同星期几 × 老店的季节变化</small></td><td></td><td>${cnBig(F.nw)}</td><td></td></tr>` : '')
+    + `<tr><td>${SV.sk ? '堂食' : `老店 ${F.on} 家`}：${far ? '去年同月的预测' : '去年对应日子的营业额'}<br><small>${far ? '再 × 增减的一半' : '× 每家店自己的同店增减'}（全集团同店 ${svDl(M.G, 1)}）</small></td><td></td><td>${cnBig(F.ly)} → ${cnBig(F.o)}</td><td></td></tr>`
+    + (F.nn ? `<tr><td>${SV.sk ? '外卖（Uber 等，2026/9 起稳定、去年没有可比）' : `新店・去年这时没有数据的店 ${F.nn} 家`}<br><small>${SV.sk ? '最近 4 周同星期几的水平（不跟堂食的旺季涨）' : '最近 4 周同星期几 × 老店的季节变化'}</small></td><td></td><td>${cnBig(F.nw)}</td><td></td></tr>` : '')
     + (Math.abs(F.adj) >= 1e5 ? `<tr><td>离今天近的日子<br><small>和最近 4 周的水平各一半（3 周内逐渐过渡）</small></td><td></td><td>${svWan(F.adj)}</td><td></td></tr>` : '')
     + `<tr class="on"><td>${m} 月预测</td><td></td><td>约 ${cnBig(F.t)}</td><td></td></tr></table>`
     + `<div class="svnote">去年对应日子＝同一周（1〜7/8〜14/15〜21/22 日〜）同一个星期几；祝日对祝日、祝日前一天对祝日前一天；12/24〜1/4 按日期对（忘年会・年末年始都在里面）。`
-    + `同店增减＝最近 ${FC_WIN / 7} 周每家店比去年同期，数据少的店往全集团平均靠。已经关的店不算。${Object.keys(M.usedMon).length ? `去年 ${Object.keys(M.usedMon).sort().map(k => +k.slice(5) + ' 月').join('・')} 有的店收银台数据还没补到，先用云端月报的月合计（按那家店的星期几规律分到每天），补到后自动换成收银台数据。` : ''}${SV.sk ? '三幸園只有一家店，预测和集团用同一套方法，误差会比集团大。' : svFcAcc}</div></div>`;
+    + `同店增减＝最近 ${FC_WIN / 7} 周每家店比去年同期，数据少的店往全集团平均靠。已经关的店不算。${Object.keys(M.usedMon).length ? `去年 ${Object.keys(M.usedMon).sort().map(k => +k.slice(5) + ' 月').join('・')} 有的店收银台数据还没补到，先用云端月报的月合计（按那家店的星期几规律分到每天），补到后自动换成收银台数据。` : ''}${SV.sk ? '三幸園只有一家店，预测和集团用同一套方法，误差会比集团大。外卖 2026/2 起从 3% 涨到 25% 左右，所以堂食、外卖分开算：堂食按自己比去年的增减，外卖按最近 4 周的水平（不然「去年没有 Uber」的涨幅会一直乘下去）。' : svFcAcc}</div></div>`;
   // 到明年 12 月每个月
   const ms = []; for (let k = 0; ; k++) { const t = new Date(+curMon.slice(0, 4), +curMon.slice(5, 7) - 1 + k, 1), mk = svStr(t).slice(0, 7); if (mk > maxMon) break;
     const yy = t.getFullYear(), mm = t.getMonth() + 1, f = svMonthFc(yy, mm), ss = FS ? svSameStore(yy, mm) : null, l = ss ? (ss.n ? ss.ly : 0) : svMonAct(yy - 1, mm); ms.push({ mk, yy, mm, t: ss ? (ss.n ? ss.fc : 0) : f.t, l, a: f.actN }); }
