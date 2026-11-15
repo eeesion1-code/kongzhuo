@@ -444,7 +444,7 @@ button.svdlab{color:var(--ink);font-family:inherit;line-height:1.3}
 <script>
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v41';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v42';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -798,7 +798,8 @@ let svGot = 0;
 const svOpen = () => document.getElementById('salesView').style.display === 'block';
 // 11/15 用户：三幸園（コーズ经营、另一个 ダイニー 账号）专属按钮。营业额历史每天那行的 sk＝三幸園那天（格式和集团一样），不算进集团合计
 let SVG = null, SVK = null, svCo = '';
-function svMk(d, sk) { const o = sk ? { at: d.at, sk: true, days: d.days.filter(x => x.sk).map(x => Object.assign({ d: x.d }, x.sk)) } : d; o.map = {}; o.mon = null; o.days.forEach(x => { o.map[x.d] = x; if (!sk && x.mon) o.mon = x.mon; }); return o; }
+// sko＝只有三幸園的日子（集团历史开始前，11/15），集团跳过
+function svMk(d, sk) { const o = sk ? { at: d.at, sk: true, days: d.days.filter(x => x.sk).map(x => Object.assign({ d: x.d }, x.sk)) } : Object.assign({}, d, { days: d.days.filter(x => !x.sko) }); o.raw = d.days.length; o.map = {}; o.mon = null; o.days.forEach(x => { o.map[x.d] = x; if (!sk && x.mon) o.mon = x.mon; }); return o; }
 function svUse(d) { SVG = svMk(d, false); SVK = svMk(d, true); SV = svCo === 'sk' && SVK.days.length ? SVK : SVG; svFcMemo = {}; svErr = ''; }   // mon＝云端月报（收银台还没补到的店×月，11/14）
 function svSetCo(c) { svCo = c; if (SVG) SV = c === 'sk' && SVK.days.length ? SVK : SVG; svFcMemo = {}; if (c === 'sk' && svTab === 'st') svTab = 'ov'; renderSales(); document.getElementById('salesView').scrollTop = 0; }   // mon＝云端月报（收银台还没补到的店×月，11/14）
 function svCacheGet() {
@@ -816,7 +817,7 @@ function svFetch() {
       if (d.error) throw new Error(d.error === 'owner' ? '要用老板密码' : d.error);
       if (!d.days) throw new Error('后台还没部署新版本');
       svGot = Date.now(); svCachePut(txt);
-      if (!SVG || SVG.at !== d.at || SVG.days.length !== d.days.length) { svUse(d); if (svOpen()) renderSales(); }
+      if (!SVG || SVG.at !== d.at || SVG.raw !== d.days.length) { svUse(d); if (svOpen()) renderSales(); }
     })
     .catch(e => { svBusy = false; if (!SV) { svErr = String(e.message || e); if (svOpen()) renderSales(); } });
 }
@@ -1387,7 +1388,8 @@ function svTabDay(today) {
       return `<tr class="${k === svCmpM ? 'on' : ''}"><td>${SV_CMP[k]}</td><td>${d ? svYMD(d) + svWkH(d) : '—'}</td><td>${b ? man(b.t) : '没有数据'}</td><td>${b ? svDl(x.t, b.t) : ''}</td></tr>`; }).join('') + (lh ? `<tr><td>去年同一祝日</td><td>${svYMD(lh)}${svWkH(lh)}</td><td>${lhx ? man(lhx.t) : '没有数据'}</td><td>${lhx ? svDl(x.t, lhx.t) : ''}</td></tr>` : '') + '</table>';
     const b = (d => d && SV.map[d])(svCmpDay(svDay, svCmpM));
     if (x.g) h += `<div class="svmini"><div>组数<b>${x.g}</b>${b && b.g ? svDl(x.g, b.g) : ''}</div><div>客数<b>${x.c}</b>${b && b.c ? svDl(x.c, b.c) : ''}</div><div>客单价${SV.sk ? '（堂食）' : ''}<b>${yen(x.c ? (x.t - (x.tk || 0)) / x.c : 0)}</b>${b && b.c && x.c ? svDl((x.t - (x.tk || 0)) / x.c, (b.t - (b.tk || 0)) / b.c) : ''}</div></div>`
-      + (SV.sk && x.tk ? `<div class="svnote">外卖（Uber・便当）${x.tn} 单 ${man(x.tk)}，算在营业额里；组数・客数・时段只算堂食（外卖都是晚上集中补登的）。</div>` : '')
+      + (SV.sk && x.tk ? `<div class="svnote">外卖（Uber・便当）${x.tn ? x.tn + ' 单 ' : ''}${man(x.tk)}，算在营业额里；组数・客数・时段只算堂食（外卖都是晚上集中补登的）。</div>` : '')
+      + (SV.sk && x.src ? `<div class="svnote">这天 ダイニー 后台没有明细，数字来自云端「三幸園　日報」（店里每天填的）：组数只有晚市，客数＝午市＋晚市，没有时段。</div>` : '')
       + `<div class="svnote">组数・客数・客单价的增减是比${SV_CMP[svCmpM]}。</div>`;
   } else h += '<div class="svnote">今天还在营业，数字会一直涨；对比要等明天 12 点日报。</div>';
   h += `<div class="svlinks"><button onclick="svGo('hr')">⏰ 这天的时段</button>${SV.sk ? '' : `<button onclick="svGo('st')">🏪 这天的各店</button>`}</div></div>`;
