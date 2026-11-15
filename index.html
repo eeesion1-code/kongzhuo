@@ -442,7 +442,7 @@ button.svdlab{color:var(--ink);font-family:inherit;line-height:1.3}
 <script>
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v38';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v39';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -1052,6 +1052,23 @@ function svMonthFc(y, m) {
   return svFcMemo[key] = { act, actN, miss, missN, n, rest, t: act + miss + rest, day, half, hn, o, ly, nw, on, nn, adj, G: svFModel().G };
 }
 // 某个月的实际合计（每天都有日报才算）
+// 11/15 用户：①同店预测——去年同月和今年店数不一样（新开・关掉的店），只算去年同月也开着的店，和这些店去年的合计比
+// 同店＝现在开着、去年那个月有一半以上天数有数据、而且那时已开满 30 天的店
+function svSameStore(y, m) {
+  const key = 'S' + y + '-' + m; if (svFcMemo[key]) return svFcMemo[key];
+  const M = svFModel(), today = svToday(), lyDays = svMonDays(y - 1, m), days = svMonDays(y, m);
+  const S = new Set([...M.open].filter(n => { const sd = M.S[n] || {}; return lyDays.filter(d => sd[d] != null).length >= lyDays.length / 2 && M.first[n] <= svAdd(lyDays[0], -30); }));
+  let fc = 0, ly = 0;
+  S.forEach(n => lyDays.forEach(d => ly += (M.S[n] || {})[d] || 0));
+  days.forEach(ds => {
+    const x = ds < today && (SV.map[ds] || (ds === svLiveDay() && svGet(ds)));
+    if (x) x.s.forEach(r => { if (S.has(r[1])) fc += r[2]; });
+    else { const f = svFDay(ds), k = f.t0 ? f.t / f.t0 : 1; S.forEach(n => fc += (svFStore(M, n, ds) || 0) * k); }
+  });
+  return svFcMemo[key] = { n: S.size, all: M.open.size, fc, ly };
+}
+let svFcSame = LS.get('svFcSame', '') === '1';
+function svSetFcSame(v) { svFcSame = v; LS.set('svFcSame', v ? '1' : ''); renderSales(); }
 function svMonAct(y, m) {
   const ds = svMonDays(y, m), xs = ds.map(d => SV.map[d]).filter(Boolean);
   if (xs.length === ds.length) return xs.reduce((a, x) => a + x.t, 0);
@@ -1401,7 +1418,11 @@ function svTabFc(today) {
   const lyMonSum = svMonAct(y - 1, m);
   let h = `<div class="svmon"><button class="iconbtn" onclick="svMove(-1)" ${svMon <= curMon ? 'disabled' : ''} aria-label="上个月">‹</button><b>${y} 年 ${m} 月</b><button class="iconbtn" onclick="svMove(1)" ${svMon >= maxMon ? 'disabled' : ''} aria-label="下个月">›</button></div>`;
   h += `<div class="svcard svhero"><div class="lab">${m} 月预测</div><div class="val">约 ${cnBig(F.t)}</div>`
-    + `<div class="sub">${lyMonSum ? `去年 ${m} 月实际 ${cnBig(lyMonSum)}　${svDl(F.t, lyMonSum)}` : '去年同月没有完整数据'}</div></div>`;
+    + `<div class="sub">${lyMonSum ? `去年 ${m} 月实际 ${cnBig(lyMonSum)}　${svDl(F.t, lyMonSum)}` : '去年同月没有完整数据'}　（全部 ${M.open.size} 家）</div></div>`;
+  const SS = svSameStore(y, m);
+  if (SS.n) h += `<div class="svcard"><div class="svct">① 同店预测<small>去年 ${m} 月也开着的 ${SS.n} 家（不算今年新开的 ${SS.all - SS.n} 家）</small></div>`
+    + `<div class="svmini"><div>①预测<b>约 ${svOku(SS.fc)}</b></div><div>去年这 ${SS.n} 家<b>${svOku(SS.ly)}</b></div><div>同店增减<b>${svDl(SS.fc, SS.ly)}</b></div></div>`
+    + `<div class="svnote">店数一样才好比：上面的 ${m} 月预测是现在全部 ${SS.all} 家，去年同月的店数不一样（今年新开的店、已经关的店）；①只算两年都开着的店。</div></div>`;
   h += `<div class="svmini"><div>已到（${F.actN} 天）<b>${F.actN ? svOku(F.act) : '—'}</b></div><div>剩下（${F.n} 天）<b>约 ${svOku(F.rest)}</b></div><div>上半月／下半月<b>${svOku(F.half[0])}／${svOku(F.half[1])}</b></div></div>`;
   const list = []; for (let i = 1; i <= nd; i++) { const ds = svStr(new Date(y, m - 1, i)), x = ds < today && SV.map[ds]; list.push({ d: ds, v: x ? x.t : F.day[ds] || 0, f: !x }); }
   h += `<div class="svcard"><div class="svct">每天<small>点柱子看那天</small></div>${svColsChart(list, { label: false })}<div class="svlegend"><span><i></i>实际</span><span><i class="f"></i>预测</span></div></div>`;
@@ -1416,12 +1437,12 @@ function svTabFc(today) {
     + `同店增减＝最近 ${FC_WIN / 7} 周每家店比去年同期，数据少的店往全集团平均靠。已经关的店不算。${Object.keys(M.usedMon).length ? `去年 ${Object.keys(M.usedMon).sort().map(k => +k.slice(5) + ' 月').join('・')} 有的店收银台数据还没补到，先用云端月报的月合计（按那家店的星期几规律分到每天），补到后自动换成收银台数据。` : ''}${svFcAcc}</div></div>`;
   // 到明年 12 月每个月
   const ms = []; for (let k = 0; ; k++) { const t = new Date(+curMon.slice(0, 4), +curMon.slice(5, 7) - 1 + k, 1), mk = svStr(t).slice(0, 7); if (mk > maxMon) break;
-    const yy = t.getFullYear(), mm = t.getMonth() + 1, f = svMonthFc(yy, mm), l = svMonAct(yy - 1, mm); ms.push({ mk, yy, mm, t: f.t, l, a: f.actN }); }
+    const yy = t.getFullYear(), mm = t.getMonth() + 1, f = svMonthFc(yy, mm), ss = svFcSame ? svSameStore(yy, mm) : null, l = ss ? (ss.n ? ss.ly : 0) : svMonAct(yy - 1, mm); ms.push({ mk, yy, mm, t: ss ? (ss.n ? ss.fc : 0) : f.t, l, a: f.actN }); }
   const mx = Math.max(...ms.map(o => Math.max(o.t, o.l)));
-  h += `<div class="svcard"><div class="svct">到 ${maxMon.slice(0, 4)} 年 12 月每个月<small>点一行看那个月</small></div><div class="svfcm">`
+  h += `<div class="svcard"><div class="svct">到 ${maxMon.slice(0, 4)} 年 12 月每个月<span class="svseg2"><button class="${svFcSame ? '' : 'on'}" onclick="svSetFcSame(false)">全部店</button><button class="${svFcSame ? 'on' : ''}" onclick="svSetFcSame(true)">①同店</button></span></div><div class="svfcm">`
     + ms.map((o, i) => (i && o.yy !== ms[i - 1].yy ? `<p>${o.yy} 年</p>` : '') + `<button class="${o.mk === svMon ? 'on' : ''}" onclick="svMon='${o.mk}';renderSales();document.getElementById('salesView').scrollTop=0"><span>${o.mm} 月${o.a ? '<small>含实际</small>' : ''}</span>`
-      + `<i><u style="width:${(100 * o.t / mx).toFixed(1)}%"></u>${o.l ? `<s style="left:${(100 * o.l / mx).toFixed(1)}%"></s>` : ''}</i><b>${svOku(o.t)}</b>${o.l ? svDl(o.t, o.l) : '<span class="dl">—</span>'}</button>`).join('')
-    + `</div><div class="svlegend"><span><i class="f"></i>预测</span><span><s></s>去年同月实际</span></div>`;
+      + `<i><u style="width:${(100 * o.t / mx).toFixed(1)}%"></u>${o.l ? `<s style="left:${(100 * o.l / mx).toFixed(1)}%"></s>` : ''}</i><b>${o.t ? svOku(o.t) : '—'}</b>${o.l && o.t ? svDl(o.t, o.l) : '<span class="dl">—</span>'}</button>`).join('')
+    + `</div><div class="svlegend"><span><i class="f"></i>${svFcSame ? '①同店预测' : '预测（全部店）'}</span><span><s></s>${svFcSame ? '去年这些店' : '去年同月实际'}</span></div>${svFcSame ? '<div class="svnote">①同店：每个月只算去年那个月也开着的店；去年同月还没过完的月份写「—」。</div>' : ''}`;
   // 年合计（整年每天都有实际或预测才算）
   const yr = Y => { let t = 0; for (let mm = 1; mm <= 12; mm++) { const k = Y + '-' + String(mm).padStart(2, '0'); if (k > maxMon) return 0;
     if (k >= curMon) t += svMonthFc(Y, mm).t; else { const a = svMonAct(Y, mm); if (!a) return 0; t += a; } } return t; };
