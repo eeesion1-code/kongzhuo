@@ -86,6 +86,8 @@ h1{font-size:20px;margin:0;flex:1;letter-spacing:.5px}
 /* 11/13 集团总营业额（老板） */
 .salesbtn{display:none;border:0;background:var(--brand);color:#fff;border-radius:10px;padding:0 12px;font-size:13px;font-weight:600;white-space:nowrap}
 .stat.sales{cursor:pointer}
+/* 11/15 三幸園专属页面：集团｜三幸園 切换 */
+.svco{display:flex;gap:8px;margin:0 0 10px}.svco button{flex:1;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:10px 8px;font-size:15px;font-weight:700}.svco button.on{background:var(--brand);border-color:var(--brand);color:#fff}
 #salesView{display:none;position:fixed;inset:0;z-index:30;background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch}
 .svwrap{max-width:720px;margin:0 auto;padding:12px 14px calc(30px + env(safe-area-inset-bottom))}
 .svtop{display:flex;align-items:center;gap:8px;position:sticky;top:0;background:var(--bg);padding:6px 0 8px;z-index:2}
@@ -426,7 +428,7 @@ button.svdlab{color:var(--ink);font-family:inherit;line-height:1.3}
   <p id="kerr" class="r"></p>
 </div>
 <div id="salesView"><div class="svwrap">
-  <div class="svtop"><button class="iconbtn" onclick="closeSales()" aria-label="返回">‹</button><h2>💴 集团总营业额</h2></div>
+  <div class="svtop"><button class="iconbtn" onclick="closeSales()" aria-label="返回">‹</button><h2 id="svTitle">💴 集团总营业额</h2></div>
   <div id="svBody"></div>
 </div></div>
 <div id="rlView" onclick="if(event.target===this)closeRelogin()"><div class="rlbox">
@@ -442,7 +444,7 @@ button.svdlab{color:var(--ink);font-family:inherit;line-height:1.3}
 <script>
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v40';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v41';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -467,7 +469,7 @@ const COLOR = { free: 'var(--free)', held: 'var(--held)', remind: 'var(--remind)
 function saveKey() {
   const v = document.getElementById('kin').value.trim(); if (!v) return;
   K = v; LS.set('k', K); document.getElementById('kerr').textContent = '';
-  SV = null; svErr = ''; svGot = 0; svCacheDel(); PW = null; pwGot = 0; LS.del('pw');  // 换了密码：老板 / 店长看到的不一样，重新读（手机里存的营业额也删掉）
+  SV = SVG = SVK = null; svErr = ''; svGot = 0; svCacheDel(); PW = null; pwGot = 0; LS.del('pw');  // 换了密码：老板 / 店长看到的不一样，重新读（手机里存的营业额也删掉）
   load(true);
 }
 // 11/13 换密码（老板 / 店长）：iPhone 加到主屏幕的 APP 记着旧密码，只能在这里换
@@ -794,7 +796,11 @@ function svToday() { const t = pwNow(); if (t.getHours() < 5) t.setDate(t.getDat
 const SV_CK = 'kz-data', SV_KEY = './_sales.json';
 let svGot = 0;
 const svOpen = () => document.getElementById('salesView').style.display === 'block';
-function svUse(d) { SV = d; SV.map = {}; SV.mon = null; d.days.forEach(x => { SV.map[x.d] = x; if (x.mon) SV.mon = x.mon; }); svFcMemo = {}; svErr = ''; }   // mon＝云端月报（收银台还没补到的店×月，11/14）
+// 11/15 用户：三幸園（コーズ经营、另一个 ダイニー 账号）专属按钮。营业额历史每天那行的 sk＝三幸園那天（格式和集团一样），不算进集团合计
+let SVG = null, SVK = null, svCo = '';
+function svMk(d, sk) { const o = sk ? { at: d.at, sk: true, days: d.days.filter(x => x.sk).map(x => Object.assign({ d: x.d }, x.sk)) } : d; o.map = {}; o.mon = null; o.days.forEach(x => { o.map[x.d] = x; if (!sk && x.mon) o.mon = x.mon; }); return o; }
+function svUse(d) { SVG = svMk(d, false); SVK = svMk(d, true); SV = svCo === 'sk' && SVK.days.length ? SVK : SVG; svFcMemo = {}; svErr = ''; }   // mon＝云端月报（收银台还没补到的店×月，11/14）
+function svSetCo(c) { svCo = c; if (SVG) SV = c === 'sk' && SVK.days.length ? SVK : SVG; svFcMemo = {}; if (c === 'sk' && svTab === 'st') svTab = 'ov'; renderSales(); document.getElementById('salesView').scrollTop = 0; }   // mon＝云端月报（收银台还没补到的店×月，11/14）
 function svCacheGet() {
   if (!window.caches) return Promise.resolve(null);
   return caches.open(SV_CK).then(c => c.match(SV_KEY)).then(r => r ? r.json().then(d => ({ d, got: +(r.headers.get('x-got') || 0) })) : null).catch(() => null);
@@ -810,7 +816,7 @@ function svFetch() {
       if (d.error) throw new Error(d.error === 'owner' ? '要用老板密码' : d.error);
       if (!d.days) throw new Error('后台还没部署新版本');
       svGot = Date.now(); svCachePut(txt);
-      if (!SV || SV.at !== d.at || SV.days.length !== d.days.length) { svUse(d); if (svOpen()) renderSales(); }
+      if (!SVG || SVG.at !== d.at || SVG.days.length !== d.days.length) { svUse(d); if (svOpen()) renderSales(); }
     })
     .catch(e => { svBusy = false; if (!SV) { svErr = String(e.message || e); if (svOpen()) renderSales(); } });
 }
@@ -829,6 +835,7 @@ function openSales(ds) {
   document.body.style.overflow = 'hidden';
   if (ds) svDay = ds;
   if (!svDay) svDay = svToday();
+  if (svCo) { svCo = ''; if (SVG) SV = SVG; svFcMemo = {}; }
   svMon = svDay.slice(0, 7);
   renderSales();
   svPrefetch();
@@ -839,7 +846,7 @@ function closeSales() { document.getElementById('salesView').style.display = 'no
 // 实时数据属于它最后一次读数的营业日（6 点前算前一天：5:20 是通宵店收尾）；那天日报还没出来时就用它（fin＝那天已经结束）
 function svLiveDay() { const t = parseT(D && D.stamp); if (!t) return svToday(); if (t.getHours() < 6) t.setDate(t.getDate() - 1); return svStr(t); }
 function svGet(ds) {
-  if (D && D.sales && ds === svLiveDay() && !(SV && SV.map[ds])) {
+  if (D && D.sales && !(SV && SV.sk) && ds === svLiveDay() && !(SV && SV.map[ds])) {
     const st = D.stores.filter(s => yenNum(s.sales) > 0).map(s => [s.area, s.name, yenNum(s.sales), null, null]).sort((a, b) => b[2] - a[2]);
     return { d: ds, t: yenNum(D.sales), n: st.length, s: st, live: true, fin: ds !== svToday() };
   }
@@ -933,7 +940,7 @@ const SV_CMP_RULE = { lw: '7 天前，同一个星期几', lm: '上个月同一�
 function svLyHoli(ds) { const n = svHN(ds); if (!n || n === '振替休日' || n === '国民の休日') return null; const y = +ds.slice(0, 4) - 1; return Object.keys(SV_HOLI_NAME).find(d => d.startsWith(y + '-') && SV_HOLI_NAME[d] === n) || null; }
 // 缺店：11 月起收银台 32 个（31 家店），少于这个数＝那天日报缺数据（实时的不算）
 // 收银台数据的店数（est＝收银后台没有、用实时程序读数补进合计的店，不算）
-function svShort(x) { const n = x.n - (x.est ? x.est.length : 0) + (x.rest ? x.rest.length : 0);   // rest＝确认休息的店，不算缺
+function svShort(x) { if (SV && SV.sk) return 0; const n = x.n - (x.est ? x.est.length : 0) + (x.rest ? x.rest.length : 0);   // rest＝确认休息的店，不算缺
   return !x.live && x.d >= '2026-11-01' && n < 32 ? 32 - n : 0; }
 // 缺店估计：最近一个同星期几（店数齐的那天）有、这天没有的店，按那天的营业额算少了多少
 function svMissEst(x) {
@@ -1281,10 +1288,14 @@ function renderSales() {
   if (!SV) { el.innerHTML = `<div id="msg">${svErr ? '读不到营业额历史（' + esc(svErr) + '）。关掉再点一次试试' : '读取中…'}</div>`; return; }
   svFcMemo = {};
   const today = svToday();
-  let h = '<div class="svtabs">' + SV_TABS.map(([k, n]) => `<button class="${svTab === k ? 'on' : ''}" onclick="svGo('${k}')">${n}</button>`).join('') + '</div>';
+  if (SV.sk && svTab === 'st') svTab = 'ov';
+  document.getElementById('svTitle').textContent = SV.sk ? '🥩 三幸園 营业额' : '💴 集团总营业额';
+  let h = (SVK && SVK.days.length ? `<div class="svco"><button class="${SV.sk ? '' : 'on'}" onclick="svSetCo('')">💴 集团</button><button class="${SV.sk ? 'on' : ''}" onclick="svSetCo('sk')">🥩 三幸園</button></div>` : '')
+    + '<div class="svtabs">' + SV_TABS.filter(([k]) => !(SV.sk && k === 'st')).map(([k, n]) => `<button class="${svTab === k ? 'on' : ''}" onclick="svGo('${k}')">${n}</button>`).join('') + '</div>';
   if (svTab !== 'fc') h += svCmpBar();
   h += ({ ov: svTabOv, day: svTabDay, hr: svTabHr, st: svTabSt, fc: svTabFc }[svTab] || svTabOv)(today);
-  h += `<div class="foot">每天的数字来自 12 点日报（收银台下载，含税）；今天是实时程序读的，晚上会变。最后更新：${esc(SV.at || '')}</div>`;
+  h += SV.sk ? `<div class="foot">三幸園（麻布十番，コーズ经营）：每天的数字来自三幸園 ダイニー 后台（含税，取消的单不算），不算进集团合计；没有实时数据。营业额含外卖（Uber・便当）；外卖单都是晚上集中补登的，所以组数・客数・客单价・时段只算堂食。最后更新：${esc(SV.at || '')}</div>`
+    : `<div class="foot">每天的数字来自 12 点日报（收银台下载，含税）；今天是实时程序读的，晚上会变。最后更新：${esc(SV.at || '')}</div>`;
   el.innerHTML = h;
 }
 
@@ -1304,13 +1315,13 @@ function svTabOv(today) {
   const bL = (d => d && SV.map[d])(svCmpDay(L.d, svCmpM)), bF = fin && (d => d && SV.map[d])(svCmpDay(fin.d, svCmpM));
   let h = `<div class="svcard svhero"><div class="lab">${m} 月累计（${mdays.length ? `1〜${last} 日，${mdays.length} 天${fin && fin.d.startsWith(mp) ? `，${+fin.d.slice(8)} 日是实时数` : ''}` : '还没有日报'}）</div>`
     + `<div class="val">${yen(msum)}</div>`
-    + `<div class="sub">日均 ${man(mdays.length ? msum / mdays.length : 0)}${LY.n ? `　去年同期 ${man(LY.b)} ${svDl(LY.a, LY.b)}` : ''}</div></div>`;
+    + `<div class="sub">日均 ${man(mdays.length ? msum / mdays.length : 0)}${LY.n ? `　去年同期 ${man(LY.b)} ${svDl(LY.a, LY.b)}` : ''}</div>${SV.sk ? (tk => tk ? `<div class="sub">其中外卖（Uber・便当）${man(tk)}，占 ${Math.round(100 * tk / msum)}%</div>` : '')(mdays.reduce((a, x) => a + (x.tk || 0), 0)) : ''}</div>`;
   h += '<div class="svtiles">'
     + (fin ? `<button class="svtile" onclick="svGo('day','${fin.d}')"><small>${svMD(fin.d)}（${svWk(fin.d)}）实时最终</small><b>${man(fin.t)}</b><em>${bF ? `比${SV_CMP[svCmpM]}（${svCmpTag(fin.d)}）${man(bF.t)} ${svDl(fin.t, bF.t)}` : '12 点日报后为准'}</em></button>`
-      : `<button class="svtile" onclick="svGo('day','${today}')"><small>今天（实时）</small><b>${live ? man(live.t) : '—'}</b><em>${live ? '营业中，以明天日报为准' : '还没开始读（下午开始）'}</em></button>`)
+      : `<button class="svtile" onclick="svGo('day','${today}')"><small>今天（实时）</small><b>${live ? man(live.t) : '—'}</b><em>${live ? '营业中，以明天日报为准' : SV.sk ? '三幸園没有实时数据，看日报' : '还没开始读（下午开始）'}</em></button>`)
     + `<button class="svtile" onclick="svGo('day','${L.d}')"><small>${svMD(L.d)}（${svWk(L.d)}）日报</small><b>${man(L.t)}</b><em>${bL ? `比${SV_CMP[svCmpM]}（${svCmpTag(L.d)}）${man(bL.t)} ${svDl(L.t, bL.t)}` : `${SV_CMP[svCmpM]}没有数据`}</em></button>`
     + `<button class="svtile" onclick="svGo('fc')"><small>${m} 月预测</small><b>约 ${cnBig(F.t).replace(/ /g, '')}</b><em>${lyMonSum ? `比去年 ${m} 月 ${svDl(F.t, lyMonSum)}` : '点开看怎么算'}</em></button>`
-    + `<button class="svtile" onclick="svGo('day','${L.d}')"><small>客单价（${svMD(L.d)}）</small><b>${L.c ? yen(L.t / L.c) : '—'}</b><em>${L.c ? `${L.g} 组 ${L.c} 人${bL && bL.c ? `　${svDl(L.t / L.c, bL.t / bL.c)}` : ''}` : ''}</em></button>`
+    + `<button class="svtile" onclick="svGo('day','${L.d}')"><small>客单价（${svMD(L.d)}${SV.sk ? '，堂食' : ''}）</small><b>${L.c ? yen((L.t - (L.tk || 0)) / L.c) : '—'}</b><em>${L.c ? `${L.g} 组 ${L.c} 人${bL && bL.c ? `　${svDl((L.t - (L.tk || 0)) / L.c, (bL.t - (bL.tk || 0)) / bL.c)}` : ''}` : ''}</em></button>`
     + '</div>';
   const miss = svMissHtml(L); if (miss) h += miss;
   // 最近 14 天
@@ -1328,7 +1339,7 @@ function svTabOv(today) {
       + svBands(H.ho, cmp, H.h0) + '</div>';
   }
   // 涨跌最多的店
-  if (bL) {
+  if (bL && !SV.sk) {
     const bm = {}; bL.s.forEach(q => bm[q[1]] = q[2]);
     const mv = L.s.filter(r => bm[r[1]]).map(r => [r[0], r[1], r[2], r[2] - bm[r[1]], bm[r[1]]]);
     const up = mv.filter(r => r[3] > 0).sort((a, b) => b[3] - a[3]).slice(0, 3), dn = mv.filter(r => r[3] < 0).sort((a, b) => a[3] - b[3]).slice(0, 3);
@@ -1375,10 +1386,11 @@ function svTabDay(today) {
     h += '<table class="svcmpt"><tr><th>对比</th><th>日期</th><th>营业额</th><th>增减</th></tr>' + ['lw', 'lm', 'ly'].map(k => { const d = svCmpDay(svDay, k), b = d && SV.map[d];
       return `<tr class="${k === svCmpM ? 'on' : ''}"><td>${SV_CMP[k]}</td><td>${d ? svYMD(d) + svWkH(d) : '—'}</td><td>${b ? man(b.t) : '没有数据'}</td><td>${b ? svDl(x.t, b.t) : ''}</td></tr>`; }).join('') + (lh ? `<tr><td>去年同一祝日</td><td>${svYMD(lh)}${svWkH(lh)}</td><td>${lhx ? man(lhx.t) : '没有数据'}</td><td>${lhx ? svDl(x.t, lhx.t) : ''}</td></tr>` : '') + '</table>';
     const b = (d => d && SV.map[d])(svCmpDay(svDay, svCmpM));
-    if (x.g) h += `<div class="svmini"><div>组数<b>${x.g}</b>${b && b.g ? svDl(x.g, b.g) : ''}</div><div>客数<b>${x.c}</b>${b && b.c ? svDl(x.c, b.c) : ''}</div><div>客单价<b>${yen(x.c ? x.t / x.c : 0)}</b>${b && b.c && x.c ? svDl(x.t / x.c, b.t / b.c) : ''}</div></div>`
+    if (x.g) h += `<div class="svmini"><div>组数<b>${x.g}</b>${b && b.g ? svDl(x.g, b.g) : ''}</div><div>客数<b>${x.c}</b>${b && b.c ? svDl(x.c, b.c) : ''}</div><div>客单价${SV.sk ? '（堂食）' : ''}<b>${yen(x.c ? (x.t - (x.tk || 0)) / x.c : 0)}</b>${b && b.c && x.c ? svDl((x.t - (x.tk || 0)) / x.c, (b.t - (b.tk || 0)) / b.c) : ''}</div></div>`
+      + (SV.sk && x.tk ? `<div class="svnote">外卖（Uber・便当）${x.tn} 单 ${man(x.tk)}，算在营业额里；组数・客数・时段只算堂食（外卖都是晚上集中补登的）。</div>` : '')
       + `<div class="svnote">组数・客数・客单价的增减是比${SV_CMP[svCmpM]}。</div>`;
   } else h += '<div class="svnote">今天还在营业，数字会一直涨；对比要等明天 12 点日报。</div>';
-  h += `<div class="svlinks"><button onclick="svGo('hr')">⏰ 这天的时段</button><button onclick="svGo('st')">🏪 这天的各店</button></div></div>`;
+  h += `<div class="svlinks"><button onclick="svGo('hr')">⏰ 这天的时段</button>${SV.sk ? '' : `<button onclick="svGo('st')">🏪 这天的各店</button>`}</div></div>`;
   return h;
 }
 
@@ -1412,6 +1424,7 @@ const svMaxFcMon = today => (+today.slice(0, 4) + 1) + '-12';
 // 11/14 回测（2026 年 10〜11 月，提前 0〜3 周预测的合计）：误差 +1%〜+9%，平均约 6%（偏多）。去年 12 月〜今年 3 月以前没有前年数据，12 月没法回测。
 const svFcAcc = '回测（今年 10〜11 月）：误差约 +1〜+9%，平均 6%，偏多。12 月要等今年 12 月过完才能验证。';
 function svTabFc(today) {
+  const FS = svFcSame && !SV.sk;   // 三幸園只有一家：没有①同店
   const curMon = today.slice(0, 7), maxMon = svMaxFcMon(today);
   if (svMon < curMon || svMon > maxMon) svMon = curMon;
   const [y, m] = svMon.split('-').map(Number), nd = new Date(y, m, 0).getDate(), F = svMonthFc(y, m), M = svFModel();
@@ -1420,7 +1433,7 @@ function svTabFc(today) {
   h += `<div class="svcard svhero"><div class="lab">${m} 月预测</div><div class="val">约 ${cnBig(F.t)}</div>`
     + `<div class="sub">${lyMonSum ? `去年 ${m} 月实际 ${cnBig(lyMonSum)}　${svDl(F.t, lyMonSum)}` : '去年同月没有完整数据'}　（全部 ${M.open.size} 家）</div></div>`;
   const SS = svSameStore(y, m);
-  if (SS.n) h += `<div class="svcard"><div class="svct">① 同店预测<small>去年 ${m} 月也开着的 ${SS.n} 家（不算今年新开的 ${SS.all - SS.n} 家）</small></div>`
+  if (SS.n && !SV.sk) h += `<div class="svcard"><div class="svct">① 同店预测<small>去年 ${m} 月也开着的 ${SS.n} 家（不算今年新开的 ${SS.all - SS.n} 家）</small></div>`
     + `<div class="svmini"><div>①预测<b>约 ${svOku(SS.fc)}</b></div><div>去年这 ${SS.n} 家<b>${svOku(SS.ly)}</b></div><div>同店增减<b>${svDl(SS.fc, SS.ly)}</b></div></div>`
     + `<div class="svnote">店数一样才好比：上面的 ${m} 月预测是现在全部 ${SS.all} 家，去年同月的店数不一样（今年新开的店、已经关的店）；①只算两年都开着的店。</div></div>`;
   h += `<div class="svmini"><div>已到（${F.actN} 天）<b>${F.actN ? svOku(F.act) : '—'}</b></div><div>剩下（${F.n} 天）<b>约 ${svOku(F.rest)}</b></div><div>上半月／下半月<b>${svOku(F.half[0])}／${svOku(F.half[1])}</b></div></div>`;
@@ -1434,15 +1447,15 @@ function svTabFc(today) {
     + (Math.abs(F.adj) >= 1e5 ? `<tr><td>离今天近的日子<br><small>和最近 4 周的水平各一半（3 周内逐渐过渡）</small></td><td></td><td>${svWan(F.adj)}</td><td></td></tr>` : '')
     + `<tr class="on"><td>${m} 月预测</td><td></td><td>约 ${cnBig(F.t)}</td><td></td></tr></table>`
     + `<div class="svnote">去年对应日子＝同一周（1〜7/8〜14/15〜21/22 日〜）同一个星期几；祝日对祝日、祝日前一天对祝日前一天；12/24〜1/4 按日期对（忘年会・年末年始都在里面）。`
-    + `同店增减＝最近 ${FC_WIN / 7} 周每家店比去年同期，数据少的店往全集团平均靠。已经关的店不算。${Object.keys(M.usedMon).length ? `去年 ${Object.keys(M.usedMon).sort().map(k => +k.slice(5) + ' 月').join('・')} 有的店收银台数据还没补到，先用云端月报的月合计（按那家店的星期几规律分到每天），补到后自动换成收银台数据。` : ''}${svFcAcc}</div></div>`;
+    + `同店增减＝最近 ${FC_WIN / 7} 周每家店比去年同期，数据少的店往全集团平均靠。已经关的店不算。${Object.keys(M.usedMon).length ? `去年 ${Object.keys(M.usedMon).sort().map(k => +k.slice(5) + ' 月').join('・')} 有的店收银台数据还没补到，先用云端月报的月合计（按那家店的星期几规律分到每天），补到后自动换成收银台数据。` : ''}${SV.sk ? '三幸園只有一家店，预测和集团用同一套方法，误差会比集团大。' : svFcAcc}</div></div>`;
   // 到明年 12 月每个月
   const ms = []; for (let k = 0; ; k++) { const t = new Date(+curMon.slice(0, 4), +curMon.slice(5, 7) - 1 + k, 1), mk = svStr(t).slice(0, 7); if (mk > maxMon) break;
-    const yy = t.getFullYear(), mm = t.getMonth() + 1, f = svMonthFc(yy, mm), ss = svFcSame ? svSameStore(yy, mm) : null, l = ss ? (ss.n ? ss.ly : 0) : svMonAct(yy - 1, mm); ms.push({ mk, yy, mm, t: ss ? (ss.n ? ss.fc : 0) : f.t, l, a: f.actN }); }
+    const yy = t.getFullYear(), mm = t.getMonth() + 1, f = svMonthFc(yy, mm), ss = FS ? svSameStore(yy, mm) : null, l = ss ? (ss.n ? ss.ly : 0) : svMonAct(yy - 1, mm); ms.push({ mk, yy, mm, t: ss ? (ss.n ? ss.fc : 0) : f.t, l, a: f.actN }); }
   const mx = Math.max(...ms.map(o => Math.max(o.t, o.l)));
-  h += `<div class="svcard"><div class="svct">到 ${maxMon.slice(0, 4)} 年 12 月每个月<span class="svseg2"><button class="${svFcSame ? '' : 'on'}" onclick="svSetFcSame(false)">全部店</button><button class="${svFcSame ? 'on' : ''}" onclick="svSetFcSame(true)">①同店</button></span></div><div class="svfcm">`
+  h += `<div class="svcard"><div class="svct">到 ${maxMon.slice(0, 4)} 年 12 月每个月${SV.sk ? '' : `<span class="svseg2"><button class="${FS ? '' : 'on'}" onclick="svSetFcSame(false)">全部店</button><button class="${FS ? 'on' : ''}" onclick="svSetFcSame(true)">①同店</button></span>`}</div><div class="svfcm">`
     + ms.map((o, i) => (i && o.yy !== ms[i - 1].yy ? `<p>${o.yy} 年</p>` : '') + `<button class="${o.mk === svMon ? 'on' : ''}" onclick="svMon='${o.mk}';renderSales();document.getElementById('salesView').scrollTop=0"><span>${o.mm} 月${o.a ? '<small>含实际</small>' : ''}</span>`
       + `<i><u style="width:${(100 * o.t / mx).toFixed(1)}%"></u>${o.l ? `<s style="left:${(100 * o.l / mx).toFixed(1)}%"></s>` : ''}</i><b>${o.t ? svOku(o.t) : '—'}</b>${o.l && o.t ? svDl(o.t, o.l) : '<span class="dl">—</span>'}</button>`).join('')
-    + `</div><div class="svlegend"><span><i class="f"></i>${svFcSame ? '①同店预测' : '预测（全部店）'}</span><span><s></s>${svFcSame ? '去年这些店' : '去年同月实际'}</span></div>${svFcSame ? '<div class="svnote">①同店：每个月只算去年那个月也开着的店；去年同月还没过完的月份写「—」。</div>' : ''}`;
+    + `</div><div class="svlegend"><span><i class="f"></i>${FS ? '①同店预测' : '预测（全部店）'}</span><span><s></s>${FS ? '去年这些店' : '去年同月实际'}</span></div>${FS ? '<div class="svnote">①同店：每个月只算去年那个月也开着的店；去年同月还没过完的月份写「—」。</div>' : ''}`;
   // 年合计（整年每天都有实际或预测才算）
   const yr = Y => { let t = 0; for (let mm = 1; mm <= 12; mm++) { const k = Y + '-' + String(mm).padStart(2, '0'); if (k > maxMon) return 0;
     if (k >= curMon) t += svMonthFc(Y, mm).t; else { const a = svMonAct(Y, mm); if (!a) return 0; t += a; } } return t; };
