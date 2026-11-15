@@ -442,7 +442,7 @@ button.svdlab{color:var(--ink);font-family:inherit;line-height:1.3}
 <script>
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v39';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v40';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -1470,10 +1470,10 @@ function openRelogin() {
   rlApi().then(st => {
     if (st.error) throw new Error(st.error === 'owner' ? '要用老板密码' : st.error);
     if (!('req' in st)) throw new Error('后台还没部署新版本');
-    rlShow(rlStatus(st) + '<p class="rlnote">电脑会用自己保存的账号密码，重新登录レストランボード、Airレジ 和预约副账号（有楽町・川崎）。<b>密码改过的话，要先在电脑上双击「保存登录密码.bat」存新密码</b>，不然多点几次会把账号锁住。3 分钟内重复点只算一次。</p>'
+    rlShow(rlStatus(st) + '<p class="rlnote">电脑会用自己保存的账号密码，重新登录レストランボード、Airレジ、预约副账号（有楽町・川崎）和 三幸園 ダイニー。<b>密码改过的话，要先在电脑上双击「保存登录密码.bat」存新密码</b>，不然多点几次会把账号锁住。3 分钟内重复点只算一次。</p>'
       + '<button class="rlgo" onclick="rlGo()">🖥️ 让电脑现在重新登录</button>'
       + '<div class="rlpw"><b>🔐 密码改了？在这里输新密码</b>'
-      + '<select id="rlSite" onchange="rlPick()"><option value="">— ① 先选要改哪个账号 —</option><option value="レストランボード">レストランボード 主账号（全部店的预约）</option><option value="RB川崎">预约副账号 川崎（稲ノ和 川崎店）</option><option value="RB有楽町">预约副账号 有楽町（稲ノ和 有楽町店）</option><option value="Airレジ">Airレジ（町田 2 家的收银）</option></select>'
+      + '<select id="rlSite" onchange="rlPick()"><option value="">— ① 先选要改哪个账号 —</option><option value="レストランボード">レストランボード 主账号（全部店的预约）</option><option value="RB川崎">预约副账号 川崎（稲ノ和 川崎店）</option><option value="RB有楽町">预约副账号 有楽町（稲ノ和 有楽町店）</option><option value="Airレジ">Airレジ（町田 2 家的收银）</option><option value="ダイニー三幸園">ダイニー 三幸園（麻布十番，另一个账号）</option></select>'
       + '<input id="rlUser" name="rl_x1" placeholder="② AirID（先在 ① 选账号）" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">'
       + '<input id="rlPw" name="rl_x2" type="text" placeholder="③ 新密码（自己输，别点手机跳出来的自动填充）" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" style="-webkit-text-security:disc">'
       + '<div id="rlErr" class="rlerr"></div>'
@@ -1486,17 +1486,18 @@ function openRelogin() {
 // 11/14：手机的「自动填充密码」把上次记住的有楽町账号密码填进了 ②③，主账号・川崎都存成了有楽町的 →
 //   副账号的 AirID 固定帮填好、对不上不让发；密码框不用 type=password（手机就不会自动填、不会记住）；发之前再确认一次
 const RL_SUBID = { 'RB有楽町': 'hcl-yurakucho', 'RB川崎': 'hcl-kawasaki' };
-const rlName = s => ({ 'レストランボード': 'レストランボード 主账号', 'RB有楽町': '预约副账号 有楽町', 'RB川崎': '预约副账号 川崎', 'Airレジ': 'Airレジ' })[s] || s;
+const rlName = s => ({ 'レストランボード': 'レストランボード 主账号', 'RB有楽町': '预约副账号 有楽町', 'RB川崎': '预约副账号 川崎', 'Airレジ': 'Airレジ', 'ダイニー三幸園': 'ダイニー 三幸園' })[s] || s;   // 11/15 加三幸園
 function rlPick() {
   const sel = document.getElementById('rlSite'), b = document.getElementById('rlPwBtn'), u = document.getElementById('rlUser');
   b.textContent = sel.value ? '🔐 加密发给电脑：' + rlName(sel.value) : '🔐 加密发给电脑并登录';
   u.value = RL_SUBID[sel.value] || '';
-  u.placeholder = sel.value === 'レストランボード' ? '② 主账号的 AirID（这次必填）' : sel.value === 'Airレジ' ? '② Airレジ 的 AirID（没改就不用填）' : '② AirID';
+  u.placeholder = sel.value === 'ダイニー三幸園' ? '② 三幸園 ダイニー 的登录账号（这次必填）' : sel.value === 'レストランボード' ? '② 主账号的 AirID（这次必填）' : sel.value === 'Airレジ' ? '② Airレジ 的 AirID（没改就不用填）' : '② AirID';
   document.getElementById('rlPw').value = ''; document.getElementById('rlErr').textContent = '';
 }
 function rlCheck(site, u) {   // 和电脑 remote_login.id_mismatch 一样的检查
   const ul = u.toLowerCase(), kw = { 'RB有楽町': 'yurakucho', 'RB川崎': 'kawasaki' }[site];
   if (kw && !ul.includes(kw)) return `② AirID 不对：${rlName(site)} 的 AirID 是 ${RL_SUBID[site]}`;
+  if (site === 'ダイニー三幸園' && !u) return '② 三幸園的登录账号这次要填（电脑里还没存过）';
   if (site === 'レストランボード') {
     if (!u) return '② 主账号的 AirID 这次要填（电脑里主账号的 AirID 被存成了有楽町的）';
     if (/yurakucho|kawasaki/.test(ul)) return '② 这是副账号的 AirID，主账号要填主账号自己的 AirID';
@@ -1512,7 +1513,7 @@ async function rlSendPw() {
   const bad = rlCheck(site, u);
   if (bad) { err(bad); return; }
   if (!pwEl.value) { err('请输入新密码'); return; }
-  if (!confirm(`发给电脑：${rlName(site)}\nAirID：${u || '（不改，用电脑里存的）'}\n新密码：${pwEl.value.length} 位\n\n账号、AirID、密码位数都对吗？`)) return;
+  if (!confirm(`发给电脑：${rlName(site)}\n账号：${u || '（不改，用电脑里存的）'}\n新密码：${pwEl.value.length} 位\n\n账号、AirID、密码位数都对吗？`)) return;
   const pwv = pwEl.value; pwEl.value = ''; rlSending = true; document.getElementById('rlPwBtn').disabled = true;
   try {
     if (!(window.crypto && crypto.subtle)) throw new Error('这个浏览器不能加密，换 Safari 或 Chrome 打开');
