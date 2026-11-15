@@ -444,7 +444,7 @@ button.svdlab{color:var(--ink);font-family:inherit;line-height:1.3}
 <script>
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v43';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v44';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -953,6 +953,39 @@ function svMissEst(x) {
   const ms = ref ? ref.s.filter(r => !x.s.some(q => q[1] === r[1]) && (!after.size || after.has(r[1]))) : [];
   return ms.length ? { ref, ms, sum: ms.reduce((a, r) => a + r[2], 0) } : null;
 }
+// 11/15 用户：三幸園外卖的同比・环比。days 每天和它的对比日（svCmpDay 同一套规则：同一周同星期几）比，两边都有数据的日子才算
+function svTkCmp(days, mode) {
+  const r = { a: 0, b: 0, da: 0, db: 0, n: 0 };
+  days.forEach(x => { const d = svCmpDay(x.d, mode), y = d && SV.map[d]; if (!y) return; r.n++; r.a += x.tk || 0; r.b += y.tk || 0; r.da += x.t - (x.tk || 0); r.db += y.t - (y.tk || 0); });
+  return r;
+}
+const svPctT = (a, b) => b ? svDl(a, b) : (a ? '<span class="dl up">新</span>' : '—');
+function svTkCard(mdays, lab) {
+  if (!mdays.length) return '';
+  const tk = mdays.reduce((s, x) => s + (x.tk || 0), 0), all = mdays.reduce((s, x) => s + x.t, 0), di = all - tk;
+  const M = svTkCmp(mdays, 'lm'), Y = svTkCmp(mdays, 'ly');
+  const sh = (a, b) => b ? Math.round(100 * a / b) + '%' : '—';
+  return `<div class="svcard"><div class="svct">堂食・外卖<small>${lab}；同比＝去年同一周同星期几，环比＝上个月同一周同星期几</small></div>`
+    + '<table class="svcmpt"><tr><th></th><th>本期</th><th>环比</th><th>同比</th></tr>'
+    + `<tr><td>堂食</td><td>${man(di)}</td><td>${M.n ? svPctT(M.da, M.db) : '—'}</td><td>${Y.n ? svPctT(Y.da, Y.db) : '—'}</td></tr>`
+    + `<tr class="on"><td>外卖<br><small>Uber・便当</small></td><td>${man(tk)}</td><td>${M.n ? svPctT(M.a, M.b) : '—'}</td><td>${Y.n ? svPctT(Y.a, Y.b) : '—'}</td></tr>`
+    + `<tr><td>外卖占比</td><td>${sh(tk, all)}</td><td><small>上月 ${M.n ? sh(M.b, M.b + M.db) : '—'}</small></td><td><small>去年 ${Y.n ? sh(Y.b, Y.b + Y.db) : '—'}</small></td></tr></table>`
+    + (M.n < mdays.length || Y.n < mdays.length ? `<div class="svnote">环比 ${M.n} 天、同比 ${Y.n} 天有对比数据（没有的日子不算）。</div>` : '') + '</div>';
+}
+// 外卖每月：完整的月份比上个月整月（环比）、去年同月整月（同比）；这个月按天对齐比
+function svTkMonths(today) {
+  const cur = today.slice(0, 7), mon = {};
+  SV.days.forEach(x => { if (x.d >= today) return; const k = x.d.slice(0, 7); const o = mon[k] || (mon[k] = { t: 0, tk: 0, n: 0, days: [] }); o.t += x.t; o.tk += x.tk || 0; o.n++; o.days.push(x); });
+  const ks = Object.keys(mon).sort().slice(-13).reverse(); if (!ks.length) return '';
+  const prev = k => { const [y, m] = k.split('-').map(Number), t = new Date(y, m - 2, 1); return svStr(t).slice(0, 7); }, lyk = k => (+k.slice(0, 4) - 1) + k.slice(4);
+  const rows = ks.map(k => { const o = mon[k];
+    let hb, yb;
+    if (k === cur) { const M = svTkCmp(o.days, 'lm'), Y = svTkCmp(o.days, 'ly'); hb = M.n ? svPctT(M.a, M.b) : '—'; yb = Y.n ? svPctT(Y.a, Y.b) : '—'; }
+    else { const p = mon[prev(k)], q = mon[lyk(k)]; hb = p ? svPctT(o.tk, p.tk) : '—'; yb = q ? svPctT(o.tk, q.tk) : '—'; }
+    return `<tr><td>${+k.slice(5)} 月${k === cur ? '<small>（1〜' + o.days[o.days.length - 1].d.slice(8).replace(/^0/, '') + ' 日）</small>' : k.slice(0, 4) !== today.slice(0, 4) ? '<small>' + k.slice(2, 4) + '年</small>' : ''}</td><td>${man(o.tk)}<small> ${o.t ? Math.round(100 * o.tk / o.t) : 0}%</small></td><td>${hb}</td><td>${yb}</td></tr>`; }).join('');
+  return `<div class="svcard"><div class="svct">外卖每月<small>金额 · 占营业额；环比＝比上个月，同比＝比去年同月</small></div><table class="svcmpt"><tr><th>月</th><th>外卖</th><th>环比</th><th>同比</th></tr>${rows}</table>`
+    + '<div class="svnote">外卖＝ダイニー「媒体」是 Uber・弁当 的单（2025/9 以前 ダイニー 没有的日子用云端日报的 UBER・弁当 栏）。这个月按天对齐比（同一周同星期几）。</div></div>';
+}
 function svType(ds) { return SV_HOLI.has(ds) ? 'H' : SV_HOLI.has(svAdd(ds, 1)) ? 'P' : 'w' + svDate(ds).getDay(); }
 const SV_TYPE = { H: '祝日', P: '祝日前一天' };
 let svFcMemo = {};
@@ -1296,7 +1329,7 @@ function renderSales() {
   if (svTab !== 'fc') h += svCmpBar();
   h += ({ ov: svTabOv, day: svTabDay, hr: svTabHr, st: svTabSt, fc: svTabFc }[svTab] || svTabOv)(today);
   h += SV.sk ? `<div class="foot">三幸園（麻布十番，コーズ经营）：每天的数字来自三幸園 ダイニー 后台（含税，取消的单不算），不算进集团合计；没有实时数据。营业额含外卖（Uber・便当）；外卖单都是晚上集中补登的，所以组数・客数・客单价・时段只算堂食。最后更新：${esc(SV.at || '')}</div>`
-    : `<div class="foot">每天的数字来自 12 点日报（收银台下载，含税）；今天是实时程序读的，晚上会变。最后更新：${esc(SV.at || '')}</div>`;
+    : `<div class="foot">每天的数字来自 12 点日报（收银台下载，含税）；今天是实时程序读的，晚上会变。集团不含三幸園（三幸園单独看）。最后更新：${esc(SV.at || '')}</div>`;
   el.innerHTML = h;
 }
 
@@ -1317,6 +1350,7 @@ function svTabOv(today) {
   let h = `<div class="svcard svhero"><div class="lab">${m} 月累计（${mdays.length ? `1〜${last} 日，${mdays.length} 天${fin && fin.d.startsWith(mp) ? `，${+fin.d.slice(8)} 日是实时数` : ''}` : '还没有日报'}）</div>`
     + `<div class="val">${yen(msum)}</div>`
     + `<div class="sub">日均 ${man(mdays.length ? msum / mdays.length : 0)}${LY.n ? `　去年同期 ${man(LY.b)} ${svDl(LY.a, LY.b)}` : ''}</div>${SV.sk ? (tk => tk ? `<div class="sub">其中外卖（Uber・便当）${man(tk)}，占 ${Math.round(100 * tk / msum)}%</div>` : '')(mdays.reduce((a, x) => a + (x.tk || 0), 0)) : ''}</div>`;
+  if (SV.sk) h += svTkCard(mdays, `${m} 月 1〜${last} 日`);
   h += '<div class="svtiles">'
     + (fin ? `<button class="svtile" onclick="svGo('day','${fin.d}')"><small>${svMD(fin.d)}（${svWk(fin.d)}）实时最终</small><b>${man(fin.t)}</b><em>${bF ? `比${SV_CMP[svCmpM]}（${svCmpTag(fin.d)}）${man(bF.t)} ${svDl(fin.t, bF.t)}` : '12 点日报后为准'}</em></button>`
       : `<button class="svtile" onclick="svGo('day','${today}')"><small>今天（实时）</small><b>${live ? man(live.t) : '—'}</b><em>${live ? '营业中，以明天日报为准' : SV.sk ? '三幸園没有实时数据，看日报' : '还没开始读（下午开始）'}</em></button>`)
@@ -1325,6 +1359,7 @@ function svTabOv(today) {
     + `<button class="svtile" onclick="svGo('day','${L.d}')"><small>客单价（${svMD(L.d)}${SV.sk ? '，堂食' : ''}）</small><b>${L.c ? yen((L.t - (L.tk || 0)) / L.c) : '—'}</b><em>${L.c ? `${L.g} 组 ${L.c} 人${bL && bL.c ? `　${svDl((L.t - (L.tk || 0)) / L.c, (bL.t - (bL.tk || 0)) / bL.c)}` : ''}` : ''}</em></button>`
     + '</div>';
   const miss = svMissHtml(L); if (miss) h += miss;
+  if (SV.sk) h += svTkMonths(today);
   // 最近 14 天
   const end = fin && fin.d > L.d ? fin.d : L.d;   // 昨天日报还没出来：柱子也画到昨天（实时最终）
   const list = []; for (let k = 13; k >= 0; k--) { const d = svAdd(end, -k), x = svGet(d), bd = svCmpDay(d, svCmpM), b = bd && SV.map[bd]; list.push({ d, v: x ? x.t : 0, c: b ? b.t : 0 }); }
@@ -1388,7 +1423,8 @@ function svTabDay(today) {
       return `<tr class="${k === svCmpM ? 'on' : ''}"><td>${SV_CMP[k]}</td><td>${d ? svYMD(d) + svWkH(d) : '—'}</td><td>${b ? man(b.t) : '没有数据'}</td><td>${b ? svDl(x.t, b.t) : ''}</td></tr>`; }).join('') + (lh ? `<tr><td>去年同一祝日</td><td>${svYMD(lh)}${svWkH(lh)}</td><td>${lhx ? man(lhx.t) : '没有数据'}</td><td>${lhx ? svDl(x.t, lhx.t) : ''}</td></tr>` : '') + '</table>';
     const b = (d => d && SV.map[d])(svCmpDay(svDay, svCmpM));
     if (x.g) h += `<div class="svmini"><div>组数<b>${x.g}</b>${b && b.g ? svDl(x.g, b.g) : ''}</div><div>客数<b>${x.c}</b>${b && b.c ? svDl(x.c, b.c) : ''}</div><div>客单价${SV.sk ? '（堂食）' : ''}<b>${yen(x.c ? (x.t - (x.tk || 0)) / x.c : 0)}</b>${b && b.c && x.c ? svDl((x.t - (x.tk || 0)) / x.c, (b.t - (b.tk || 0)) / b.c) : ''}</div></div>`
-      + (SV.sk && x.tk ? `<div class="svnote">外卖（Uber・便当）${x.tn ? x.tn + ' 单 ' : ''}${man(x.tk)}，算在营业额里；组数・客数・时段只算堂食（外卖都是晚上集中补登的）。</div>` : '')
+      + (SV.sk && x.tk ? '<table class="svcmpt"><tr><th>外卖</th><th>日期</th><th>外卖</th><th>增减</th></tr>' + ['lw', 'lm', 'ly'].map(k => { const d = svCmpDay(x.d, k), b = d && SV.map[d]; return `<tr class="${k === svCmpM ? 'on' : ''}"><td>${SV_CMP[k]}</td><td>${d ? svYMD(d) + svWkH(d) : '—'}</td><td>${b ? man(b.tk || 0) : '没有数据'}</td><td>${b ? svPctT(x.tk, b.tk || 0) : ''}</td></tr>`; }).join('') + '</table>'
+        + `<div class="svnote">外卖（Uber・便当）${x.tn ? x.tn + ' 单 ' : ''}${man(x.tk)}，占这天 ${Math.round(100 * x.tk / x.t)}%，算在营业额里；组数・客数・时段只算堂食（外卖都是晚上集中补登的）。</div>` : '')
       + (SV.sk && x.src ? `<div class="svnote">这天 ダイニー 后台没有明细，数字来自云端「三幸園　日報」（店里每天填的）：组数只有晚市，客数＝午市＋晚市，没有时段。</div>` : '')
       + `<div class="svnote">组数・客数・客单价的增减是比${SV_CMP[svCmpM]}。</div>`;
   } else h += '<div class="svnote">今天还在营业，数字会一直涨；对比要等明天 12 点日报。</div>';
