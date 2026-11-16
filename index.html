@@ -416,7 +416,10 @@ nav button.on{color:var(--brand)}
 .svd.fut i{opacity:.55}
 .svd em.cd{font-style:normal;font-size:9px;font-weight:600;line-height:1.15;letter-spacing:-.2px;margin-top:1px;border-top:1px dashed var(--line);padding-top:1px;width:92%}
 .svd i{position:relative}
-.svd em.cd .lyred{background:#dc2626;color:#fff;border-radius:3px;padding:0 1px;white-space:nowrap}
+.svd em.cd .lyred,.svd em.cd .lypre{background:#dc2626;color:#fff;border-radius:3px;padding:0 1px;white-space:nowrap}
+.svd em.cd .lypre{background:#7c3aed}
+.svd i.dhol,.svd i.dpre{background:#dc2626;color:#fff;border-radius:4px;padding:0 3px}
+.svd i.dpre{background:#7c3aed}
 .svd i .hdot{position:absolute;top:0;right:-7px;width:5px;height:5px;border-radius:50%;background:#dc2626}
 .svrgm{display:flex;gap:6px;margin:2px 0 8px}
 .svrgm button{flex:1;border:1px solid var(--line);background:var(--card);color:var(--sub);border-radius:10px;padding:8px 4px;font-size:14px}
@@ -476,7 +479,7 @@ button.svdlab{color:var(--ink);font-family:inherit;line-height:1.3}
 <script>
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v59';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v60';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -977,6 +980,8 @@ const SV_HOLI_NAME = {};
 for (let y = 2024; y <= new Date().getFullYear() + 2; y++) Object.assign(SV_HOLI_NAME, svJpHoli(y));
 const SV_HOLI = new Set(Object.keys(SV_HOLI_NAME));
 const svHN = ds => SV_HOLI_NAME[ds] || '';
+// 11/16 用户：日历上 祝日＝红底、祝日前一天＝紫底，星期天不另标（今年・去年・明年都一样）；星期六照旧蓝字
+const svDayCls = (ds, dow) => SV_HOLI.has(ds) ? 'dhol' : SV_HOLI.has(svAdd(ds, 1)) ? 'dpre' : dow === 6 ? 'bl' : '';
 // 「（一）」→ 祝日写名字「（一・文化の日）」：对比的日子也标，同比时看得出是不是假日的差别
 const svWkH = ds => `<span class="wkh">（${svWk(ds)}${svHN(ds) ? '・<span class="hol">' + svHN(ds) + '</span>' : ''}）</span>`;
 // 去年同一个祝日（振替休日・国民の休日除外）：例 2026/11/3 文化の日 → 2025/11/3
@@ -1237,7 +1242,7 @@ function svRgCalHtml() {
     const ds = svStr(new Date(y, m - 1, i)), x = SV.map[ds], dow = (d1.getDay() + i - 1) % 7;
     const inr = c.a && ds >= c.a && ds <= b, end = ds === c.a || ds === c.b;
     h += `<button class="svd${inr ? ' in' : ''}${end ? ' end' : ''}" ${x && ds <= e ? '' : 'disabled'} onclick="svRgTap('${ds}')">`
-      + `<i class="${dow === 0 || SV_HOLI.has(ds) ? 'rr' : dow === 6 ? 'bl' : ''}"${svHN(ds) ? ` title="${svHN(ds)}"` : ''}>${i}${svHN(ds) ? '<b class="hdot"></b>' : ''}</i><small>${x ? man(x.t) : ''}</small></button>`;
+      + `<i class="${svDayCls(ds, dow)}"${svHN(ds) ? ` title="${svHN(ds)}"` : ''}>${i}</i><small>${x ? man(x.t) : ''}</small></button>`;
   }
   h += `</div><div class="svrgst">${!c.a ? '① 点开始那天' : !c.b ? `开始 ${svYMD(c.a)}（${svWk(c.a)}）　② 再点结束那天` : `${svRgLab(c.a, c.b)}　共 ${svRgLen(c.a, c.b)} 天`}</div>`
     + `<div class="svlinks"><button onclick="svRgCal=null;renderSales()">取消</button><button class="ok" onclick="svRgOk()" ${c.a ? '' : 'disabled'}>确定${c.a && !c.b ? '（只看这一天）' : ''}</button></div>`
@@ -1458,14 +1463,14 @@ function svTabDay(today) {
   for (let i = 1; i <= nd; i++) {
     const ds = svStr(new Date(y, m - 1, i)), x = svGet(ds), dow = (d1.getDay() + i - 1) % 7, a = x ? 0.12 + 0.55 * x.t / mx : 0;
     cal += `<button class="svd${ds === svDay ? ' on' : ''}${ds === today ? ' td' : ''}${!x && ds > today ? ' fut' : ''}" ${x ? `style="background:rgba(22,163,74,${a.toFixed(2)})"` : 'disabled'} onclick='svPick(${JSON.stringify(ds)})'>`
-      + `<i class="${dow === 0 || SV_HOLI.has(ds) ? 'rr' : dow === 6 ? 'bl' : ''}"${svHN(ds) ? ` title="${svHN(ds)}"` : ''}>${i}${svHN(ds) ? '<b class="hdot"></b>' : ''}${x && svShort(x) ? '<span class="rr">⚠</span>' : ''}</i><small>${x ? man(x.t) + (x.live ? '*' : '') : F && F.day[ds] != null ? '<span class="fc">约' + man(F.day[ds]) + '</span>' : ''}</small>${(b => b ? `<em class="cd c${svCmpM}"><span class="${svDate(b).getDay() === 0 || SV_HOLI.has(b) ? 'lyred' : svDate(b).getDay() === 6 ? 'bl' : ''}"${svHN(b) ? ` title="${svHN(b)}"` : ''}>${svMD(b)}${svWk(b)}</span><br>${SV.map[b] ? man(SV.map[b].t) : '—'}</em>` : '')(svCmpDay(ds, svCmpM))}</button>`;
+      + `<i class="${svDayCls(ds, dow)}"${svHN(ds) ? ` title="${svHN(ds)}"` : ''}>${i}${x && svShort(x) ? '<span class="rr">⚠</span>' : ''}</i><small>${x ? man(x.t) + (x.live ? '*' : '') : F && F.day[ds] != null ? '<span class="fc">约' + man(F.day[ds]) + '</span>' : ''}</small>${(b => b ? `<em class="cd c${svCmpM}"><span class="${SV_HOLI.has(b) ? 'lyred' : SV_HOLI.has(svAdd(b, 1)) ? 'lypre' : svDate(b).getDay() === 6 ? 'bl' : ''}"${svHN(b) ? ` title="${svHN(b)}"` : SV_HOLI.has(svAdd(b, 1)) ? ` title="${svHN(svAdd(b, 1))}前一天"` : ''}>${svMD(b)}${svWk(b)}</span><br>${SV.map[b] ? man(SV.map[b].t) : '—'}</em>` : '')(svCmpDay(ds, svCmpM))}</button>`;
   }
   const mh = Object.keys(SV_HOLI_NAME).filter(d => d.startsWith(svMon + '-')).sort();
   // 11/16 用户：去年的日历也有红日子 → 对比日落在去年的祝日／星期天也标红；列出对比那个月的祝日
   const cmpMs = [...new Set(Array.from({ length: nd }, (_, i) => svCmpDay(svStr(new Date(y, m - 1, i + 1)), svCmpM)).filter(Boolean).map(d => d.slice(0, 7)))];
   const ch = Object.keys(SV_HOLI_NAME).filter(d => cmpMs.some(k => d.startsWith(k + '-'))).sort();
   h += cal + '</div>' + (mh.length ? `<div class="svholi">这个月的祝日：${mh.map(d => `${+d.slice(8)} 日（${svWk(d)}）<span class="hol">${SV_HOLI_NAME[d]}</span>`).join('、')}</div>` : '')
-    + (svCmpM !== 'lw' && ch.length ? `<div class="svholi">${SV_CMP[svCmpM]}那个月的祝日：${ch.map(d => `${svYMD(d)}（${svWk(d)}）<span class="hol">${SV_HOLI_NAME[d]}</span>`).join('、')}</div>` : '') + '<div class="svnote">颜色越深营业额越多；红字＝星期天・祝日（右上小红点＝祝日，选中那天会写名字）；格子下面的彩色小字是拿去比的那天，那天是星期天・祝日就用红底白字（是哪个祝日见日历下面）；灰字「约」＝预测；* ＝实时数（日报出来前）；⚠ ＝那天少了店的数据。</div>';
+    + (svCmpM !== 'lw' && ch.length ? `<div class="svholi">${SV_CMP[svCmpM]}那个月的祝日：${ch.map(d => `${svYMD(d)}（${svWk(d)}）<span class="hol">${SV_HOLI_NAME[d]}</span>`).join('、')}</div>` : '') + '<div class="svnote">颜色越深营业额越多；日期<span style="background:#dc2626;color:#fff;border-radius:3px;padding:0 2px">红底</span>＝祝日、<span style="background:#7c3aed;color:#fff;border-radius:3px;padding:0 2px">紫底</span>＝祝日前一天（选中那天会写名字）；格子下面的彩色小字是拿去比的那天，那天是祝日用<span style="background:#dc2626;color:#fff;border-radius:3px;padding:0 2px">红底</span>、祝日前一天用<span style="background:#7c3aed;color:#fff;border-radius:3px;padding:0 2px">紫底</span>（是哪个祝日见日历下面；星期天不另标）；灰字「约」＝预测；* ＝实时数（日报出来前）；⚠ ＝那天少了店的数据。</div>';
   // 选中的那天
   const x = svGet(svDay);
   h += `<div class="svcard"><div class="svct">${svYMD(svDay)}${svWkH(svDay)}${x && x.live ? (x.fin ? '<small>实时最终读数・12 点日报出来后以日报为准</small>' : '<small>实时・明天日报为准</small>') : ''}</div>`;
@@ -1768,7 +1773,7 @@ function svTabLabDay(L) {
     const ds = svStr(new Date(y, mo - 1, i)), rs = (by[ds] || []).filter(r => ok(r[1])), M = rs.length ? svLabMet(rs) : null, dow = (d1.getDay() + i - 1) % 7;
     const c = M && M.rate != null ? svLabCls(M.rate, GL) : '';
     cal += `<button class="svd svld ${c ? 'b' + c : ''}${ds === svLabDay ? ' on' : ''}" ${M ? '' : 'disabled'} onclick="svLabDSet('day','${ds}')">`
-      + `<i class="${dow === 0 || SV_HOLI.has(ds) ? 'rr' : dow === 6 ? 'bl' : ''}">${i}</i><small>${M && M.rate != null ? (100 * M.rate).toFixed(0) + '%' : ''}</small></button>`;
+      + `<i class="${svDayCls(ds, dow)}">${i}</i><small>${M && M.rate != null ? (100 * M.rate).toFixed(0) + '%' : ''}</small></button>`;
   }
   cal += '</div>';
   const rs = (by[svLabDay] || []), M = svLabMet(rs.filter(r => ok(r[1])));
@@ -1852,7 +1857,7 @@ function svTabSo() {
   for (let i = 0; i < d1.getDay(); i++) cal += '<span></span>';
   for (let i = 1; i <= nd; i++) {
     const d = svStr(new Date(y, m - 1, i)), has = d in cnt, dow = (d1.getDay() + i - 1) % 7;
-    cal += `<button class="svd svld ${has ? 'b' + svSoCls(cnt[d]) : ''}${d === svSoDay ? ' on' : ''}" ${has ? '' : 'disabled'} onclick="svSoSet('d','${d}')"><i class="${dow === 0 || SV_HOLI.has(d) ? 'rr' : dow === 6 ? 'bl' : ''}">${i}</i><small>${has ? cnt[d] + ' 道' : ''}</small></button>`;
+    cal += `<button class="svd svld ${has ? 'b' + svSoCls(cnt[d]) : ''}${d === svSoDay ? ' on' : ''}" ${has ? '' : 'disabled'} onclick="svSoSet('d','${d}')"><i class="${svDayCls(d, dow)}">${i}</i><small>${has ? cnt[d] + ' 道' : ''}</small></button>`;
   }
   h += `<div class="svcard"><div class="svct">每天<small>格子＝那天最后一次读取的品切れ道数，点日子看明细</small></div>${cal + '</div>'}</div>`;
   // 选中的那天
