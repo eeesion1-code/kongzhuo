@@ -466,7 +466,7 @@ button.svdlab{color:var(--ink);font-family:inherit;line-height:1.3}
 <script>
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v48';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v49';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -1588,7 +1588,7 @@ function svLabStore(L, P, n, m) {
         + `<div><span>${e.hh % 24} 点</span><i><u style="width:${(100 * e.p / mx).toFixed(1)}%"></u><s style="left:${(100 * Math.min(e.c, mx) / mx).toFixed(1)}%"></s></i>`
         + `<b>${e.p ? e.p.toFixed(1) : '—'}</b><em>${e.c.toFixed(1)}</em><span class="dl ${d >= 1.5 ? 'dn' : d <= -1 ? 'up' : ''}">${Math.abs(d) < 0.05 ? '±0' : (d > 0 ? '+' : '−') + Math.abs(d).toFixed(1)}</span></div>`; }).join('') + '</div>';
   const tw = R.reduce((a, e) => a + e.w, 0), tv = R.reduce((a, e) => a + e.v, 0);
-  h += `<div class="svnote">一天平均：人工 ${man(tw)}、营业额 ${man(tv)}，人工占 ${tv ? Math.round(100 * tw / tv) + '%' : '—'}（指纹打卡，时薪没填的按 ${SV_WAGE.toLocaleString()} 円，22 点后 +25%）。`
+  h += `<div class="svnote">一天平均：人工 ${man(tw)}、营业额 ${man(tv)}，人工占 ${tv ? Math.round(100 * tw / tv) + '%' : '—'}（指纹打卡，时薪没填的按 ${SV_WAGE.toLocaleString()} 円，22 点后不加 25%）。`
     + `撑得起＝那个钟头的营业额 × ${SV_LRATE * 100}% ÷ ${SV_WAGE.toLocaleString()} 円；差是红的＝人比营业额多 1.5 人以上。${ok ? '' : '这家店打卡覆盖不到 70%，有人用纸质打卡，实际在班的人比这里多。'}</div></div>`;
   return h;
 }
@@ -1648,7 +1648,7 @@ function svTabLabDay(L, m) {
     + list.map(r => { const X = svLabMet([r]);
       return `<button onclick="svLabDSet('st','${esc(r[1])}')"><span class="nm">${esc(r[1])}${ok(r[1]) ? '' : ` <small>${(svLabSum(L).map[r[1]] || [])[4] == null ? '工资表未出' : '打卡不全'}</small>`}${r[7] ? ` <small class="m">缺卡${r[7]}</small>` : ''}</span>`
         + SV_LK.map(K => `<b>${X[K.k] == null ? '—' : `<span class="${K.c(X[K.k])}">${K.k === 'rph' ? Math.round(X[K.k]).toLocaleString() : K.k === 'cph' ? X[K.k].toFixed(2) : K.k === 'over' ? X[K.k].toFixed(1) : (100 * X[K.k]).toFixed(0) + '%'}</span>`}</b>`).join('') + '</button>'; }).join('') + '</div>'
-    + `<div class="svnote">判定：${SV_LK.map(K => `<b>${K.n}</b>（${K.u}）${K.rule}`).join('；')}。<br>人工＝指纹打卡工时 × 时薪（没填按 ${SV_WAGE.toLocaleString()} 円，22 点后 +25%），不是工资表；「打卡不全」（指纹人工不到工资的 70%，有人用纸质打卡）和「工资表未出」（没法核对打卡齐不齐）的店不算进集团合计。`
+    + `<div class="svnote">判定：${SV_LK.map(K => `<b>${K.n}</b>（${K.u}）${K.rule}`).join('；')}。<br>人工＝指纹打卡工时 × 时薪（没填按 ${SV_WAGE.toLocaleString()} 円，22 点后不加 25%），不是工资表；「打卡不全」（指纹人工不到工资的 70%，有人用纸质打卡）和「工资表未出」（没法核对打卡齐不齐）的店不算进集团合计。`
     + `撑得起＝那个钟头营业额 × ${SV_LRATE * 100}% ÷ ${SV_WAGE.toLocaleString()} 円。指纹里没有打卡的店（渋谷、錦糸町、大宮、立川等）这里看不到。</div></div>`;
   return h;
 }
