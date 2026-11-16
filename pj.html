@@ -167,7 +167,7 @@ main{padding:12px 14px calc(30px + env(safe-area-inset-bottom));max-width:760px;
 </header>
 <main id="main"><div class="empty">读取中…</div></main>
 <script>
-const APPV = 'yunying-v8';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v9';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 在 空桌一览 里面（pj.html）还是独立 APP
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
 const LS = {
@@ -456,8 +456,10 @@ function hrRow(r, p, staff, M) {
   let h = '<div class="r' + (open ? ' open' : '') + '" onclick="tgHr(\'' + esc(k) + '\')"><div class="nm">' + (r['名次'] ? '<span style="color:var(--sub);font-weight:400;font-size:13px;display:inline-block;width:22px">' + r['名次'] + '</span>' : '') + esc(k) +
     '<small>' + esc(r['站']) + (r['负责人'] ? '・' + esc(r['负责人']) : '') + '</small></div><div class="big">' + (r['总分'] ?? '—') + ' ' + (r['等级'] ? '<span class="grade g' + r['等级'] + '">' + r['等级'] + '</span>' : '') + '</div>' +
     '<div class="meta" style="gap:3px;flex-wrap:nowrap">' + dims.map(([d, it]) => {
+      // 11/16 用户问「业绩为什么是 0」：业绩旁边直接写达成率；0 分画一小截红（和「没数据」分开），没数据写 —
       const rr = it['分'] == null ? null : it['分'] / it['满'];
-      return '<span style="flex:' + it['满'] + ';min-width:0"><span style="font-size:10px;display:block;white-space:nowrap;overflow:hidden">' + d + '</span><span class="bar" style="display:block"><i style="width:' + (rr == null ? 0 : Math.round(rr * 100)) + '%;background:' + (rr == null ? 'var(--faint)' : DCOL(rr)) + '"></i></span></span>';
+      const tag = d === '业绩' && it['达成'] != null ? ' <b style="color:' + (it['达成'] < 0.9 ? 'var(--bad)' : 'var(--ink)') + '">' + Math.round(it['达成'] * 100) + '%</b>' : rr == null ? ' —' : '';
+      return '<span style="flex:' + it['满'] + ';min-width:0"><span style="font-size:10px;display:block;white-space:nowrap;overflow:hidden">' + d + tag + '</span><span class="bar" style="display:block"><i style="width:' + (rr == null ? 0 : Math.max(4, Math.round(rr * 100))) + '%;background:' + (rr == null ? 'var(--faint)' : DCOL(rr)) + '"></i></span></span>';
     }).join('') + '</div>' +
     (delta != null ? '<div class="meta" style="margin-top:2px">比上个月 <b class="' + (delta >= 0 ? 'up' : 'dn') + '">' + (delta >= 0 ? '▲' : '▼') + Math.abs(delta) + '</b></div>' : '');
   if (open) {
