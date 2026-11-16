@@ -179,7 +179,7 @@ main{padding:12px 14px calc(30px + env(safe-area-inset-bottom));max-width:760px;
 </header>
 <main id="main"><div class="empty">读取中…</div></main>
 <script>
-const APPV = 'yunying-v21';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v22';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 在 空桌一览 里面（pj.html）还是独立 APP
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
 const LS = {
@@ -907,6 +907,14 @@ function renderYc() {
   const pages = (Y['页'] || []).map(x => Array.isArray(x) ? { '平台': x[0], '店': x[1], '品牌': x[2], '链接': x[3], '日': Object.fromEntries(dl.map((d, i) => [d, { '记号': x[4][i], '能订': (OKM[x[0]] || OKM.H).includes(x[4][i]) }])) } : x);
   const nP = pl => pages.filter(x => x['平台'] === pl).length;
   let h = '<div class="sec"><div class="tyhd"><h2 style="margin:0">🚨 预约异常</h2><span class="tyc">' + esc(Y.at) + ' 查；' + '今天 ' + md(dl[0]) + ' 起 ' + dl.length + ' 天（到 ' + md(dl[dl.length - 1]) + '）' + '；食べログ ' + nP('T') + ' 页・ホットペッパー ' + nP('H') + ' 页（ぐるなび・Retty 之后加）</span></div>';
+  // 11/16 用户「有异常是正常，每天都对的反而奇怪」→ 每次检查都自检，证明检查本身是好的
+  const SC = Y['自检'];
+  if (SC) h += '<div class="card" style="margin-bottom:8px;font-size:13px;border-left:4px solid ' + (SC['过'] ? 'var(--good)' : 'var(--bad)') + '">' +
+    (SC['过'] ? '🧪 <b>自检通过</b>：检查程序正常，下面的结果可信' : '⚠ <b style="color:var(--bad)">自检没过</b>：检查程序可能失灵，下面的「都能订」不可信，请告诉 Claude') +
+    '<div class="tyc" style="margin-top:4px;line-height:1.6">① ホットペッパー 对照组（确定停掉的页）：' + (SC['H对照'] || []).map(x => esc(x[0]) + ' → ' + esc(x[1]) + (x[2] ? ' ✅' : ' ❌')).join('、') +
+    '<br>② 食べログ 每页 7 天都读到：' + SC['T读全'][0] + '/' + SC['T读全'][1] + ' 页（读不到的会当「订不了」报出来，不会悄悄变成全对）' +
+    '<br>③ 同一份食べログ 数据里也读得出「不能订」（几人不能订）：' + SC['T有不能订值'][0] + ' 页' +
+    '<br>④ 明天起读到的记号：' + Object.entries(SC['记号'] || {}).map(([k, n]) => esc(k) + ' ' + n).join('・') + '</div></div>';
   const G = {};
   (Y['订不了'] || []).forEach(b => { const g = G[b['链接']] = G[b['链接']] || Object.assign({}, b, { ds: [] }); g.ds.push(b); });
   // 11/16 用户：座位数用「座位表格」（真实桌数・最多人数）→ 同一时间坐着的人 ≥ 最多人数的 8 成或组数 ≥ 桌数＝满了（正常）；否则＝没满却订不了（异常）
