@@ -8,11 +8,14 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="运营部">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f5f6f8" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0f1115" media="(prefers-color-scheme: dark)">
 <style>
-/* 11/16 运营部：评价管理（各平台）・人事评价（店长月度考核）・卫生检查。样式和首页同一套颜色。 */
+/* 11/16 运营部：评价管理（各平台）・人事评价（店长月度考核）・卫生检查。样式和空桌一览同一套颜色。
+   这一个文件两处用：独立 APP（eeesion1-code.github.io/yunying/ 的 index.html）和 空桌一览 里的 pj.html（内容完全一样，改了要两边一起放）。 */
 :root{
   --bg:#f5f6f8;--card:#fff;--ink:#16181d;--sub:#6b7280;--faint:#9ca3af;--line:#e6e8ec;--soft:#f0f2f5;
   --brand:#1d4ed8;--good:#15803d;--goodBg:#ecfdf3;--warn:#b45309;--warnBg:#fef3c7;--bad:#dc2626;--badBg:#fee2e2;
@@ -32,6 +35,9 @@ a{color:var(--brand);text-decoration:none}
 header{position:sticky;top:0;z-index:5;background:var(--bg);padding:calc(8px + env(safe-area-inset-top)) 14px 0}
 .top{display:flex;align-items:center;gap:8px}
 .back{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:6px 10px;font-size:14px}
+.logo{width:30px;height:30px;border-radius:8px;display:block}
+.foot{font-size:12px;color:var(--faint);text-align:center;margin:20px 0 0;line-height:1.8}
+.foot a{color:var(--sub);text-decoration:underline}
 h1{font-size:19px;margin:0;flex:1}
 .at{font-size:12px;color:var(--sub)}
 .tabs{display:flex;gap:6px;margin:10px 0 0;overflow-x:auto;padding-bottom:8px;border-bottom:1px solid var(--line)}
@@ -108,7 +114,8 @@ main{padding:12px 14px calc(30px + env(safe-area-inset-bottom));max-width:760px;
 <body>
 <header>
   <div class="top">
-    <a class="back" href="./">‹ 空桌一览</a>
+    <a class="back" id="back" href="./" style="display:none">‹ 空桌一览</a>
+    <img class="logo" id="logo" src="icon-192.png" alt="" style="display:none">
     <h1>运营部</h1>
     <span class="at" id="at"></span>
   </div>
@@ -116,6 +123,8 @@ main{padding:12px 14px calc(30px + env(safe-area-inset-bottom));max-width:760px;
 </header>
 <main id="main"><div class="empty">读取中…</div></main>
 <script>
+const APPV = 'yunying-v1';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 在 空桌一览 里面（pj.html）还是独立 APP
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -137,7 +146,8 @@ const pct = x => x == null ? '' : (x >= 0 ? '▲' : '▼') + Math.abs(x * 100).t
 const today = new Date(); const TD = today.toISOString().slice(0, 10);
 
 let PJ = null, HR = null, pjErr = '', hrErr = '', owner = false;
-let tab = LS.get('pjTab', 'pj'), stSort = LS.get('pjSort', 'g'), rvPlat = '', openSt = new Set(), hrMonth = '', hrOpen = new Set(), hyOpen = new Set();
+const tabFromUrl = (location.hash.match(/^#(pj|hr|hy)$/) || [])[1];   // 网址带 #hr 直接开人事评价、#hy 卫生、#pj 评价
+let tab = tabFromUrl || LS.get('pjTab', 'pj'), stSort = LS.get('pjSort', 'g'), rvPlat = '', openSt = new Set(), hrMonth = '', hrOpen = new Set(), hyOpen = new Set();
 
 // ---------- 读数据 ----------
 async function api(what) {
@@ -169,9 +179,10 @@ async function load() {
   render();
 }
 function showKey(msg) {
-  $('main').innerHTML = '<div class="keybox"><p>请输入密码（和空桌一览同一个）</p><input id="kin" type="password" autocomplete="off"><button onclick="saveKey()">确定</button><p class="note" style="color:var(--bad)">' + esc(msg || '') + '</p></div>';
+  $('main').innerHTML = '<div class="keybox"><img src="icon-192.png" alt="" style="width:64px;height:64px;border-radius:14px"><p>请输入密码（和空桌一览同一个）<br><span class="note">老板密码看得到人事评价・卫生检查；店长密码只看评价</span></p><input id="kin" type="password" autocomplete="off"><button onclick="saveKey()">确定</button><p class="note" style="color:var(--bad)">' + esc(msg || '') + '</p></div>';
 }
-function saveKey() { const v = $('kin').value.trim(); if (!v) return; K = v; LS.set('k', K); load(); }
+function saveKey() { const v = $('kin').value.trim(); if (!v) return; K = v; LS.set('k', K); LS.del('pjc_pj'); LS.del('pjc_hr'); PJ = HR = null; owner = false; load(); }
+function changeKey() { showKey(''); }
 
 // ---------- 公共 ----------
 function setTab(t) { tab = t; LS.set('pjTab', t); render(); window.scrollTo(0, 0); }
@@ -180,7 +191,8 @@ function render() {
   $('tabs').innerHTML = tabs.map(([k, n]) => '<button class="' + (tab === k ? 'on' : '') + '" onclick="setTab(\'' + k + '\')">' + n + '</button>').join('');
   const at = tab === 'pj' ? (PJ && PJ.at) : (HR && HR.at);
   $('at').textContent = at ? at.slice(5).replace('-', '/') + ' 更新' : '';
-  $('main').innerHTML = tab === 'hr' ? renderHr() : tab === 'hy' ? renderHy() : renderPj();
+  $('main').innerHTML = (tab === 'hr' ? renderHr() : tab === 'hy' ? renderHy() : renderPj()) +
+    '<div class="foot"><a onclick="changeKey()">🔑 换密码（老板 / 店长）</a>' + (IN_KZ ? '' : '　版本 ' + APPV.replace('yunying-v', '')) + '</div>';
 }
 const stars = s => s == null ? '' : '<span class="stars">' + '★'.repeat(Math.round(s)) + '<span style="opacity:.25">' + '★'.repeat(5 - Math.round(s)) + '</span></span>';
 function brandShort(n) {
@@ -452,6 +464,19 @@ function renderHy() {
 }
 function tgHy(k) { hyOpen.has(k) ? hyOpen.delete(k) : hyOpen.add(k); render(); }
 
+// 独立 APP：显示图标、注册 sw.js（加到主屏幕用）、打开或切回来时看 sw.js 版本号，变了就重新载入一次
+if (IN_KZ) $('back').style.display = ''; else $('logo').style.display = '';
+if (!IN_KZ && !LOCAL && 'serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+async function checkUpdate() {
+  if (IN_KZ || LOCAL) return;
+  try {
+    const t = await (await fetch('sw.js?t=' + Date.now(), { cache: 'no-store' })).text();
+    const v = (t.match(/const V = '([^']+)'/) || [])[1];
+    if (v && v !== APPV && LS.get('reloadedFor', '') !== v) { LS.set('reloadedFor', v); location.reload(); }
+  } catch (e) {}
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { checkUpdate(); if (K) load(); } });
+checkUpdate();
 load();
 </script>
 </body>
