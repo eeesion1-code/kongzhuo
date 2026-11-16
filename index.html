@@ -329,6 +329,9 @@ nav button.on{color:var(--brand)}
 .svld.bg{background:var(--freeBg)}.svld.bm{background:var(--remindBg)}.svld.brr{background:var(--overBg)}
 .svlabd>div.hd,.svlabd button{display:grid;grid-template-columns:1fr 50px 58px 50px 38px;gap:6px;align-items:center;width:100%}
 .svlabd>div.hd span{font-size:11px;color:var(--faint);text-align:right}.svlabd>div.hd span:first-child{text-align:left}
+.svlabhr>div{display:grid;grid-template-columns:64px 1fr 40px 1fr 50px;gap:4px;align-items:center;padding:5px 4px;border-top:1px solid var(--line);font-size:13px}
+.svlabhr>div b{font-weight:600;text-align:right;font-variant-numeric:tabular-nums}.svlabhr>div.hd{border-top:0;font-size:11px;color:var(--faint)}.svlabhr>div.hd span{text-align:right}.svlabhr>div.hd span:first-child{text-align:left}
+.svlabhr>div.tot{border-top:2px solid var(--line);font-weight:700}.svlabhr>div>span:first-child{white-space:nowrap;font-size:12px}
 .svlabd button{border:0;border-top:1px solid var(--line);background:none;color:var(--ink);text-align:left;padding:8px 0;font-size:13.5px}
 .svlabd b{text-align:right;font-variant-numeric:tabular-nums;font-size:13px}
 .svlabd small{color:var(--faint);font-size:10.5px}
@@ -479,7 +482,7 @@ button.svdlab{color:var(--ink);font-family:inherit;line-height:1.3}
 <script>
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v60';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v61';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -1525,12 +1528,48 @@ function svHrStBlock(n, a, b) {   // 一家店 a〜b 的每小时（a＝b 就是
     + svHrRows(use, cmp, h0, { lunch: true, keep: true })
     + `<div class="svnote">${SV_MODE_NOTE[svMode]}${cmp ? `绿条＝${one ? '这天' : '这段日子'}，竖线＝${SV_CMP[svCmpM]}。` : ''}</div></div>`;
 }
+// ---- 各店每小时人工（11/16 用户：营业额用下单营业额；旁边写几人上班，× 时给 1,250 円＝这个钟头的人工，人工 ÷ 营业额＝%）----
+// 上班人数＝指纹打卡（人工月报 e：{日: {指纹店名: [起始钟头, 在班[], …]}}），收银台店名 → 指纹店名用 info.店名；一个指纹店对几台收银（立川）就合起来算
+const SV_HR_WAGE = 1250;
+function svLabShort(n) {
+  for (const L of Object.values(SV.lab || {})) {
+    const nm = L.info && L.info['店名']; if (!nm) continue;
+    for (const [k, v] of Object.entries(nm)) if ((v || []).includes(n)) return { k, regs: v };
+  }
+  return null;
+}
+function svStLabHr(n, a, b) {
+  const m = svLabShort(n), one = a === b;
+  let h = `<div class="svcard"><div class="svct">👥 每小时人工<small>按下单营业额・时给 ${SV_HR_WAGE.toLocaleString()} 円</small></div>`;
+  if (!m) return h + '<div class="svnote">这家店在指纹打卡里对不上，没有上班人数。</div></div>';
+  const H = {}; let nd = 0, skip = 0, noE = 0, noD = 0;
+  for (let d = a; d <= b; d = svAdd(d, 1)) {
+    const x = SV.map[d]; if (!x) continue;
+    const L = SV.lab[d.slice(0, 7)], E = L && L.e && L.e[d] && L.e[d][m.k], rs = x.s.filter(q => m.regs.includes(q[1]) && q[7]);
+    if (!E || !rs.length) { if (x.s.some(q => m.regs.includes(q[1]))) { skip++; if (!E) noE++; else noD++; } continue; }   // 两边都有才算，免得只有营业额没有人数
+    nd++;
+    E[1].forEach((p, i) => { const o = H[E[0] + i] = H[E[0] + i] || { p: 0, v: 0 }; o.p += p || 0; });
+    rs.forEach(q => q[7].forEach((v, i) => { if (!v) return; const o = H[x.h0 + i] = H[x.h0 + i] || { p: 0, v: 0 }; o.v += v * 100; }));
+  }
+  if (!nd) return h + `<div class="svnote">${one ? '这一天' : '这段日子'}没有「指纹打卡＋按下单」两边都有的数据${noE ? `（${noE} 天指纹打卡里没有这家店的记录，机子可能没连上或没人打卡）` : noD ? '（按下单 11/1 起才有，今天的要等明天 12 点日报）' : ''}（指纹打卡算到昨天${m.k === '渋谷' || m.k === '錦糸町' || m.k === '大宮' || m.k === '立川' || m.k === '御徒町' ? '，这家店机子没在用' : ''}）。</div></div>`;
+  const L0 = SV.lab[a.slice(0, 7)], ln = L0 ? svLabLine(L0, m.k) : null;
+  const hrs = Object.keys(H).map(Number).sort((p, q) => p - q).filter(k => H[k].p > 0.05 || H[k].v > 0);
+  let P = 0, V = 0;
+  const rows = hrs.map(k => { const o = H[k], c = o.p * SV_HR_WAGE, r = o.v ? c / o.v : null; P += o.p; V += o.v;
+    return `<div><span>${svHrLab(k)}点</span><b>${o.v ? yen(o.v) : '—'}</b><b>${(o.p / nd).toFixed(1)}</b><b>${yen(c)}</b><b>${r == null ? (c ? '<span class="rr">0円</span>' : '—') : `<span class="${svLabCls(r, ln)}">${(100 * r).toFixed(0)}%</span>`}</b></div>`; }).join('');
+  const C = P * SV_HR_WAGE, R = V ? C / V : null;
+  h += `<div class="svmini"><div>下单营业额<b>${man(V)}</b></div><div>人工（${Math.round(P).toLocaleString()} 人时）<b>${man(C)}</b></div><div>人工费率<b>${R == null ? '—' : `<span class="${svLabCls(R, ln)}">${(100 * R).toFixed(1)}%</span>`}</b></div></div>`;
+  h += `<div class="svlabhr"><div class="hd"><span>时段</span><span>营业额</span><span>${one ? '几人' : '日均几人'}</span><span>人工</span><span>费率</span></div>${rows}`
+    + `<div class="tot"><span>合计</span><b>${yen(V)}</b><b>${(P / nd).toFixed(1)}</b><b>${yen(C)}</b><b>${R == null ? '—' : (100 * R).toFixed(1) + '%'}</b></div></div>`;
+  return h + `<div class="svnote">营业额＝按下单（每道菜按点菜时间分到钟头，含税・折扣后）。几人＝那个钟头打了指纹卡在店里的人（按分钟算，半小时在就算 0.5 人）。人工＝几人 × ${SV_HR_WAGE.toLocaleString()} 円，人工费率＝人工 ÷ 营业额${ln ? `；颜色按本店罚线 ${svPctS(ln.p)}・奖励线 ${svPctS(ln.g)}` : ''}。`
+    + `${one ? '' : `${nd} 天加起来（几人是日均）；`}${skip ? `另有 ${skip} 天缺打卡或下单数据，没算。` : ''}指纹打卡算到昨天；缺卡（只打一次）的人没算进去。${m.regs.length > 1 ? `${esc(m.k)} 的 ${m.regs.length} 台收银合起来算。` : ''}</div></div>`;
+}
 function svTabHr(today) {
   let h = svPeriodBar();
   if (!SV.sk) {
     const a = svRg ? svRg.a : svDay, b = svRg ? svRg.b : svDay;
     h += svHrStSel(a, b);
-    if (svHrSt) return h + svHrStBlock(svHrSt, a, b);
+    if (svHrSt) return h + svHrStBlock(svHrSt, a, b) + svStLabHr(svHrSt, a, b);
   }
   if (svRg) return h + svHourBlockR(svAgg(svRg.a, svRg.b));
   const x = svGet(svDay);
