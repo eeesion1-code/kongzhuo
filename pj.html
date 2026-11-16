@@ -167,7 +167,7 @@ main{padding:12px 14px calc(30px + env(safe-area-inset-bottom));max-width:760px;
 </header>
 <main id="main"><div class="empty">读取中…</div></main>
 <script>
-const APPV = 'yunying-v16';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v17';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 在 空桌一览 里面（pj.html）还是独立 APP
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
 const LS = {
@@ -881,7 +881,8 @@ function prBlock(R, sel, range) {
 //   食べログ＝公开的空席接口（○△×）；ホットペッパー＝店铺页的空席日历（◎○△×TEL），页面写「現在通常予約を受け付けていません」＝停了
 //   レストランボード 那天已订几组几人一起写；座位数定了以后再分「满了（正常）」和「没满却订不了（异常）」
 const ycRow = () => ((PJ && PJ.rows) || []).find(r => r.k === 'yc');
-const ycBad = () => { const Y = ycRow(); return Y ? [...new Set((Y['订不了'] || []).filter(b => b['判断'] !== '满了').map(b => b['链接']))] : []; };
+// 11/16 用户（「可以预约呀」）：同品牌在同平台上还有别的页能订＝客人订得到 → 不算警报（只在最下面灰字提醒）
+const ycBad = () => { const Y = ycRow(); return Y ? [...new Set((Y['订不了'] || []).filter(b => b['判断'] !== '满了' && !b['另一页']).map(b => b['链接']))] : []; };
 function renderYc() {
   const Y = ycRow();
   if (!Y) return '<div class="empty">还没有检查结果（每天 10:30・12:00 自动查）</div>';
@@ -891,13 +892,13 @@ function renderYc() {
   const G = {};
   (Y['订不了'] || []).forEach(b => { const g = G[b['链接']] = G[b['链接']] || Object.assign({}, b, { ds: [] }); g.ds.push(b); });
   // 11/16 用户：座位数用「座位表格」（真实桌数・最多人数）→ 同一时间坐着的人 ≥ 最多人数的 8 成或组数 ≥ 桌数＝满了（正常）；否则＝没满却订不了（异常）
-  const RANK = { '没满': 0, '待确认': 1, '满了': 2 }, JC = { '没满': 'var(--bad)', '待确认': 'var(--warn)', '满了': 'var(--faint)' };
-  const JT = { '没满': '🔴 没满却订不了', '待确认': '🟠 订不了（レストランボード 还没读到，满不满先确认）', '满了': '⚪ 订不了（店里已经满了，正常）' };
-  const worstJ = g => g.ds.map(b => b['判断'] || '待确认').sort((a, b) => RANK[a] - RANK[b])[0];
+  const RANK = { '没满': 0, '待确认': 1, '满了': 2, '副页': 3 }, JC = { '没满': 'var(--bad)', '待确认': 'var(--warn)', '满了': 'var(--faint)', '副页': 'var(--faint)' };
+  const JT = { '没满': '🔴 没满却订不了', '待确认': '🟠 订不了（レストランボード 还没读到，满不满先确认）', '满了': '⚪ 订不了（店里已经满了，正常）', '副页': '⚪ 副页停了（同品牌另一页能订，客人订得到）' };
+  const worstJ = g => g['另一页'] ? '副页' : g.ds.map(b => b['判断'] || '待确认').sort((a, b) => RANK[a] - RANK[b])[0];
   const L = Object.values(G).sort((a, b) => RANK[worstJ(a)] - RANK[worstJ(b)]);
-  const nBad = L.filter(g => worstJ(g) !== '满了').length;
+  const nBad = L.filter(g => worstJ(g) === '没满' || worstJ(g) === '待确认').length;
   if (!L.length) h += '<div class="card" style="font-size:14px;margin-bottom:10px">✅ 今天・明天所有页面都能网上预约</div>';
-  else h += '<div class="tyc" style="margin-bottom:6px">' + L.length + ' 个页面网上订不了' + (nBad ? '，其中 <b style="color:var(--bad)">' + nBad + ' 个要马上确认</b>' : '（都是店里已经满了）') + '。满不满＝同一时间坐着的人 ≥ 最多人数的 8 成，或组数 ≥ 桌数（座位表格：' + esc(Y['座位表'] || '没找到') + '）</div>' +
+  else h += '<div class="tyc" style="margin-bottom:6px">' + L.length + ' 个页面网上订不了' + (nBad ? '，其中 <b style="color:var(--bad)">' + nBad + ' 个要马上确认</b>' : '，<b>都不用担心</b>（店里满了，或同品牌另一页还能订）') + '。满不满＝同一时间坐着的人 ≥ 最多人数的 8 成，或组数 ≥ 桌数（座位表格：' + esc(Y['座位表'] || '没找到') + '）</div>' +
     L.map(g => { const j = worstJ(g); return '<div class="card" style="border-left:4px solid ' + JC[j] + ';margin-bottom:8px">' +
       '<div style="font-size:12px;font-weight:700;color:' + JC[j] + '">' + JT[j] + '</div>' +
       '<div style="font-weight:700;font-size:15px">' + esc(g['店']) + '・' + PN[g['平台']] + '「' + esc(g['品牌']) + '」网上订不了</div>' +
