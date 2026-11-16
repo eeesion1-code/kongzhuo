@@ -167,7 +167,7 @@ main{padding:12px 14px calc(30px + env(safe-area-inset-bottom));max-width:760px;
 </header>
 <main id="main"><div class="empty">读取中…</div></main>
 <script>
-const APPV = 'yunying-v13';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v14';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 在 空桌一览 里面（pj.html）还是独立 APP
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
 const LS = {
@@ -772,8 +772,8 @@ function renderTy() {
 // ---------- 各平台（T・H・G・R）每天进的网上预约：レストランボード 按受付日（运营部\各平台预约），T 和食べログ页面核对 ----------
 const PN = { T: '食べログ', H: 'ホットペッパー', G: 'ぐるなび', R: 'Retty' }, PCOL = { T: 'var(--t)', H: 'var(--h)', G: '#b45309', R: '#7c3aed' }, PK = ['T', 'H', 'G', 'R'];
 function prBlock(R, sel, range) {
-  const PR = {}, PV = {}, PX = []; let PS = null, PB = null;
-  R.forEach(r => { if (r.k === 'pr') PR[r['日']] = r; else if (r.k === 'pv') PV[r['日']] = r; else if (r.k === 'prx') PX.push(r); else if (r.k === 'prs') PS = r; else if (r.k === 'prb') PB = r; });
+  const PR = {}, PV = {}, PX = []; let PS = null, PB = null, PA = {};
+  R.forEach(r => { if (r.k === 'pr') PR[r['日']] = r; else if (r.k === 'pv') PV[r['日']] = r; else if (r.k === 'prx') PX.push(r); else if (r.k === 'prs') PS = r; else if (r.k === 'prb') PB = r; else if (r.k === 'pra') PA = r['店'] || {}; });
   // 补读状态（レストランボード 掉线就提醒用手机重登）＋ 4 个平台两次读取对账
   let chk = '';
   if (PS) {
@@ -864,9 +864,11 @@ function prBlock(R, sel, range) {
       : badL.length ? '🔻 <b>预约进得差的店</b>（下单比近 4 周日均或上月同期少 20% 以上，' + badL.length + ' 家）：' + badL.map(r => '<b style="color:var(--bad)">' + esc(r.k) + '</b> ' + pctS(worst(r))).join('、')
       : (base.length >= 14 || pairs.length ? '✅ 没有比近 4 周日均・上月同期少 20% 以上的店' : '要比较还需要更多天的数据（选的日子前面要有 14 天以上，或上个月同期读全）')) +
 '</div>';
-  h += '<div class="card" style="overflow-x:auto;padding:4px 10px"><div class="tyc" style="margin:4px 0">留着＝到现在还没取消的人（T・H・G・R 分开）；下单・日均・取消・取消率都是扣掉 AA 后的真实数；比近 4 周＝这段每天平均下单 ÷ 前 28 天每天平均（灰字＝平时每天几人）；≤−20% 红、≥+20% 绿</div><table class="tbl"><tr><th>店</th><th>留着</th>' + PK.map(p => '<th style="color:' + PCOL[p] + '">' + p + '</th>').join('') + '<th>下单</th><th>日均</th><th>比近4周</th><th>比上月同期</th><th>取消</th><th>取消率</th>' + (anyB ? '<th style="color:var(--sub)">AA</th>' : '') + '</tr>' +
+  h += '<div class="card" style="overflow-x:auto;padding:4px 10px"><div class="tyc" style="margin:4px 0">店名下面＝这家店的品牌店名和 H・G・T 账号数（每个品牌各有账号；レストランボード 把一家店的几个品牌合在一起，所以数字按店算，分不到品牌）。留着＝到现在还没取消的人（T・H・G・R 分开）；下单・日均・取消・取消率都是扣掉 AA 后的真实数；比近 4 周＝这段每天平均下单 ÷ 前 28 天每天平均（灰字＝平时每天几人）；≤−20% 红、≥+20% 绿</div><table class="tbl"><tr><th>店</th><th>留着</th>' + PK.map(p => '<th style="color:' + PCOL[p] + '">' + p + '</th>').join('') + '<th>下单</th><th>日均</th><th>比近4周</th><th>比上月同期</th><th>取消</th><th>取消率</th>' + (anyB ? '<th style="color:var(--sub)">AA</th>' : '') + '</tr>' +
     SR.map(r => { const x = r.x, bad = reliable && worst(r) <= -0.2;
-      return '<tr><td style="white-space:nowrap">' + (bad ? '<b style="color:var(--bad)">' + esc(r.k) + '</b>' : esc(r.k)) + '</td><td><b>' + r.kept + '</b></td>' + PK.map(p => '<td>' + (x[p] || '') + '</td>').join('') + '<td>' + x.n + '</td><td>' + (Math.round(r.cAvg * 10) / 10) + '</td>' +
+      const ac = PA[r.k];   // 11/16 用户：店名要显示 → 店名下面写这家店的品牌店名・H/G/T 账号数
+      return '<tr><td style="min-width:132px"><span style="white-space:nowrap">' + (bad ? '<b style="color:var(--bad)">' + esc(r.k) + '</b>' : '<b>' + esc(r.k) + '</b>') + '</span>' +
+        (ac ? '<div style="font-size:11px;color:var(--sub);line-height:1.35;margin-top:2px">' + ac['品牌'].map(esc).join('・') + '<br>账号 H' + ac.H + '・G' + ac.G + '・T' + ac.T + '</div>' : '') + '</td><td>' + (!reliable && !x.n && !r.kept ? '<span class="tyc" style="white-space:nowrap">还没读到</span>' : '<b>' + r.kept + '</b>') + '</td>' + PK.map(p => '<td>' + (x[p] || '') + '</td>').join('') + '<td>' + x.n + '</td><td>' + (Math.round(r.cAvg * 10) / 10) + '</td>' +
         '<td style="white-space:nowrap">' + pctS(r.r4) + (r.bAvg != null ? '<small style="color:var(--sub)"> 平时 ' + (Math.round(r.bAvg * 10) / 10) + '</small>' : '') + '</td><td>' + pctS(r.rM) + '</td><td style="color:var(--sub)">' + (x.c || '') + '</td><td>' + cRate(x.c, x.n) + '</td>' + (anyB ? '<td style="color:var(--sub)">' + (x.b || '') + '</td>' : '') + '</tr>'; }).join('') + '</table></div>';
   return h + '<p class="note">T＝食べログ、H＝ホットペッパー、G＝ぐるなび、R＝Retty，只算「ネット予約」（电话预约不算）。<b>留着</b>＝到现在还没取消的人（来店待ち・来店済み・退店・会計済み 等；最近几天的以后还可能取消）；<b>取消</b>＝顧客ｷｬﾝｾﾙ・キャンセル・無断ｷｬﾝｾﾙ・貴店ｷｬﾝｾﾙ；<b>下单</b>＝留着＋取消。<b>AA</b>（T 订了又取消，WPS 表按来店日记人数，1 组 2 人）不算：电脑按来店日从 T 已取消的 2 人组里逐组认出来扣掉，下单・取消・取消率都是扣掉后的真实数，留着不受影响；T 双重核对和食べログ页面「本日 N 人」一样不扣。数据：レストランボード（读来店日 10/1〜今天+30 天的预约，按受付时间加起来）。上月同期＝上个月同一周同一个星期几，两边都读全的天才比。</p></div>';
 }
