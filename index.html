@@ -416,6 +416,7 @@ nav button.on{color:var(--brand)}
 .svd.fut i{opacity:.55}
 .svd em.cd{font-style:normal;font-size:9px;font-weight:600;line-height:1.15;letter-spacing:-.2px;margin-top:1px;border-top:1px dashed var(--line);padding-top:1px;width:92%}
 .svd i{position:relative}
+.svd em.cd .lyred{background:#dc2626;color:#fff;border-radius:3px;padding:0 1px;white-space:nowrap}
 .svd i .hdot{position:absolute;top:0;right:-7px;width:5px;height:5px;border-radius:50%;background:#dc2626}
 .svrgm{display:flex;gap:6px;margin:2px 0 8px}
 .svrgm button{flex:1;border:1px solid var(--line);background:var(--card);color:var(--sub);border-radius:10px;padding:8px 4px;font-size:14px}
@@ -475,7 +476,7 @@ button.svdlab{color:var(--ink);font-family:inherit;line-height:1.3}
 <script>
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v58';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v59';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -1457,10 +1458,14 @@ function svTabDay(today) {
   for (let i = 1; i <= nd; i++) {
     const ds = svStr(new Date(y, m - 1, i)), x = svGet(ds), dow = (d1.getDay() + i - 1) % 7, a = x ? 0.12 + 0.55 * x.t / mx : 0;
     cal += `<button class="svd${ds === svDay ? ' on' : ''}${ds === today ? ' td' : ''}${!x && ds > today ? ' fut' : ''}" ${x ? `style="background:rgba(22,163,74,${a.toFixed(2)})"` : 'disabled'} onclick='svPick(${JSON.stringify(ds)})'>`
-      + `<i class="${dow === 0 || SV_HOLI.has(ds) ? 'rr' : dow === 6 ? 'bl' : ''}"${svHN(ds) ? ` title="${svHN(ds)}"` : ''}>${i}${svHN(ds) ? '<b class="hdot"></b>' : ''}${x && svShort(x) ? '<span class="rr">⚠</span>' : ''}</i><small>${x ? man(x.t) + (x.live ? '*' : '') : F && F.day[ds] != null ? '<span class="fc">约' + man(F.day[ds]) + '</span>' : ''}</small>${(b => b ? `<em class="cd c${svCmpM}">${svMD(b)}${svWk(b)}<br>${SV.map[b] ? man(SV.map[b].t) : '—'}</em>` : '')(svCmpDay(ds, svCmpM))}</button>`;
+      + `<i class="${dow === 0 || SV_HOLI.has(ds) ? 'rr' : dow === 6 ? 'bl' : ''}"${svHN(ds) ? ` title="${svHN(ds)}"` : ''}>${i}${svHN(ds) ? '<b class="hdot"></b>' : ''}${x && svShort(x) ? '<span class="rr">⚠</span>' : ''}</i><small>${x ? man(x.t) + (x.live ? '*' : '') : F && F.day[ds] != null ? '<span class="fc">约' + man(F.day[ds]) + '</span>' : ''}</small>${(b => b ? `<em class="cd c${svCmpM}"><span class="${svDate(b).getDay() === 0 || SV_HOLI.has(b) ? 'lyred' : svDate(b).getDay() === 6 ? 'bl' : ''}"${svHN(b) ? ` title="${svHN(b)}"` : ''}>${svMD(b)}${svWk(b)}</span><br>${SV.map[b] ? man(SV.map[b].t) : '—'}</em>` : '')(svCmpDay(ds, svCmpM))}</button>`;
   }
   const mh = Object.keys(SV_HOLI_NAME).filter(d => d.startsWith(svMon + '-')).sort();
-  h += cal + '</div>' + (mh.length ? `<div class="svholi">这个月的祝日：${mh.map(d => `${+d.slice(8)} 日（${svWk(d)}）<span class="hol">${SV_HOLI_NAME[d]}</span>`).join('、')}</div>` : '') + '<div class="svnote">颜色越深营业额越多；红字＝星期天・祝日（右上小红点＝祝日，选中那天会写名字）；灰字「约」＝预测；* ＝实时数（日报出来前）；⚠ ＝那天少了店的数据。</div>';
+  // 11/16 用户：去年的日历也有红日子 → 对比日落在去年的祝日／星期天也标红；列出对比那个月的祝日
+  const cmpMs = [...new Set(Array.from({ length: nd }, (_, i) => svCmpDay(svStr(new Date(y, m - 1, i + 1)), svCmpM)).filter(Boolean).map(d => d.slice(0, 7)))];
+  const ch = Object.keys(SV_HOLI_NAME).filter(d => cmpMs.some(k => d.startsWith(k + '-'))).sort();
+  h += cal + '</div>' + (mh.length ? `<div class="svholi">这个月的祝日：${mh.map(d => `${+d.slice(8)} 日（${svWk(d)}）<span class="hol">${SV_HOLI_NAME[d]}</span>`).join('、')}</div>` : '')
+    + (svCmpM !== 'lw' && ch.length ? `<div class="svholi">${SV_CMP[svCmpM]}那个月的祝日：${ch.map(d => `${svYMD(d)}（${svWk(d)}）<span class="hol">${SV_HOLI_NAME[d]}</span>`).join('、')}</div>` : '') + '<div class="svnote">颜色越深营业额越多；红字＝星期天・祝日（右上小红点＝祝日，选中那天会写名字）；格子下面的彩色小字是拿去比的那天，那天是星期天・祝日就用红底白字（是哪个祝日见日历下面）；灰字「约」＝预测；* ＝实时数（日报出来前）；⚠ ＝那天少了店的数据。</div>';
   // 选中的那天
   const x = svGet(svDay);
   h += `<div class="svcard"><div class="svct">${svYMD(svDay)}${svWkH(svDay)}${x && x.live ? (x.fin ? '<small>实时最终读数・12 点日报出来后以日报为准</small>' : '<small>实时・明天日报为准</small>') : ''}</div>`;
