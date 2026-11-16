@@ -167,7 +167,7 @@ main{padding:12px 14px calc(30px + env(safe-area-inset-bottom));max-width:760px;
 </header>
 <main id="main"><div class="empty">读取中…</div></main>
 <script>
-const APPV = 'yunying-v7';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v8';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 在 空桌一览 里面（pj.html）还是独立 APP
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
 const LS = {
@@ -564,6 +564,7 @@ function renderSy() {
 // ================= 📅 T（食べログ）每日预约・保存 =================
 // 数据：KA「运营部\T的每日保存和每日进的预约数」（tabelog_hourly.py 每小时＋23:45 读 61 个食べログ页），电脑每天 12 点读一次传上来
 // 11/16 用户：预约・保存并排；灰色小字＝上个月同一周（1〜7/8〜14/15〜21/22 日〜）同一个星期几的对比；要期间搜索和时间段
+let tyHrSrc = LS.get('tyHrSrc', 'rb'), tyHrPl = LS.get('tyHrPl', 'all');
 let tyMode = LS.get('tyMode', 'day'), tyDay = '', tyA = '', tyB = '', tyOpen = new Set(), tySort = LS.get('tySort', 'r'), tyHrSt = '';
 const WKD = '日一二三四五六';
 const ymd = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
@@ -587,6 +588,8 @@ function tySet(k, v) {
   else if (k === 'a') tyA = v;
   else if (k === 'b') tyB = v;
   else if (k === 'hr') tyHrSt = v;
+  else if (k === 'src') { tyHrSrc = v; LS.set('tyHrSrc', v); tyHrSt = ''; }   // 两种来源的店名不一样（页面名 / レストランボード 店名），切换时回到全部店
+  else if (k === 'pl') { tyHrPl = v; LS.set('tyHrPl', v); }
   else if (k === 'sort') { tySort = v; LS.set('tySort', v); }
   render();
 }
@@ -604,16 +607,18 @@ function renderTy() {
   if (!PJ) return pjErr ? '<div class="err">' + esc(pjErr) + '</div>' : '<div class="empty">读取中…</div>';
   const D = pjParse(), R = (PJ && PJ.rows) || [];
   const days = R.filter(r => r.k === 'ty').sort((a, b) => a['日'].localeCompare(b['日']));
-  if (!days.length) return '<div class="empty">还没有 T 预约数据（KA「运营部」文件夹）</div>';
+  // 11/16：日期＝食べログ页面数据（11/10 起）和レストランボード 数据（10/1 起）合起来，10 月也能选
+  const ALL = [...new Set(days.map(d => d['日']).concat(R.filter(r => r.k === 'pr').map(r => r['日'])))].sort();
+  if (!ALL.length) return '<div class="empty">还没有预约数据</div>';
   const DM = {}; days.forEach(d => DM[d['日']] = d);
   const HRS = {}; R.filter(r => r.k === 'tyh').forEach(r => HRS[r['日']] = r);
-  const first = days[0]['日'], latest = days[days.length - 1]['日'];
-  if (!tyDay || !DM[tyDay]) tyDay = latest;
-  if (!tyA) tyA = days[Math.max(0, days.length - 7)]['日'];
+  const first = ALL[0], latest = ALL[ALL.length - 1];
+  if (!tyDay || !ALL.includes(tyDay)) tyDay = latest;
+  if (!tyA) tyA = ALL[Math.max(0, ALL.length - 7)];
   if (!tyB) tyB = latest;
   if (tyA > tyB) { const t = tyA; tyA = tyB; tyB = t; }
   const range = tyMode === 'range';
-  const sel = range ? days.filter(d => d['日'] >= tyA && d['日'] <= tyB).map(d => d['日']) : [tyDay];
+  const sel = range ? ALL.filter(d => d >= tyA && d <= tyB) : [tyDay];
   const page2st = {}; D.pg.filter(p => p['平台'] === '食べログ').forEach(p => page2st[p['品牌页']] = p['店']);
   const agg = list => {
     const st = {}, tot = { r: 0, s: 0, rn: 0, sn: 0 };
@@ -641,15 +646,16 @@ function renderTy() {
   // ① 单日 / 期间
   let h = '<div class="seg">' + [['day', '单日'], ['range', '📅 期间（自己选）']].map(([k, n]) => '<button class="' + (tyMode === k ? 'on' : '') + '" onclick="tySet(\'mode\',\'' + k + '\')">' + n + '</button>').join('') + '</div>';
   if (!range) {
-    h += '<div class="seg" style="flex-wrap:nowrap;overflow-x:auto">' + days.map(d => '<button class="' + (d['日'] === tyDay ? 'on' : '') + '" onclick="tySet(\'day\',\'' + d['日'] + '\')">' + mdw(d['日']) + (d['标'] && d['标'].includes('截至') ? ' 进行中' : '') + '</button>').join('') + '</div>';
+    h += '<div class="seg" style="flex-wrap:nowrap;overflow-x:auto">' + ALL.slice().reverse().map(d => '<button class="' + (d === tyDay ? 'on' : '') + '" onclick="tySet(\'day\',\'' + d + '\')">' + mdw(d) + (DM[d] && DM[d]['标'] && DM[d]['标'].includes('截至') ? ' 进行中' : '') + '</button>').join('') + '</div>';
   } else {
     h += '<div class="card typick"><input type="date" value="' + tyA + '" min="' + first + '" max="' + latest + '" onchange="tySet(\'a\',this.value)"><span>〜</span><input type="date" value="' + tyB + '" min="' + first + '" max="' + latest + '" onchange="tySet(\'b\',this.value)">' +
       '<span class="seg" style="margin:0">' + [['7', '最近 7 天'], ['30', '最近 30 天'], ['m', '本月'], ['pm', '上个月'], ['all', '全部']].map(([q, n]) => '<button onclick="tyQuick(\'' + q + '\',\'' + first + '\',\'' + latest + '\')">' + n + '</button>').join('') + '</span>' +
       '<span class="tyc" style="margin-left:auto">' + sel.length + ' 天有数据' + (sel.length ? '（' + sel.map(s => +s.slice(8)).join('・') + ' 日）' : '') + '</span></div>';
   }
-  const title = range ? mdw(tyA) + '〜' + mdw(tyB) : mdw(tyDay) + (DM[tyDay]['标'] ? '（' + DM[tyDay]['标'] + '）' : '');
+  const title = range ? mdw(tyA) + '〜' + mdw(tyB) : mdw(tyDay) + (DM[tyDay] && DM[tyDay]['标'] ? '（' + DM[tyDay]['标'] + '）' : '');
+  const pgDays = sel.filter(d => DM[d]).length;
   // ② 合计
-  h += '<div class="tyhd"><h2 style="margin:0;font-size:16px">T 食べログ（页面上的「本日 N 人」）</h2></div><div class="grid" style="margin-bottom:8px"><div class="card kpi"><small>' + esc(title) + ' 网上预约</small><b style="color:var(--t)">' + fmt(cur.tot.r) + '</b><span class="u">人</span>' +
+  h += '<div class="tyhd"><h2 style="margin:0;font-size:16px">T 食べログ（页面上的「本日 N 人」）</h2>' + (range ? '<span class="tyc">' + pgDays + ' 天有页面数据</span>' : '') + '</div>' + (!pgDays ? '<div class="card tyc" style="margin-bottom:8px">这' + (range ? '段时间' : '天') + '没有食べログ页面的数据（11/10 起才有，11/14・15 没有）。下面「⏰ 时间段」「🌐 各平台网上预约」用的是レストランボード（10/1 起）。</div>' : '') + '<div class="grid" style="margin-bottom:8px;' + (!pgDays ? 'display:none' : '') + '"><div class="card kpi"><small>' + esc(title) + ' 网上预约</small><b style="color:var(--t)">' + fmt(cur.tot.r) + '</b><span class="u">人</span>' +
     (range && sel.length ? '<div class="d">日均 ' + fmt(Math.round(cur.tot.r / sel.length)) + ' 人</div>' : '') + '<div class="d">' + cmp(cN.tot.r, okp.length ? cP.tot.r : null) + '</div></div>' +
     '<div class="card kpi"><small>保存</small><b>' + fmt(cur.tot.s) + '</b><span class="u">人</span>' + (range && sel.length ? '<div class="d">日均 ' + fmt(Math.round(cur.tot.s / sel.length)) + ' 人</div>' : '') +
     '<div class="d">' + cmp(cN.tot.s, okp.length ? cP.tot.s : null) + '</div></div></div>';
@@ -677,16 +683,40 @@ function renderTy() {
     });
     return [...m.entries()].sort((a, b) => a[1][2] - b[1][2] || a[0].localeCompare(b[0]));
   };
-  const hourBars = (B, note) => {
-    if (!B.length) return '<div class="tyc">' + (note || '这段时间没有每小时数据（11/16 16 点起才有）') + '</div>';
-    const bm = Math.max(1, ...B.map(x => x[1][0])), peak = B.filter(x => !x[0].startsWith('0-') || B.length === 1).sort((a, b) => b[1][0] - a[1][0])[0];
-    return (peak && peak[1][0] ? '<div class="tyc" style="margin-bottom:4px">预约最多的时段：<b style="color:var(--ink)">' + peak[0] + '</b> ' + peak[1][0] + ' 人</div>' : '') +
-      B.map(x => '<div class="dim" style="grid-template-columns:64px 1fr 92px"><span>' + x[0] + '</span><span class="bar"><i style="width:' + Math.round(x[1][0] / bm * 100) + '%;background:var(--t)"></i></span><span class="v">' + x[1][0] + ' 人<small style="color:var(--sub)">・存 ' + x[1][1] + '</small></span></div>').join('');
+  const hourBars = (B, note, cum) => {   // cum＝第一格是「0 点到第一次读取」的累计（食べログ页面那份），算最多时段时不算它
+    if (!B.length) return '<div class="tyc">' + (note || '这段时间没有每小时数据') + '</div>';
+    const bm = Math.max(1, ...B.map(x => x[1][0])), peak = B.filter((x, i) => !(cum && i === 0 && x[0].startsWith('0-')) || B.length === 1).sort((a, b) => b[1][0] - a[1][0])[0];
+    const sumN = B.reduce((a, x) => a + x[1][0], 0);
+    return (peak && peak[1][0] ? '<div class="tyc" style="margin-bottom:4px">合计 ' + fmt(sumN) + ' 人；最多的时段：<b style="color:var(--ink)">' + peak[0] + '</b> ' + fmt(peak[1][0]) + ' 人（' + Math.round(peak[1][0] / Math.max(sumN, 1) * 100) + '%）</div>' : '') +
+      B.map(x => '<div class="dim" style="grid-template-columns:64px 1fr 92px"><span>' + x[0] + '</span><span class="bar"><i style="width:' + Math.round(x[1][0] / bm * 100) + '%;background:' + (x === peak ? 'var(--bad)' : 'var(--t)') + '"></i></span><span class="v">' + fmt(x[1][0]) + ' 人' + (x[1][1] != null ? '<small style="color:var(--sub)">・存 ' + x[1][1] + '</small>' : '') + '</span></div>').join('');
   };
   const hsel = sel.filter(s => HRS[s]);
-  h += '<div class="card" style="margin-bottom:10px"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px"><b style="font-size:14px">⏰ 时间段</b><span class="tyc">每个钟头新进的预约' + (range ? '（' + hsel.length + ' 天加起来）' : '') + '；第一格＝0 点到第一次读取时的累计</span>' +
-    '<select class="tysel" onchange="tySet(\'hr\',this.value)"><option value="">全部店</option>' + stores.map(k => '<option' + (tyHrSt === k ? ' selected' : '') + '>' + esc(k) + '</option>').join('') + '</select></div>' +
-    hourBars(hb(hsel, tyHrSt)) + '</div>';
+  // 11/16 用户：时间段要完整 → 默认用レストランボード 的受付时间（10/1 起、T・H・G・R、能按店）；食べログ页面每小时那份（11/16 起、只有 T）留作第二个选项
+  const PRD = {}; R.forEach(r => { if (r.k === 'pr') PRD[r['日']] = r; });
+  // 时间段的店下拉：受付时间模式用レストランボード 里那段时间有预约的店（10 月没有食べログ页面数据时也能选）
+  const rbSt = (() => { const t = {}; sel.forEach(ds => Object.entries((PRD[ds] || {}).hs || {}).forEach(([key, m]) => { const [pp, k] = key.split('|'); if (tyHrPl !== 'all' && pp !== tyHrPl) return; t[k] = (t[k] || 0) + Object.values(m).reduce((a, n) => a + n, 0); })); return Object.keys(t).sort((a, b) => t[b] - t[a]); })();
+  const hrList = tyHrSrc === 'rb' ? rbSt : stores, hrSt = hrList.includes(tyHrSt) ? tyHrSt : '';
+  const rbHours = (list, onlyStore, pl) => {
+    const a = Array(24).fill(0); let days = 0, inc = 0;
+    list.forEach(ds => {
+      const o = PRD[ds]; if (!o) return; days++; if (o['缺'] > 0) inc++;
+      if (onlyStore) Object.entries(o.hs || {}).forEach(([key, m]) => { const [pp, k] = key.split('|'); if (k !== onlyStore || (pl !== 'all' && pp !== pl)) return; Object.entries(m).forEach(([hh, n]) => a[+hh] += n); });
+      else Object.entries(o.h || {}).forEach(([pp, arr]) => { if (pl !== 'all' && pp !== pl) return; arr.forEach((n, i) => a[i] += n); });
+    });
+    return { days, inc, B: a.map((n, i) => [i + '-' + (i + 1) + '点', [n, null, i]]).filter(x => x[1][0] > 0) };
+  };
+  const slot = onlyStore => {
+    if (tyHrSrc === 'pg') return hourBars(hb(hsel, onlyStore), '这段时间没有食べログ页面的每小时数据（11/16 16 点起才有）', true);
+    const r = rbHours(sel, onlyStore, tyHrPl);
+    if (!r.days) return '<div class="tyc">这' + (range ? '段时间' : '天') + '还没有レストランボード 数据（10/1 起；每天早上 5 点自动读）</div>';
+    return (r.inc ? '<div class="tyc" style="margin-bottom:4px">⚠ 其中 ' + r.inc + ' 天还在补（之后来店的预约还没读全），数字还会变大</div>' : '') + hourBars(r.B, '没有网上预约');
+  };
+  h += '<div class="card" style="margin-bottom:10px"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px"><b style="font-size:14px">⏰ 时间段</b>' +
+    '<span class="seg" style="margin:0">' + [['rb', '按受付时间（T・H・G・R）'], ['pg', '食べログ页面（T）']].map(([k, n]) => '<button class="' + (tyHrSrc === k ? 'on' : '') + '" onclick="tySet(\'src\',\'' + k + '\')">' + n + '</button>').join('') + '</span>' +
+    (tyHrSrc === 'rb' ? '<span class="seg" style="margin:0">' + [['all', '全部'], ['T', 'T'], ['H', 'H'], ['G', 'G'], ['R', 'R']].map(([k, n]) => '<button class="' + (tyHrPl === k ? 'on' : '') + '" onclick="tySet(\'pl\',\'' + k + '\')">' + n + '</button>').join('') + '</span>' : '') +
+    '<select class="tysel" onchange="tySet(\'hr\',this.value)"><option value="">全部店</option>' + hrList.map(k => '<option' + (hrSt === k ? ' selected' : '') + '>' + esc(k) + '</option>').join('') + '</select></div>' +
+    '<div class="tyc" style="margin-bottom:6px">' + (tyHrSrc === 'rb' ? '那' + (range ? '段时间每天' : '天') + '几点有人在网上下了预约（レストランボード 的受付时间，只算网上预约，含后来取消的）' + (range ? '，加起来' : '') : '食べログ页面「本日 N 人」每小时增加多少；第一格＝0 点到第一次读取时的累计') + '</div>' +
+    slot(hrSt) + '</div>';
   // ⑤ 各店：预约・保存并排，下面灰字上月同期
   let L = Object.entries(cur.st);
   L.sort(tySort === 'r' ? (a, b) => (b[1].r ?? -1) - (a[1].r ?? -1) : (a, b) => (b[1].s ?? -1) - (a[1].s ?? -1));
@@ -700,7 +730,8 @@ function renderTy() {
       if (open) {
         r += '<div class="det" onclick="event.stopPropagation()"><table class="tbl card" style="padding:0;margin-bottom:8px"><tr><th>品牌页</th><th>预约</th><th>保存</th></tr>' +
           Object.entries(x.pages).map(([pg, v]) => '<tr><td>' + esc(brandShort(pg) || pg) + '</td><td>' + (v[1] ?? '未显示') + '</td><td>' + (v[0] ?? '未显示') + '</td></tr>').join('') + '</table>' +
-          '<div class="card"><div class="tyc" style="margin-bottom:4px">⏰ ' + esc(k) + ' 的时间段</div>' + hourBars(hb(hsel, k)) + '</div></div>';
+          '<div class="card"><div class="tyc" style="margin-bottom:4px">⏰ ' + esc(k) + ' 的时间段（' + (tyHrSrc === 'rb' ? '受付时间・' + (tyHrPl === 'all' ? 'T・H・G・R' : tyHrPl) : '食べログ页面') + '）</div>' +
+          slot(k) + '</div></div>';   // k 本来就是店（和レストランボード 同名）
       }
       return r + '</div>';
     }).join('') + '</div></div>';
