@@ -466,7 +466,7 @@ button.svdlab{color:var(--ink);font-family:inherit;line-height:1.3}
 <script>
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v47';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v48';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -531,7 +531,7 @@ function load(manual) {
       hideKey();
       if (!svOpen()) renderSoon(); else if (svTab === 'ov') renderSoon(renderSales);   // 营业额页开着时不重画底下看不见的首页（关掉时再画）
       if (tab === 'pw') loadPw();
-      if (D.owner && !SV) setTimeout(svPrefetch, 2000);   // 老板：先把营业额准备好，点开就有
+      if ((D.owner || D.sk) && !SV) setTimeout(svPrefetch, 2000);   // 老板：先把营业额准备好，点开就有
     })
     .catch(() => {
       rf.classList.remove('spin');
@@ -616,7 +616,7 @@ function render() {
   if (D.owner) rh.innerHTML = `<span>${rbStale ? `⚠ 预约 ${rbHm} 以后没读到（多半是 AirID 掉线）` : `📒 预约 ${rbHm} 更新`}</span><button onclick="openRelogin()">🖥️ 让电脑重新登录</button>`;
   // 合计
   // 11/15 三幸園（コーズ，另一个账号）：桌位照常列出来，但集团的空桌合计・营业中家数不算它
-  const isSk = s => s.name === '三幸園';
+  const isSk = s => !D.sk && s.name === '三幸園';   // 11/16：三幸園店长密码（D.sk）只有这一家，照常算
   const free = open.filter(s => !isSk(s)).reduce((a, s) => a + s.free, 0), n = open.filter(s => !isSk(s)).reduce((a, s) => a + s.n, 0);
   const airOpen = D.stores.filter(s => s.status === 'air').length;
   // 11/13：立川 是一家店两台收银（渦潮×稲の和、権兵衛のいろり屋），桌位卡分开看，家数只算 1 家
@@ -624,9 +624,9 @@ function render() {
   const shopKey = s => ONE_SHOP_AREAS.includes(s.area) ? 'area:' + s.area : 'name:' + s.name;
   const openShops = new Set(D.stores.filter(s => !isSk(s) && ((s.status === 'open' && s.n) || s.status === 'air')).map(shopKey)).size;
   const statsEl = document.getElementById('stats');
-  statsEl.className = 'stats' + (D.owner ? ' own' : '');
+  statsEl.className = 'stats' + (D.owner || D.sk ? ' own' : '');
   patchList(statsEl,
-    (D.owner ? `<div class="stat sales" onclick="openSales()"><small>${(() => { const ld = svLiveDay(); return ld === svToday() ? '今日营业额（含税）' : svMD(ld) + '（' + svWk(ld) + '）营业额（含税）'; })()}›</small><b>${esc(D.sales || '—')}</b>${D.salesEx ? `<small>税抜 ${esc(D.salesEx)}</small>` : ''}</div>` : '') +
+    (D.owner || D.sk ? `<div class="stat sales" onclick="openSales()"><small>${(() => { const ld = svLiveDay(); return ld === svToday() ? '今日营业额（含税）' : svMD(ld) + '（' + svWk(ld) + '）营业额（含税）'; })()}›</small><b>${esc(D.sales || '—')}</b>${D.salesEx ? `<small>税抜 ${esc(D.salesEx)}</small>` : ''}</div>` : '') +
     // 11/12：Airレジ 的店（町田）没有桌位数据，但在营业，也算进「营业中」
     `<div class="stat"><small>营业中</small><b>${openShops}<em> 家</em></b>${airOpen ? `<small>其中 ${airOpen} 家没有桌位数据</small>` : ''}</div>` +
     `<div class="stat"><small>空桌</small><b class="g">${free}<em> / ${n}</em></b></div>` +
@@ -638,7 +638,9 @@ function render() {
   document.querySelectorAll('nav button').forEach(b => b.classList.toggle('on', b.dataset.tab === tab));
 
   document.getElementById('sort').style.display = tab === 'pw' ? 'none' : '';
-  document.getElementById('salesBtn').style.display = D.owner ? 'block' : 'none';
+  document.getElementById('salesBtn').style.display = D.owner || D.sk ? 'block' : 'none';
+  document.getElementById('salesBtn').textContent = D.sk ? '🥩 三幸園营业额' : '💴 集团总营业额';
+  const pwB = document.querySelector('nav button[data-tab="pw"]'); if (pwB) pwB.style.display = D.sk ? 'none' : '';   // 繁忙日排位是集团的（レストランボード），三幸園店长不用
   if (document.getElementById('salesView').style.display === 'block') renderSales();
   if (tab === 'pw') { patchList(document.getElementById('list'), pwView()); return; }
   // 列表
@@ -826,8 +828,8 @@ let SVG = null, SVK = null, svCo = '';
 function svMk(d, sk) { const LB = {}, isD = x => /^\d/.test(x.d || '');   // 11/16：「L年-月」行＝人工月报（集团「人工」页用），不是日子
   if (!sk) d.days.forEach(x => { if (x.lab) LB[x.lab.m] = Object.assign(LB[x.lab.m] || {}, x.lab); if (x.labh) LB[x.labh.m] = Object.assign(LB[x.labh.m] || {}, { h: x.labh.h }); if (x.labd) LB[x.labd.m] = Object.assign(LB[x.labd.m] || {}, { d: x.labd.d }); if (x.labe) { const q = LB[x.labe.m] = LB[x.labe.m] || {}; q.e = Object.assign(q.e || {}, x.labe.h); } });
   const o = sk ? { at: d.at, sk: true, days: d.days.filter(x => x.sk && isD(x)).map(x => Object.assign({ d: x.d }, x.sk)) } : Object.assign({}, d, { days: d.days.filter(x => !x.sko && isD(x)) }); o.lab = LB; o.raw = d.days.length; o.map = {}; o.mon = null; o.days.forEach(x => { o.map[x.d] = x; if (!sk && x.mon) o.mon = x.mon; }); return o; }
-function svUse(d) { SVG = svMk(d, false); SVK = svMk(d, true); SV = svCo === 'sk' && SVK.days.length ? SVK : SVG; svFcMemo = {}; svErr = ''; }   // mon＝云端月报（收银台还没补到的店×月，11/14）
-function svSetCo(c) { svCo = c; if (SVG) SV = c === 'sk' && SVK.days.length ? SVK : SVG; svFcMemo = {}; if (c === 'sk' && (svTab === 'st' || svTab === 'lab')) svTab = 'ov'; renderSales(); document.getElementById('salesView').scrollTop = 0; }   // mon＝云端月报（收银台还没补到的店×月，11/14）
+function svUse(d) { SVG = svMk(d, false); SVK = svMk(d, true); SV = (svCo === 'sk' || !SVG.days.length) && SVK.days.length ? SVK : SVG; svFcMemo = {}; svErr = ''; }   // mon＝云端月报（收银台还没补到的店×月，11/14）
+function svSetCo(c) { svCo = c; if (SVG) SV = (c === 'sk' || !SVG.days.length) && SVK.days.length ? SVK : SVG; svFcMemo = {}; if (c === 'sk' && (svTab === 'st' || svTab === 'lab')) svTab = 'ov'; renderSales(); document.getElementById('salesView').scrollTop = 0; }   // mon＝云端月报（收银台还没补到的店×月，11/14）
 function svCacheGet() {
   if (!window.caches) return Promise.resolve(null);
   return caches.open(SV_CK).then(c => c.match(SV_KEY)).then(r => r ? r.json().then(d => ({ d, got: +(r.headers.get('x-got') || 0) })) : null).catch(() => null);
@@ -849,7 +851,7 @@ function svFetch() {
 }
 // 先用手机里存的；没有或太旧就上网读
 function svPrefetch() {
-  if (!D || !D.owner) return Promise.resolve();
+  if (!D || !(D.owner || D.sk)) return Promise.resolve();
   if (SV) { if (Date.now() - svGot > 10 * 60000) svFetch(); return Promise.resolve(); }
   return svCacheGet().then(c => {
     if (c && !SV && c.d && c.d.days) { svUse(c.d); svGot = c.got; if (svOpen()) renderSales(); }
@@ -857,12 +859,12 @@ function svPrefetch() {
   });
 }
 function openSales(ds) {
-  if (!D || !D.owner) return;
+  if (!D || !(D.owner || D.sk)) return;
   document.getElementById('salesView').style.display = 'block';
   document.body.style.overflow = 'hidden';
   if (ds) svDay = ds;
   if (!svDay) svDay = svToday();
-  if (svCo) { svCo = ''; if (SVG) SV = SVG; svFcMemo = {}; }
+  if (svCo) { svCo = ''; if (SVG) SV = SVG.days.length || !SVK.days.length ? SVG : SVK; svFcMemo = {}; }   // 11/16 三幸園店长：没有集团，只有三幸園
   svMon = svDay.slice(0, 7);
   renderSales();
   svPrefetch();
@@ -1356,7 +1358,7 @@ function renderSales() {
   if (SV.sk && (svTab === 'st' || svTab === 'lab')) svTab = 'ov';
   if (svTab === 'lab' && !Object.keys(SV.lab || {}).length) svTab = 'ov';
   document.getElementById('svTitle').textContent = SV.sk ? '🥩 三幸園 营业额' : '💴 集团总营业额';
-  let h = (SVK && SVK.days.length ? `<div class="svco"><button class="${SV.sk ? '' : 'on'}" onclick="svSetCo('')">💴 集团</button><button class="${SV.sk ? 'on' : ''}" onclick="svSetCo('sk')">🥩 三幸園</button></div>` : '')
+  let h = (SVK && SVK.days.length && SVG && SVG.days.length ? `<div class="svco"><button class="${SV.sk ? '' : 'on'}" onclick="svSetCo('')">💴 集团</button><button class="${SV.sk ? 'on' : ''}" onclick="svSetCo('sk')">🥩 三幸園</button></div>` : '')
     + '<div class="svtabs">' + SV_TABS.filter(([k]) => !(SV.sk && (k === 'st' || k === 'lab')) && !(k === 'lab' && !Object.keys(SV.lab || {}).length)).map(([k, n]) => `<button class="${svTab === k ? 'on' : ''}" onclick="svGo('${k}')">${n}</button>`).join('') + '</div>';
   if (svTab !== 'fc' && svTab !== 'lab') h += svCmpBar();
   h += ({ ov: svTabOv, day: svTabDay, hr: svTabHr, st: svTabSt, fc: svTabFc, lab: svTabLab }[svTab] || svTabOv)(today);
