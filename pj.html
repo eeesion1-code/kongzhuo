@@ -167,7 +167,7 @@ main{padding:12px 14px calc(30px + env(safe-area-inset-bottom));max-width:760px;
 </header>
 <main id="main"><div class="empty">读取中…</div></main>
 <script>
-const APPV = 'yunying-v5';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v6';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 在 空桌一览 里面（pj.html）还是独立 APP
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
 const LS = {
@@ -713,10 +713,26 @@ function renderTy() {
 // ---------- 各平台（T・H・G・R）每天进的网上预约：レストランボード 按受付日（运营部\各平台预约），T 和食べログ页面核对 ----------
 const PN = { T: '食べログ', H: 'ホットペッパー', G: 'ぐるなび', R: 'Retty' }, PCOL = { T: 'var(--t)', H: 'var(--h)', G: '#b45309', R: '#7c3aed' }, PK = ['T', 'H', 'G', 'R'];
 function prBlock(R, sel, range) {
-  const PR = {}, PV = {};
-  R.forEach(r => { if (r.k === 'pr') PR[r['日']] = r; else if (r.k === 'pv') PV[r['日']] = r; });
+  const PR = {}, PV = {}, PX = []; let PS = null;
+  R.forEach(r => { if (r.k === 'pr') PR[r['日']] = r; else if (r.k === 'pv') PV[r['日']] = r; else if (r.k === 'prx') PX.push(r); else if (r.k === 'prs') PS = r; });
+  // 补读状态（レストランボード 掉线就提醒用手机重登）＋ 4 个平台两次读取对账
+  let chk = '';
+  if (PS) {
+    const bad = /登录|找不到|没跑/.test(PS['结果'] || '');
+    chk += bad ? '<div class="err" style="margin-bottom:8px">⚠ 补读没跑成（' + esc(PS['时间']) + '）：' + esc(PS['结果']) + (/登录/.test(PS['结果']) ? '。在空桌一览点「🖥️ 让电脑重新登录」，第二天早上 5:00 会自动接着补。' : '') + '</div>'
+      : '<div class="tyc" style="margin-bottom:6px">补读：' + esc(PS['时间']) + ' ' + esc(PS['结果']) + (PS['店日'] ? '（' + fmt(PS['店日']) + ' 个店日、' + fmt(PS['组']) + ' 组）' : '') + '</div>';
+    if ((PS['不见了'] || []).length) chk += '<div class="tyc" style="margin-bottom:6px">⚠ 早上刷新时有 ' + PS['不见了'].length + ' 处「上次读到、这次没有」（已自动重读，还是对不上）：' + PS['不见了'].slice(-5).map(x => esc(x['店']).slice(0, 12) + ' ' + x['日'].slice(5) + ' ' + x['不见了'] + ' 组').join('、') + '</div>';
+  }
+  if (PX.length) {
+    const L = PX.slice(-14), g = L.reduce((a, x) => a + x['组'], 0), gone = L.reduce((a, x) => a + x['不见了'], 0), miss = L.reduce((a, x) => a + x['早读漏了'], 0);
+    chk += '<div class="card" style="margin-bottom:8px;font-size:13px">' + (gone + miss ? '⚠' : '✅') + ' <b>两次读取对账（T・H・G・R）</b>：最近 ' + L.length + ' 个来店日、' + fmt(g) + ' 组网上预约，早上提前读的和日报系统事后读的' +
+      (gone + miss ? '对不上：不见了 ' + gone + ' 组、早读漏了 ' + miss + ' 组<div class="tyc" style="margin-top:4px">' + L.filter(x => x['差店'].length).map(x => x['来店日'].slice(5) + ' ' + x['差店'].map(z => esc(z[0]) + ' ' + z[1] + '/' + z[2]).join('、')).join('；') + '</div>' : '全部一致') + '</div>';
+  } else {
+    chk += '<div class="tyc" style="margin-bottom:6px">两次读取对账（T・H・G・R）：早上提前读的来店日过完、日报系统再读一次后自动比对，第一批 11/18 起有结果。</div>';
+  }
   const ds = sel.filter(d => PR[d]);
   let h = '<div class="sec" style="margin-top:18px"><div class="tyhd"><h2 style="margin:0">🌐 各平台网上预约</h2><span class="tyc">レストランボード 按受付日（那天进了多少），含后来取消的</span></div>';
+  h += chk;
   if (!ds.length) return h + '<div class="card tyc">这' + (range ? '段时间' : '天') + '还没有レストランボード 数据（10/1 起；每天早上 5 点自动读）</div></div>';
   const sum = list => {
     const t = {}, st = {}; PK.forEach(p => t[p] = [0, 0, 0]);
