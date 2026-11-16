@@ -167,7 +167,7 @@ main{padding:12px 14px calc(30px + env(safe-area-inset-bottom));max-width:760px;
 </header>
 <main id="main"><div class="empty">读取中…</div></main>
 <script>
-const APPV = 'yunying-v14';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v15';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 在 空桌一览 里面（pj.html）还是独立 APP
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
 const LS = {
@@ -190,7 +190,7 @@ const pct = x => x == null ? '' : (x >= 0 ? '▲' : '▼') + Math.abs(x * 100).t
 const today = new Date(); const TD = today.toISOString().slice(0, 10);
 
 let PJ = null, HR = null, pjErr = '', hrErr = '', owner = false;
-const tabFromUrl = (location.hash.match(/^#(pj|hr|hy|sy|ty)$/) || [])[1];   // 网址带 #hr 直接开人事评价、#hy 卫生、#pj 评价
+const tabFromUrl = (location.hash.match(/^#(pj|hr|hy|sy|ty|yc)$/) || [])[1];   // 网址带 #hr 直接开人事评价、#hy 卫生、#pj 评价
 let syMonth = LS.get('syMonth', 'year'), syQ = '', sySort = LS.get('sySort', 'store'), syOpen = new Set();
 let tab = tabFromUrl || LS.get('pjTab', 'pj'), stSort = LS.get('pjSort', 'g'), rvPlat = '', openSt = new Set(), hrMonth = '', hrOpen = new Set(), hyOpen = new Set();
 
@@ -220,7 +220,7 @@ async function load() {
     else if (d && d.error === 'owner') { HR = null; owner = false; LS.del('pjc_hr'); }
     else if (owner || (d && !d.error)) hrErr = '读不到人事评价（后台还没部署新版本）';
   }
-  if (!owner && tab !== 'pj' && tab !== 'ty') tab = 'pj';
+  if (!owner && tab !== 'pj' && tab !== 'ty' && tab !== 'yc') tab = 'pj';
   render();
 }
 function showKey(msg) {
@@ -232,11 +232,12 @@ function changeKey() { showKey(''); }
 // ---------- 公共 ----------
 function setTab(t) { tab = t; LS.set('pjTab', t); render(); window.scrollTo(0, 0); }
 function render() {
-  const tabs = [['pj', '⭐ 评价'], ['ty', '📅 预约'], ...(owner ? [['hr', '👔 人事'], ['sy', '👤 社员'], ['hy', '🧹 卫生']] : [])];
+  const ycN = ycBad().length;   // 11/16 预约异常：有订不了的页面就在按钮上显示几处
+  const tabs = [['pj', '⭐ 评价'], ['ty', '📅 预约'], ['yc', '🚨 预约异常' + (ycN ? ' <b style="color:#fff;background:var(--bad);border-radius:9px;padding:0 6px;font-size:12px">' + ycN + '</b>' : '')], ...(owner ? [['hr', '👔 人事'], ['sy', '👤 社员'], ['hy', '🧹 卫生']] : [])];
   $('tabs').innerHTML = tabs.map(([k, n]) => '<button class="' + (tab === k ? 'on' : '') + '" onclick="setTab(\'' + k + '\')">' + n + '</button>').join('');
-  const at = tab === 'pj' || tab === 'ty' ? (PJ && PJ.at) : (HR && HR.at);
+  const at = tab === 'pj' || tab === 'ty' || tab === 'yc' ? (PJ && PJ.at) : (HR && HR.at);
   $('at').textContent = at ? at.slice(5).replace('-', '/') + ' 更新' : '';
-  $('main').innerHTML = (tab === 'hr' ? renderHr() : tab === 'sy' ? renderSy() : tab === 'hy' ? renderHy() : tab === 'ty' ? renderTy() : renderPj()) +
+  $('main').innerHTML = (tab === 'hr' ? renderHr() : tab === 'sy' ? renderSy() : tab === 'hy' ? renderHy() : tab === 'ty' ? renderTy() : tab === 'yc' ? renderYc() : renderPj()) +
     '<div class="foot"><a onclick="changeKey()">🔑 换密码（老板 / 店长）</a>' + (IN_KZ ? '' : '　版本 ' + APPV.replace('yunying-v', '')) + '</div>';
 }
 const stars = s => s == null ? '' : '<span class="stars">' + '★'.repeat(Math.round(s)) + '<span style="opacity:.25">' + '★'.repeat(5 - Math.round(s)) + '</span></span>';
@@ -871,6 +872,43 @@ function prBlock(R, sel, range) {
         (ac ? '<div style="font-size:11px;color:var(--sub);line-height:1.35;margin-top:2px">' + ac['品牌'].map(esc).join('・') + '<br>账号 H' + ac.H + '・G' + ac.G + '・T' + ac.T + '</div>' : '') + '</td><td>' + (!reliable && !x.n && !r.kept ? '<span class="tyc" style="white-space:nowrap">还没读到</span>' : '<b>' + r.kept + '</b>') + '</td>' + PK.map(p => '<td>' + (x[p] || '') + '</td>').join('') + '<td>' + x.n + '</td><td>' + (Math.round(r.cAvg * 10) / 10) + '</td>' +
         '<td style="white-space:nowrap">' + pctS(r.r4) + (r.bAvg != null ? '<small style="color:var(--sub)"> 平时 ' + (Math.round(r.bAvg * 10) / 10) + '</small>' : '') + '</td><td>' + pctS(r.rM) + '</td><td style="color:var(--sub)">' + (x.c || '') + '</td><td>' + cRate(x.c, x.n) + '</td>' + (anyB ? '<td style="color:var(--sub)">' + (x.b || '') + '</td>' : '') + '</tr>'; }).join('') + '</table></div>';
   return h + '<p class="note">T＝食べログ、H＝ホットペッパー、G＝ぐるなび、R＝Retty，只算「ネット予約」（电话预约不算）。<b>留着</b>＝到现在还没取消的人（来店待ち・来店済み・退店・会計済み 等；最近几天的以后还可能取消）；<b>取消</b>＝顧客ｷｬﾝｾﾙ・キャンセル・無断ｷｬﾝｾﾙ・貴店ｷｬﾝｾﾙ；<b>下单</b>＝留着＋取消。<b>AA</b>（T 订了又取消，WPS 表按来店日记人数，1 组 2 人）不算：电脑按来店日从 T 已取消的 2 人组里逐组认出来扣掉，下单・取消・取消率都是扣掉后的真实数，留着不受影响；T 双重核对和食べログ页面「本日 N 人」一样不扣。数据：レストランボード（读来店日 10/1〜今天+30 天的预约，按受付时间加起来）。上月同期＝上个月同一周同一个星期几，两边都读全的天才比。</p></div>';
+}
+
+// ================= 🚨 预约异常 =================
+// 11/16 用户：今天有店预约还没满，网上预约却停了，损失很大 → 每天查「今天・明天」各平台网页还能不能订（各平台预约\预约异常.py，10:30・12:00）
+//   食べログ＝公开的空席接口（○△×）；ホットペッパー＝店铺页的空席日历（◎○△×TEL），页面写「現在通常予約を受け付けていません」＝停了
+//   レストランボード 那天已订几组几人一起写；座位数定了以后再分「满了（正常）」和「没满却订不了（异常）」
+const ycRow = () => ((PJ && PJ.rows) || []).find(r => r.k === 'yc');
+const ycBad = () => { const Y = ycRow(); return Y ? [...new Set((Y['订不了'] || []).map(b => b['链接']))] : []; };
+function renderYc() {
+  const Y = ycRow();
+  if (!Y) return '<div class="empty">还没有检查结果（每天 10:30・12:00 自动查）</div>';
+  const md = ds => +ds.slice(5, 7) + '/' + +ds.slice(8), dl = Y['日'] || [], pages = Y['页'] || [];
+  const nP = pl => pages.filter(x => x['平台'] === pl).length;
+  let h = '<div class="sec"><div class="tyhd"><h2 style="margin:0">🚨 预约异常</h2><span class="tyc">' + esc(Y.at) + ' 查；' + dl.map((d, i) => (i ? '明天 ' : '今天 ') + md(d)).join('・') + '；食べログ ' + nP('T') + ' 页・ホットペッパー ' + nP('H') + ' 页（ぐるなび・Retty 之后加）</span></div>';
+  const G = {};
+  (Y['订不了'] || []).forEach(b => { const g = G[b['链接']] = G[b['链接']] || Object.assign({}, b, { ds: [] }); g.ds.push(b); });
+  const L = Object.values(G);
+  if (!L.length) h += '<div class="card" style="font-size:14px;margin-bottom:10px">✅ 今天・明天所有页面都能网上预约</div>';
+  else h += '<div class="tyc" style="margin-bottom:6px">下面 ' + L.length + ' 个页面网上订不了，请马上确认（座位数还没定：现在先把订不了的都列出来；定了座位数以后，会分「满了（正常）」和「没满却订不了」）</div>' +
+    L.map(g => '<div class="card" style="border-left:4px solid var(--bad);margin-bottom:8px">' +
+      '<div style="font-weight:700;font-size:15px">' + esc(g['店']) + '・' + PN[g['平台']] + '「' + esc(g['品牌']) + '」网上订不了</div>' +
+      '<div style="font-size:13px;margin:4px 0;line-height:1.6">' + g.ds.map(b => md(b['日']) + '：' + (b['记号'] === '停止' ? '<b style="color:var(--bad)">网上预约停了</b>（页面写「現在通常予約を受け付けていません」）' : '<b style="color:var(--bad)">' + esc(b['记号']) + '</b>（' + (b['记号'] === '×' ? '满席' : b['记号'] === 'TEL' ? '要打电话' : '没有可订的') + '）') +
+        '；レストランボード 已订 ' + (b['已订'] ? b['已订'][0] + ' 组 ' + b['已订'][1] + ' 人（最大一组 ' + b['已订'][2] + ' 人）' : '<span class="tyc">还没读到</span>')).join('<br>') + '</div>' +
+      (g['另一页'] ? '<div class="tyc">同品牌另一页还开着：' + esc(g['另一页'][0]) + ' <a href="' + esc(g['另一页'][1]) + '" target="_blank" rel="noopener">看 ↗</a>（客人从这一页进来还是订不了）</div>' : '<div class="tyc" style="color:var(--bad)">这个品牌在这个平台上没有别的页面能订</div>') +
+      '<div style="margin-top:6px"><a href="' + esc(g['链接']) + '" target="_blank" rel="noopener" style="font-weight:700">打开这一页 ↗</a></div></div>').join('');
+  // 各店一览：レストランボード 已订＋每个页面今天・明天的记号
+  const RB = Y.rb || {}, st = {};
+  pages.forEach(x => (st[x['店']] = st[x['店']] || []).push(x));
+  const mk = (x, d) => { const o = (x['日'] || {})[d] || {}; return '<span style="font-weight:700;color:' + (o['能订'] ? 'var(--good)' : 'var(--bad)') + '">' + esc(o['记号'] || '—') + '</span>'; };
+  const rbS = (k, d) => { const r = (RB[k] || {})[d]; return r ? r['组'] + '组 ' + r['人'] + '人<small style="color:var(--sub)"> 最大' + r['最大'] + '</small>' : '<span class="tyc">还没读到</span>'; };
+  const keys = Object.keys(st).sort((a, b) => (st[b].some(x => !dl.every(d => ((x['日'] || {})[d] || {})['能订'])) - st[a].some(x => !dl.every(d => ((x['日'] || {})[d] || {})['能订']))) || a.localeCompare(b));
+  h += '<h2 style="margin:14px 0 6px;font-size:16px">各店（' + keys.length + ' 家）</h2><div class="card" style="overflow-x:auto;padding:4px 10px"><div class="tyc" style="margin:4px 0">每个页面写「今天 / 明天」的记号：食べログ ○能订 △少 ×不能；ホットペッパー ◎○△能订 ×满席 TEL要电话；停止＝网上预约停了；红字＝订不了</div>' +
+    '<table class="tbl"><tr><th>店</th><th>今天已订</th><th>明天已订</th><th style="text-align:left">各页面（今天/明天）</th></tr>' +
+    keys.map(k => '<tr><td style="white-space:nowrap"><b>' + esc(k) + '</b></td><td style="white-space:nowrap">' + rbS(k, dl[0]) + '</td><td style="white-space:nowrap">' + rbS(k, dl[1]) + '</td><td style="text-align:left;font-size:12px;line-height:1.7">' +
+      st[k].map(x => '<span style="white-space:nowrap;margin-right:10px"><span style="color:' + PCOL[x['平台']] + '">' + x['平台'] + '</span> ' + esc(brandShort(x['品牌']) || x['品牌']) + ' ' + dl.map(d => mk(x, d)).join('/') + '</span>').join(' ') + '</td></tr>').join('') + '</table></div>';
+  if ((Y['读不到'] || []).length) h += '<p class="note">这次没读到的页面：' + Y['读不到'].map(esc).join('；') + '</p>';
+  return h + '<p class="note">每天 10:30（早上补读完レストランボード 以后）和 12:00 自动查。食べログ 用公开的空席接口，ホットペッパー 读店铺页的空席日历，只读公开网页、不登录。ぐるなび・Retty 要先找到每个品牌的店铺页，之后加。</p></div>';
 }
 
 // ================= 🧹 卫生检查 =================
