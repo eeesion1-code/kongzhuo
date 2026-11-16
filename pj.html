@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>运营部</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f5f6f8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1115" media="(prefers-color-scheme: dark)">
+<style>
+/* 11/16 运营部：评价管理（各平台）・人事评价（店长月度考核）・卫生检查。样式和首页同一套颜色。 */
+:root{
+  --bg:#f5f6f8;--card:#fff;--ink:#16181d;--sub:#6b7280;--faint:#9ca3af;--line:#e6e8ec;--soft:#f0f2f5;
+  --brand:#1d4ed8;--good:#15803d;--goodBg:#ecfdf3;--warn:#b45309;--warnBg:#fef3c7;--bad:#dc2626;--badBg:#fee2e2;
+  --g:#1a73e8;--t:#c2410c;--h:#be123c;
+  --shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.08);
+}
+@media (prefers-color-scheme: dark){
+  :root{--bg:#0f1115;--card:#181b21;--ink:#eceef2;--sub:#a1a7b3;--faint:#6b7280;--line:#2a2f38;--soft:#20242c;
+    --brand:#3b82f6;--good:#22c55e;--goodBg:#11281a;--warn:#facc15;--warnBg:#2f2a10;--bad:#f87171;--badBg:#361515;
+    --g:#8ab4f8;--t:#fb923c;--h:#fb7185;--shadow:none}
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink)}
+body{font-family:-apple-system,BlinkMacSystemFont,"Hiragino Sans","PingFang SC","Noto Sans CJK SC","Microsoft YaHei",sans-serif;font-size:15px;line-height:1.45;-webkit-text-size-adjust:100%}
+button{font:inherit;color:inherit;cursor:pointer;touch-action:manipulation}
+a{color:var(--brand);text-decoration:none}
+header{position:sticky;top:0;z-index:5;background:var(--bg);padding:calc(8px + env(safe-area-inset-top)) 14px 0}
+.top{display:flex;align-items:center;gap:8px}
+.back{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:6px 10px;font-size:14px}
+h1{font-size:19px;margin:0;flex:1}
+.at{font-size:12px;color:var(--sub)}
+.tabs{display:flex;gap:6px;margin:10px 0 0;overflow-x:auto;padding-bottom:8px;border-bottom:1px solid var(--line)}
+.tabs button{flex:1;min-width:max-content;border:1px solid var(--line);background:var(--card);border-radius:10px;padding:9px 10px;font-size:15px;font-weight:700}
+.tabs button.on{background:var(--brand);border-color:var(--brand);color:#fff}
+main{padding:12px 14px calc(30px + env(safe-area-inset-bottom));max-width:760px;margin:0 auto}
+.sec{margin:0 0 16px}
+.sec h2{font-size:16px;margin:0 0 8px;display:flex;align-items:baseline;gap:8px}
+.sec h2 small{font-size:12px;color:var(--sub);font-weight:400;margin-left:auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:10px 12px}
+.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+@media (min-width:560px){.grid.g3{grid-template-columns:repeat(3,minmax(0,1fr))}}
+.kpi small{display:block;font-size:12px;color:var(--sub)}
+.kpi b{font-size:24px;letter-spacing:-.5px;font-variant-numeric:tabular-nums}
+.kpi .u{font-size:13px;color:var(--sub);margin-left:2px}
+.kpi .d{font-size:12px;margin-top:2px;color:var(--sub)}
+.kv{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}
+.kv td{padding:3px 0;border-top:1px solid var(--line);vertical-align:top}
+.kv td:last-child{text-align:right;font-variant-numeric:tabular-nums;font-weight:700}
+.kv td small{display:block;font-weight:400;color:var(--sub);font-size:11px}
+.plat{display:inline-flex;align-items:center;gap:4px;font-size:12px;font-weight:700}
+.dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.up{color:var(--good)}.dn{color:var(--bad)}.wn{color:var(--warn)}
+.pill{display:inline-block;font-size:12px;font-weight:700;padding:1px 8px;border-radius:999px;white-space:nowrap}
+.p-bad{background:var(--badBg);color:var(--bad)}.p-warn{background:var(--warnBg);color:var(--warn)}.p-good{background:var(--goodBg);color:var(--good)}
+.p-soft{background:var(--soft);color:var(--sub)}
+.rv{border-top:1px solid var(--line);padding:10px 0}
+.rv:first-child{border-top:0;padding-top:2px}
+.rvh{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13px}
+.rvh .who{color:var(--sub);font-size:12px}
+.rvt{font-size:14px;margin:4px 0 0;white-space:pre-line;word-break:break-word}
+.rvf{display:flex;gap:8px;align-items:center;margin-top:6px;font-size:12px;color:var(--sub)}
+.stars{color:#f59e0b;letter-spacing:-1px;font-size:13px}
+.seg{display:flex;gap:6px;margin:0 0 8px;flex-wrap:wrap}
+.seg button{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:5px 12px;font-size:13px}
+.seg button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.rows .r{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:10px 2px;border-top:1px solid var(--line);align-items:center}
+.rows .r:first-child{border-top:0}
+.r .nm{font-weight:700;font-size:15px}
+.r .nm small{font-weight:400;color:var(--sub);font-size:12px;margin-left:4px}
+.r .meta{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:4px 12px;font-size:13px;color:var(--sub)}
+.r .meta b{color:var(--ink);font-variant-numeric:tabular-nums}
+.r .big{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums;text-align:right}
+.r.open{background:var(--soft);border-radius:10px}
+.det{grid-column:1/-1;margin-top:6px}
+.bar{position:relative;height:8px;background:var(--soft);border-radius:4px;overflow:hidden}
+.bar i{position:absolute;left:0;top:0;bottom:0;border-radius:4px}
+.dim{display:grid;grid-template-columns:52px 1fr 52px;gap:8px;align-items:center;font-size:13px;margin:6px 0}
+.dim .v{text-align:right;font-variant-numeric:tabular-nums}
+.dimtxt{grid-column:2/-1;font-size:12px;color:var(--sub);margin:-4px 0 4px}
+.mini{display:flex;gap:2px;align-items:flex-end;height:26px}
+.mini i{flex:1;background:var(--t);opacity:.75;border-radius:2px 2px 0 0;min-height:1px}
+.mini2{display:flex;gap:6px;font-size:11px;color:var(--sub);justify-content:space-between}
+.note{font-size:12px;color:var(--sub);line-height:1.6;margin:6px 0 0}
+.empty{padding:28px 10px;text-align:center;color:var(--sub)}
+.grade{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:8px;font-weight:800;font-size:16px}
+.gS{background:#14532d;color:#fff}.gA{background:var(--good);color:#fff}.gB{background:#0369a1;color:#fff}.gC{background:var(--warn);color:#fff}.gD{background:var(--bad);color:#fff}
+.dist{display:flex;height:22px;border-radius:6px;overflow:hidden;margin:6px 0 2px}
+.dist span{display:grid;place-items:center;font-size:12px;font-weight:700;color:#fff;min-width:22px}
+.tbl{width:100%;border-collapse:collapse;font-size:13px}
+.tbl th{font-weight:400;color:var(--sub);text-align:right;padding:4px 4px;border-bottom:1px solid var(--line)}
+.tbl td{text-align:right;padding:5px 4px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}
+.tbl td:first-child,.tbl th:first-child{text-align:left}
+.issue{display:grid;grid-template-columns:auto 1fr;gap:2px 8px;font-size:13px;padding:6px 0;border-top:1px solid var(--line)}
+.issue:first-child{border-top:0}
+.issue .x{grid-column:2;color:var(--sub);font-size:12px}
+.lk{font-size:12px}
+.err{background:var(--warnBg);color:var(--warn);border-radius:10px;padding:10px 12px;font-size:13px;margin:0 0 12px}
+.keybox{max-width:360px;margin:40px auto;text-align:center}
+.keybox input{width:100%;font:inherit;font-size:16px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);margin:10px 0}
+.keybox button{width:100%;border:0;background:var(--brand);color:#fff;border-radius:10px;padding:10px;font-weight:700}
+</style>
+</head>
+<body>
+<header>
+  <div class="top">
+    <a class="back" href="./">‹ 空桌一览</a>
+    <h1>运营部</h1>
+    <span class="at" id="at"></span>
+  </div>
+  <div class="tabs" id="tabs"></div>
+</header>
+<main id="main"><div class="empty">读取中…</div></main>
+<script>
+const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
+const LS = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+  del(k) { try { localStorage.removeItem(k); } catch (e) {} }
+};
+const LOCAL = /[?&]local=1/.test(location.search);   // 本机测试：读 ./_pj.json ./_hr.json
+let K = LS.get('k', '');
+const fromUrl = (location.hash.match(/k=([^&]+)/) || [])[1];
+if (fromUrl) { K = decodeURIComponent(fromUrl); LS.set('k', K); history.replaceState(null, '', location.pathname + location.search); }
+
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const $ = id => document.getElementById(id);
+const PC = { 'Google': 'var(--g)', '食べログ': 'var(--t)', 'ホットペッパー': 'var(--h)' };
+const PS = { 'Google': 'Google', '食べログ': '食べログ', 'ホットペッパー': 'HPG' };
+const fmt = n => n == null ? '—' : Number(n).toLocaleString('ja-JP');
+const f2 = n => n == null ? '—' : Number(n).toFixed(2);
+const pct = x => x == null ? '' : (x >= 0 ? '▲' : '▼') + Math.abs(x * 100).toFixed(1) + '%';
+const today = new Date(); const TD = today.toISOString().slice(0, 10);
+
+let PJ = null, HR = null, pjErr = '', hrErr = '', owner = false;
+let tab = LS.get('pjTab', 'pj'), stSort = LS.get('pjSort', 'g'), rvPlat = '', openSt = new Set(), hrMonth = '', hrOpen = new Set(), hyOpen = new Set();
+
+// ---------- 读数据 ----------
+async function api(what) {
+  if (LOCAL) { const r = await fetch('./_' + what + '.json', { cache: 'no-store' }); return r.json(); }
+  const r = await fetch(API + '?fmt=json&what=' + what + '&k=' + encodeURIComponent(K), { cache: 'no-store' });
+  return r.json();
+}
+function cacheGet(what) { try { return JSON.parse(LS.get('pjc_' + what, 'null')); } catch (e) { return null; } }
+function cachePut(what, d) { try { localStorage.setItem('pjc_' + what, JSON.stringify(d)); } catch (e) {} }
+
+async function load() {
+  if (!K && !LOCAL) return showKey();
+  PJ = cacheGet('pj'); HR = cacheGet('hr'); owner = !!HR;
+  if (PJ || HR) render();
+  const [a, b] = await Promise.allSettled([api('pj'), api('hr')]);
+  if (a.status === 'fulfilled') {
+    const d = a.value;
+    if (d && d.error === 'key') { LS.del('k'); K = ''; return showKey('密码不对'); }
+    if (d && Array.isArray(d.rows)) { PJ = d; pjErr = ''; cachePut('pj', d); }
+    else pjErr = '读不到评价数据（后台还没部署新版本）';
+  } else pjErr = '网络不通，显示的是上次的数据';
+  if (b.status === 'fulfilled') {
+    const d = b.value;
+    if (d && Array.isArray(d.rows)) { HR = d; owner = true; hrErr = ''; cachePut('hr', d); }
+    else if (d && d.error === 'owner') { HR = null; owner = false; LS.del('pjc_hr'); }
+    else if (owner || (d && !d.error)) hrErr = '读不到人事评价（后台还没部署新版本）';
+  }
+  if (!owner && tab !== 'pj') tab = 'pj';
+  render();
+}
+function showKey(msg) {
+  $('main').innerHTML = '<div class="keybox"><p>请输入密码（和空桌一览同一个）</p><input id="kin" type="password" autocomplete="off"><button onclick="saveKey()">确定</button><p class="note" style="color:var(--bad)">' + esc(msg || '') + '</p></div>';
+}
+function saveKey() { const v = $('kin').value.trim(); if (!v) return; K = v; LS.set('k', K); load(); }
+
+// ---------- 公共 ----------
+function setTab(t) { tab = t; LS.set('pjTab', t); render(); window.scrollTo(0, 0); }
+function render() {
+  const tabs = [['pj', '⭐ 评价'], ...(owner ? [['hr', '👔 人事评价'], ['hy', '🧹 卫生检查']] : [])];
+  $('tabs').innerHTML = tabs.map(([k, n]) => '<button class="' + (tab === k ? 'on' : '') + '" onclick="setTab(\'' + k + '\')">' + n + '</button>').join('');
+  const at = tab === 'pj' ? (PJ && PJ.at) : (HR && HR.at);
+  $('at').textContent = at ? at.slice(5).replace('-', '/') + ' 更新' : '';
+  $('main').innerHTML = tab === 'hr' ? renderHr() : tab === 'hy' ? renderHy() : renderPj();
+}
+const stars = s => s == null ? '' : '<span class="stars">' + '★'.repeat(Math.round(s)) + '<span style="opacity:.25">' + '★'.repeat(5 - Math.round(s)) + '</span></span>';
+function brandShort(n) {
+  return String(n || '').replace(/^(個室完備居酒屋|全席個室完備居酒屋|個室完備|個室居酒屋|地鶏専門店|居酒屋|47都道府県の日本酒と炉端焼き|釜飯と炉端焼き|2500円食べ飲み放題)\s*/, '')
+    .replace(/\s*[^\s]*(店|本店)$/, '').trim();
+}
+function ago(d, approx) {
+  if (!d) return '';
+  const n = Math.round((new Date(TD) - new Date(d)) / 864e5);
+  const s = n <= 0 ? '今天' : n === 1 ? '昨天' : n < 31 ? n + ' 天前' : Math.round(n / 30) + ' 个月前';
+  return (approx && n > 1 ? '约 ' : '') + s;
+}
+
+function spark(vals, w, h, col, fill) {
+  const v = vals.filter(x => x != null); if (v.length < 2) return '';
+  const mn = Math.min(...v), mx = Math.max(...v), r = mx - mn || 1;
+  const pts = vals.map((x, i) => x == null ? null : [(i / (vals.length - 1)) * w, h - 2 - ((x - mn) / r) * (h - 4)]).filter(Boolean);
+  const d = pts.map((p, i) => (i ? 'L' : 'M') + p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join('');
+  return '<svg viewBox="0 0 ' + w + ' ' + h + '" width="100%" height="' + h + '" preserveAspectRatio="none" style="display:block;margin-top:4px">' +
+    (fill ? '<path d="' + d + 'L' + pts[pts.length - 1][0].toFixed(1) + ' ' + h + 'L' + pts[0][0].toFixed(1) + ' ' + h + 'Z" fill="' + col + '" opacity=".12"/>' : '') +
+    '<path d="' + d + '" fill="none" stroke="' + col + '" stroke-width="2" vector-effect="non-scaling-stroke"/></svg>';
+}
+function trendCard(T) {
+  if (!T || T.length < 2) return '';
+  const a = T[0], z = T[T.length - 1], lab = x => '20' + x[0].slice(0, 2) + '/' + +x[0].slice(3, 5) + '/' + +x[0].slice(6);
+  const tb = T.filter(x => x[3] != null), ta = tb[0], tz = tb[tb.length - 1];
+  const days = Math.max(1, (new Date('20' + z[0]) - new Date('20' + a[0])) / 864e5);
+  return '<div class="sec"><h2>📈 半年走势<small>' + lab(a) + ' → ' + lab(z) + '</small></h2><div class="grid g3">' +
+    '<div class="card kpi"><span class="plat" style="color:var(--g)"><span class="dot" style="background:var(--g)"></span>Google 平均分</span><br><b>' + z[1].toFixed(2) + '</b> <span class="' + (z[1] >= a[1] ? 'up' : 'dn') + '" style="font-size:13px">' + (z[1] >= a[1] ? '▲' : '▼') + Math.abs(z[1] - a[1]).toFixed(2) + '</span>' + spark(T.map(x => x[1]), 200, 36, 'var(--g)', true) + '<div class="d">' + lab(a) + ' 是 ' + a[1].toFixed(2) + '</div></div>' +
+    '<div class="card kpi"><span class="plat" style="color:var(--g)"><span class="dot" style="background:var(--g)"></span>Google 评价数</span><br><b>' + fmt(z[2]) + '</b> <span class="up" style="font-size:13px">+' + fmt(z[2] - a[2]) + '</span>' + spark(T.map(x => x[2]), 200, 36, 'var(--g)', true) + '<div class="d">平均每月 +' + fmt(Math.round((z[2] - a[2]) / days * 30)) + ' 条</div></div>' +
+    (ta && tz && tb.length > 1 ? '<div class="card kpi"><span class="plat" style="color:var(--t)"><span class="dot" style="background:var(--t)"></span>食べログ 口コミ数</span><br><b>' + fmt(tz[3]) + '</b> <span class="' + (tz[3] >= ta[3] ? 'up' : 'dn') + '" style="font-size:13px">' + (tz[3] >= ta[3] ? '+' : '−') + fmt(Math.abs(tz[3] - ta[3])) + '</span>' + spark(tb.map(x => x[3]), 200, 36, 'var(--t)', true) + '<div class="d">' + lab(ta) + ' 起；店铺分一直停在 3.09 左右</div></div>' : '') +
+    '</div><p class="note">同一批店铺页相比（新开的页不算进去）。11/16 以前的数来自 Adali 每天记的表。</p></div>';
+}
+
+// ================= ⭐ 评价 =================
+function pjParse() {
+  const o = { meta: {}, st: [], pg: [], rv: [] };
+  for (const r of (PJ && PJ.rows) || []) {
+    if (r.k === 'meta') o.meta = r; else if (r.k === 'st') o.st.push(r); else if (r.k === 'pg') o.pg.push(r); else if (r.k === 'rv') o.rv.push(r);
+  }
+  return o;
+}
+function rvCard(r, showStore) {
+  const date = r['日'] ? ago(r['日'], r['约']) : r['首'] ? ago(r['首']) + '读到' : (r['来店'] ? r['来店'].replace('-', '/') + ' 来店' : '');
+  const reply = r['回复'] === true ? '<span class="pill p-good">已回复</span>' : r['回复'] === false ? '<span class="pill ' + (r['差'] ? 'p-bad' : 'p-soft') + '">还没回复</span>' : '';
+  const sc = r['平台'] === '食べログ' && r['星'] != null ? '<b style="color:var(--t)">' + Number(r['星']).toFixed(1) + '</b>' : stars(r['星']);
+  return '<div class="rv"><div class="rvh"><span class="plat" style="color:' + PC[r['平台']] + '"><span class="dot" style="background:' + PC[r['平台']] + '"></span>' + PS[r['平台']] + '</span>' + sc +
+    (r['差'] ? ' <span class="pill p-bad">差评</span>' : '') +
+    (showStore ? ' <b>' + esc(r['店']) + '</b>' : '') + ' <span class="who">' + esc(brandShort(r['品牌页'])) + ' · ' + esc(date) + '</span></div>' +
+    (r['标题'] ? '<div class="rvt"><b>' + esc(r['标题']) + '</b></div>' : '') +
+    (r['内容'] ? '<div class="rvt">' + esc(r['内容']) + '</div>' : '<div class="rvt" style="color:var(--faint)">（只打了分，没写内容）</div>') +
+    '<div class="rvf">' + reply + '<span>' + esc(r['作者'] || '') + '</span>' + (r['网址'] ? '<a class="lk" href="' + esc(r['网址']) + '" target="_blank" rel="noopener">打开页面 ↗</a>' : '') + '</div></div>';
+}
+function platKpi(name, g) {
+  if (!g) return '';
+  const c = PC[name];
+  let h = '<div class="card kpi"><span class="plat" style="color:' + c + '"><span class="dot" style="background:' + c + '"></span>' + name + '</span>';
+  if (name === '食べログ') {
+    h += '<small style="margin-top:4px">最近 3 个月来店的口コミ 平均</small><b>' + f2(g['近90天均分']) + '</b><span class="u">／5</span>' +
+      '<div class="d">店铺分 ' + f2(g['评分']) + '・共 ' + fmt(g['件数']) + ' 条（' + g['页数'] + ' 页）</div>';
+  } else if (name === 'Google') {
+    h += '<small style="margin-top:4px">店铺平均分（按件数加权）</small><b>' + f2(g['评分']) + '</b><span class="u">／5</span>' +
+      (g['30天评分变'] != null ? ' <span class="' + (g['30天评分变'] >= 0 ? 'up' : 'dn') + '" style="font-size:13px">' + (g['30天评分变'] >= 0 ? '▲' : '▼') + Math.abs(g['30天评分变']).toFixed(2) + '</span>' : '') +
+      '<div class="d">共 ' + fmt(g['件数']) + ' 条' + (g['30天件数增'] != null ? '・近 30 天 +' + fmt(g['30天件数增']) : '') +
+      (g['新增差评'] != null ? '・新增 1〜2 星 <span class="' + (g['新增差评'] ? 'dn' : '') + '">' + g['新增差评'] + '</span>（' + g['分布天数'] + ' 天）' : '') +
+      (g['低星占比'] != null ? '<br>1〜2 星占全部 ' + (g['低星占比'] * 100).toFixed(1) + '%' : '') +
+      (g['回复率'] != null ? '・店家回复率 ' + Math.round(g['回复率'] * 100) + '%' : '') + '</div>';
+  } else {
+    h += '<small style="margin-top:4px">店铺平均分（按件数加权）</small><b>' + f2(g['评分']) + '</b><span class="u">／5</span>' +
+      (g['30天评分变'] != null ? ' <span class="' + (g['30天评分变'] >= 0 ? 'up' : 'dn') + '" style="font-size:13px">' + (g['30天评分变'] >= 0 ? '▲' : '▼') + Math.abs(g['30天评分变']).toFixed(2) + '</span>' : '') +
+      '<div class="d">共 ' + fmt(g['件数']) + ' 条・近 30 天 ' + g['近30天'] + ' 条' + (g['近30天差评'] ? '・<span class="dn">差评 ' + g['近30天差评'] + '</span>' : '') +
+      (g['差评未回复'] ? '・<span class="dn">没回 ' + g['差评未回复'] + '</span>' : '') + '</div>';
+  }
+  return h + '</div>';
+}
+function renderPj() {
+  if (!PJ) return pjErr ? '<div class="err">' + esc(pjErr) + '</div>' : '<div class="empty">读取中…</div>';
+  const D = pjParse(), M = D.meta, G = M['集团'] || {};
+  let h = pjErr ? '<div class="err">' + esc(pjErr) + '</div>' : '';
+  // ① 总览
+  h += '<div class="sec"><h2>各平台总览<small>' + Object.keys(G).length + ' 个平台・' + D.pg.length + ' 个店铺页</small></h2><div class="grid g3">' +
+    ['Google', '食べログ', 'ホットペッパー'].map(p => platKpi(p, G[p])).join('') + '</div>';
+  const tb = G['食べログ'];
+  if (tb && tb['评分'] != null && tb['评分'] < 3.15)
+    h += '<p class="note">食べログ：' + D.pg.filter(p => p['平台'] === '食べログ').filter(p => p['评分'] != null && p['评分'] <= 3.1).length + ' 页的店铺分停在 3.08〜3.10（食べログ 的起步分），口コミ 自己的平均却有 ' + f2(tb['近90天均分']) + '。说明写评价的人在 食べログ 的影响力低，评价数加上去分数也不涨。</p>';
+  h += '</div>';
+  h += trendCard(M['走势']);
+  // ② 要处理的差评
+  const d30 = new Date(today - 30 * 864e5).toISOString().slice(0, 10);
+  const bad = D.rv.filter(r => r['差'] && ((r['日'] || r['首'] || '') >= d30 || (r['平台'] === '食べログ' && !r['日'] && !r['首'])))
+    .sort((a, b) => (b['回复'] === false) - (a['回复'] === false) || String(b['日'] || b['首'] || b['来店']).localeCompare(String(a['日'] || a['首'] || a['来店'])));
+  const unrep = bad.filter(r => r['回复'] === false).length;
+  const bc = p => bad.filter(r => r['平台'] === p).length;
+  const badF = rvPlat ? bad.filter(r => r['平台'] === rvPlat) : bad;
+  h += '<div class="sec"><h2>⚠ 要处理的差评<small>近 30 天 ' + bad.length + ' 条' + (unrep ? '・<span class="dn">还没回复 ' + unrep + '</span>' : '') + '</small></h2>';
+  h += '<div class="seg">' + [['', '全部 ' + bad.length], ['Google', 'Google ' + bc('Google')], ['ホットペッパー', 'HPG ' + bc('ホットペッパー')], ['食べログ', '食べログ ' + bc('食べログ')]].map(([k, n]) => '<button class="' + (rvPlat === k ? 'on' : '') + '" onclick="rvPlat=\'' + k + '\';render()">' + n + '</button>').join('') + '</div>';
+  h += badF.length ? '<div class="card">' + badF.slice(0, 20).map(r => rvCard(r, true)).join('') + '</div>' + (badF.length > 20 ? '<p class="note">只列最新 20 条，还有 ' + (badF.length - 20) + ' 条在下面各店里看。</p>' : '')
+    : '<div class="card empty" style="padding:16px">近 30 天没有差评 👍</div>';
+  h += '<p class="note">差评：Google・ホットペッパー 2 星以下，食べログ 3.0 以下。Google 差评店长 24 小时内回复。HPG 只有订过位的客人能写，最真实；HPG・食べログ 页面没有回复功能/看不到回复。</p></div>';
+  // ③ 各店
+  const pgBy = {}; D.pg.forEach(p => (pgBy[p['店']] = pgBy[p['店']] || []).push(p));
+  const rvBy = {}; D.rv.forEach(r => (rvBy[r['店']] = rvBy[r['店']] || []).push(r));
+  const val = (s, k) => {
+    const g = s['Google'] || {}, t = s['食べログ'] || {};
+    if (k === 'g') return g['评分'] != null ? -g['评分'] : 9;
+    if (k === 't') return t['近90天均分'] != null ? -t['近90天均分'] : 9;
+    if (k === 'bad') return -(((g['近30天差评'] || 0) + (t['来店月'] ? (rvBy[s['店']] || []).filter(r => r['差'] && r['平台'] === '食べログ').length : 0)));
+    return 0;
+  };
+  const sts = D.st.slice();
+  if (stSort !== 'area') sts.sort((a, b) => val(a, stSort) - val(b, stSort));
+  h += '<div class="sec"><h2>各店<small>点店名看各平台页面和最新评价</small></h2>' +
+    '<div class="seg">' + [['g', 'Google 分'], ['t', '食べログ 近期'], ['bad', '差评多'], ['area', '按地区']].map(([k, n]) => '<button class="' + (stSort === k ? 'on' : '') + '" onclick="stSort=\'' + k + '\';LS.set(\'pjSort\',\'' + k + '\');render()">' + n + '</button>').join('') + '</div>' +
+    '<div class="card rows">' + sts.map(s => stRow(s, pgBy[s['店']] || [], rvBy[s['店']] || [])).join('') + '</div></div>';
+  h += '<p class="note">' + esc(M['说明'] || '') + '<br>Google 不登录只看得到每家「关联度最高的 5 条」，看不到最新的：新增条数按评价数的增长算，新增差评按每天星级分布（几个 1 星、2 星…）的变化算（从 11/16 开始比）。<br>数据：各平台公开页面，电脑每天读一次（' + Object.entries(M['平台'] || {}).map(([k, v]) => k + ' ' + String(v).slice(5)).join('、') + '）。</p>';
+  return h;
+}
+function stRow(s, pgs, rvs) {
+  const k = s['店'], open = openSt.has(k), g = s['Google'], t = s['食べログ'], hp = s['ホットペッパー'];
+  const brands = [...new Set(pgs.filter(p => p['平台'] === '食べログ').map(p => brandShort(p['品牌页'])))].join('・');
+  let big = g && g['评分'] != null ? '<span style="color:var(--g)">' + f2(g['评分']) + '</span>' : t && t['近90天均分'] != null ? '<span style="color:var(--t)">' + f2(t['近90天均分']) + '</span>' : '—';
+  const nbad = (g ? (g['新增差评'] || 0) : 0) + rvs.filter(r => r['差'] && r['平台'] !== 'Google').length;
+  let h = '<div class="r' + (open ? ' open' : '') + '" onclick="tgSt(\'' + esc(k) + '\',event)"><div class="nm">' + esc(k) + '<small>' + esc(brands) + '</small></div><div class="big">' + big + '</div><div class="meta">' +
+    (g ? '<span><span class="dot" style="background:var(--g)"></span> Google <b>' + f2(g['评分']) + '</b>（' + fmt(g['件数']) + (g['30天件数增'] ? '，30 天 +' + g['30天件数增'] : '') + '）' + (g['新增差评'] ? ' <span class="dn">新 1〜2 星 ' + g['新增差评'] + '</span>' : '') + (g['差评未回复'] ? ' <span class="dn">没回 ' + g['差评未回复'] + '</span>' : '') + '</span>' : '') +
+    (t ? '<span><span class="dot" style="background:var(--t)"></span> 食べログ 近期 <b>' + f2(t['近90天均分']) + '</b>（' + fmt(t['件数']) + '）</span>' : '') +
+    (hp ? '<span><span class="dot" style="background:var(--h)"></span> HPG <b>' + f2(hp['评分']) + '</b>（' + fmt(hp['件数']) + '）</span>' : '') +
+    (nbad ? '<span class="dn">差评 ' + nbad + '</span>' : '') + '</div>';
+  if (open) {
+    h += '<div class="det" onclick="event.stopPropagation()">';
+    if (t && t['来店月']) {
+      const mx = Math.max(1, ...t['来店月'].map(x => x[1]));
+      const ms = t['来店月'].slice().reverse();
+      h += '<div class="card" style="margin:0 0 8px"><div style="font-size:12px;color:var(--sub);margin-bottom:4px">食べログ 每月来店的口コミ（条数・平均）</div><div class="mini">' +
+        ms.map(x => '<i style="height:' + Math.round(x[1] / mx * 100) + '%"></i>').join('') + '</div><div class="mini2">' +
+        ms.map(x => '<span>' + +x[0].slice(5) + '月<br><b style="color:var(--ink)">' + x[1] + '</b> ' + (x[2] != null ? x[2].toFixed(1) : '') + '</span>').join('') + '</div></div>';
+    }
+    const gp = pgs.filter(p => p['平台'] === 'Google' && (p['史'] || []).length > 2);
+    if (gp.length) {
+      const days = [...new Set(gp.flatMap(p => p['史'].map(x => x[0])))].sort();
+      const tot = days.map(d => { let n = 0, ok = 0; gp.forEach(p => { const x = p['史'].find(y => y[0] === d); if (x && x[2] != null) { n += x[2]; ok++; } }); return ok === gp.length ? n : null; });
+      const v = tot.filter(x => x != null);
+      if (v.length > 2) h += '<div class="card" style="margin:0 0 8px"><div style="font-size:12px;color:var(--sub)">Google 评价数（' + gp.length + ' 页合计，近 4 个月）<b style="color:var(--ink);float:right">' + fmt(v[0]) + ' → ' + fmt(v[v.length - 1]) + '（+' + fmt(v[v.length - 1] - v[0]) + '）</b></div>' + spark(tot, 300, 40, 'var(--g)', true) + '</div>';
+    }
+    h += '<table class="tbl card" style="padding:0;margin:0 0 8px"><tr><th>店铺页</th><th>评分</th><th>件数</th><th>地图排名</th></tr>' +
+      pgs.map(p => '<tr><td><span class="dot" style="background:' + PC[p['平台']] + '"></span> <a href="' + esc(p['网址']) + '" target="_blank" rel="noopener">' + esc(brandShort(p['品牌页']) || p['品牌页']) + '</a>' + (p['状态'] ? ' <span class="wn">读不到</span>' : '') + (p['分布'] ? '<div style="font-size:11px;color:var(--sub)">★5→1：' + p['分布'].join(' / ') + '</div>' : '') + '</td><td>' + f2(p['评分']) + '</td><td>' + fmt(p['件数']) + '</td><td>' + esc(p['排名'] ? String(p['排名']).replace(/(上升|下降).*/, '') : '') + '</td></tr>').join('') + '</table>';
+    const rs = rvs.slice().sort((a, b) => String(b['日'] || b['首'] || b['来店']).localeCompare(String(a['日'] || a['首'] || a['来店']))).slice(0, 12);
+    h += '<div class="card">' + (rs.length ? rs.map(r => rvCard(r, false)).join('') : '<div class="empty">没有评价</div>') + '</div></div>';
+  }
+  return h + '</div>';
+}
+function tgSt(k, ev) { if (ev && ev.target.closest('a')) return; openSt.has(k) ? openSt.delete(k) : openSt.add(k); render(); }
+
+// ================= 👔 人事评价 =================
+function hrParse() {
+  const o = { hm: {}, hs: {}, he: {}, hy: [], ht: {} };
+  for (const r of (HR && HR.rows) || []) {
+    if (r.k === 'hm') o.hm[r['月']] = r;
+    else if (r.k === 'hs') (o.hs[r['月']] = o.hs[r['月']] || []).push(r);
+    else if (r.k === 'he') (o.he[r['月']] = o.he[r['月']] || {})[r['店']] = r['人'];
+    else if (r.k === 'hy') o.hy.push(r);
+    else if (r.k === 'ht') (o.ht[r['月']] = o.ht[r['月']] || []).push(r);
+  }
+  return o;
+}
+const DCOL = r => r >= .8 ? 'var(--good)' : r >= .55 ? 'var(--warn)' : 'var(--bad)';
+function renderHr() {
+  if (!HR) return hrErr ? '<div class="err">' + esc(hrErr) + '</div>' : '<div class="empty">读取中…</div>';
+  const D = hrParse(), months = Object.keys(D.hm).sort();
+  if (!months.length) return '<div class="empty">还没有数据</div>';
+  if (!hrMonth || !D.hm[hrMonth]) hrMonth = months.filter(m => D.hm[m]['完整']).pop() || months[months.length - 1];
+  const M = D.hm[hrMonth], rows = (D.hs[hrMonth] || []).slice().sort((a, b) => (b['总分'] ?? -1) - (a['总分'] ?? -1));
+  const prevM = months[months.indexOf(hrMonth) - 1], prev = {};
+  (D.hs[prevM] || []).forEach(r => prev[r['店']] = r);
+  let h = hrErr ? '<div class="err">' + esc(hrErr) + '</div>' : '';
+  h += '<div class="seg">' + months.map(m => '<button class="' + (m === hrMonth ? 'on' : '') + '" onclick="hrMonth=\'' + m + '\';render()">' + +m.slice(5) + ' 月' + (D.hm[m]['完整'] ? '' : '（进行中）') + '</button>').join('') + '</div>';
+  // 总览
+  const cnt = { S: 0, A: 0, B: 0, C: 0, D: 0 }; rows.forEach(r => r['等级'] && cnt[r['等级']]++);
+  const tot = rows.filter(r => r['等级']).length || 1;
+  const gc = { S: '#14532d', A: 'var(--good)', B: '#0369a1', C: 'var(--warn)', D: 'var(--bad)' };
+  h += '<div class="sec"><div class="grid"><div class="card kpi"><small>店长考核 平均分</small><b>' + (M['平均'] ?? '—') + '</b><span class="u">／100</span><div class="d">' + M['店数'] + ' 家打分' + (M['完整'] ? '' : '・数据到 ' + M['到'].slice(5).replace('-', '/')) + '</div></div>' +
+    '<div class="card kpi"><small>等级分布</small><div class="dist">' + Object.keys(cnt).filter(g => cnt[g]).map(g => '<span style="flex:' + cnt[g] + ';background:' + gc[g] + '">' + g + ' ' + cnt[g] + '</span>').join('') + '</div><div class="d">S≥85 A≥75 B≥60 C≥45 D</div></div></div>';
+  if (M['缺'] && M['缺'].length) h += '<p class="note wn">这个月还缺：' + M['缺'].map(esc).join('；') + '。缺的项不算分，按其余项折成 100 分。</p>';
+  h += '</div>';
+  // 负责人（区域）
+  const T = (D.ht[hrMonth] || []).slice().sort((a, b) => (b['平均'] ?? 0) - (a['平均'] ?? 0));
+  if (T.length) {
+    h += '<div class="sec"><h2>👥 店铺管理负责人<small>按云端「各店评价业绩成本指标」分组</small></h2><div class="grid">' + T.map(t => {
+      const reach = t['Google目标'] ? t['Google登记'] / t['Google目标'] : null;
+      const real = t['Google实际增加'];
+      const row = (k, v, cls, sub) => '<tr><td>' + k + (sub ? '<small>' + sub + '</small>' : '') + '</td><td' + (cls ? ' class="' + cls + '"' : '') + '>' + v + '</td></tr>';
+      return '<div class="card kpi"><small>' + esc(t['负责人']) + '（' + t['店'].length + ' 家）</small><b>' + (t['平均'] ?? '—') + '</b><span class="u">分（店平均）</span>' +
+        '<div style="margin-top:4px">' + Object.entries(t['等级']).filter(([, n]) => n).map(([g, n]) => '<span class="grade g' + g + '" style="width:auto;height:auto;padding:0 6px;font-size:11px;margin:0 2px 2px 0">' + g + ' ' + n + '</span>').join('') + '</div>' +
+        '<table class="kv">' +
+        row('Google 登记好评', fmt(t['Google登记']), '', '目标 ' + fmt(t['Google目标']) + (reach != null ? '・' + Math.round(reach * 100) + '%' : '')) +
+        (real != null ? row('Google 实际增加', fmt(real), t['Google登记'] > real * 1.2 ? 'wn' : '', t['Google登记'] > real * 1.2 ? '登记多 ' + Math.round((t['Google登记'] / Math.max(real, 1) - 1) * 100) + '%' : '和登记差不多') : '') +
+        (t['HPG差评'] != null ? row('HPG 真客人差评', t['HPG差评'] + ' 条', t['HPG差评'] > t['登记差评'] ? 'dn' : '', '云端登记 HPG 差评 ' + (t['登记差评'] ?? 0) + ' 条') : '') +
+        (t['公司分'] != null ? row('评价公司分', t['公司分'], '', '达成＋好评率＋差评率') : '') +
+        (t['卫生平均'] != null ? row('卫生平均', t['卫生平均'] + '/200', t['卫生平均'] < 150 ? 'dn' : '') : '') +
+        (t['人工多花'] ? row('人工超罚线', Math.round(t['人工多花'] / 1e4) + ' 万', 'dn') : '') +
+        (t['损失'] ? row('损耗（删菜・优惠・改价）', Math.round(t['损失'] / 1e4) + ' 万', '') : '') +
+        '</table></div>';
+    }).join('') + '</div><p class="note">「登记」是各店报在云端「各店评价业绩成本指标」里的数；「实际」是平台页面上读到的：Google＝店铺页这个月真正多了几条；HPG 真客人差评＝ホットペッパー 上 1〜2 星（订过位的客人才能写，最能反映真实服务）。实际比登记多，说明差评没有如实登记。</p></div>';
+  }
+  // 排名
+  h += '<div class="sec"><h2>店长考核排名<small>点店看每一项</small></h2><div class="card rows">' + rows.map(r => hrRow(r, prev[r['店']], D.he[hrMonth] && D.he[hrMonth][r['店']], M)).join('') + '</div></div>';
+  // 规则
+  h += '<div class="sec"><h2>怎么打分<small>试行，权重可以改</small></h2><div class="card"><table class="tbl">' +
+    Object.entries(M['权重']).map(([k, w]) => '<tr><td style="white-space:nowrap;vertical-align:top"><b>' + k + '</b> ' + w + '</td><td style="text-align:left;color:var(--sub)">' + esc((M['规则'] || {})[k] || '') + '</td></tr>').join('') +
+    '</table></div><p class="note">数据都是现有系统里的：营业额＝每日营业分析，人工＝人工月报（工资表＋指纹打卡），损耗＝取消日报月报，评价＝各平台公开页面，卫生＝人事部卫生检查表，杯数＝喝酒排名。</p></div>';
+  return h;
+}
+function hrRow(r, p, staff, M) {
+  const k = r['店'], open = hrOpen.has(k);
+  const dims = Object.entries(r['项']);
+  const delta = p && p['总分'] != null && r['总分'] != null ? r['总分'] - p['总分'] : null;
+  let h = '<div class="r' + (open ? ' open' : '') + '" onclick="tgHr(\'' + esc(k) + '\')"><div class="nm">' + (r['名次'] ? '<span style="color:var(--sub);font-weight:400;font-size:13px;display:inline-block;width:22px">' + r['名次'] + '</span>' : '') + esc(k) +
+    '<small>' + esc(r['站']) + (r['负责人'] ? '・' + esc(r['负责人']) : '') + '</small></div><div class="big">' + (r['总分'] ?? '—') + ' ' + (r['等级'] ? '<span class="grade g' + r['等级'] + '">' + r['等级'] + '</span>' : '') + '</div>' +
+    '<div class="meta" style="gap:3px;flex-wrap:nowrap">' + dims.map(([d, it]) => {
+      const rr = it['分'] == null ? null : it['分'] / it['满'];
+      return '<span style="flex:' + it['满'] + ';min-width:0"><span style="font-size:10px;display:block;white-space:nowrap;overflow:hidden">' + d + '</span><span class="bar" style="display:block"><i style="width:' + (rr == null ? 0 : Math.round(rr * 100)) + '%;background:' + (rr == null ? 'var(--faint)' : DCOL(rr)) + '"></i></span></span>';
+    }).join('') + '</div>' +
+    (delta != null ? '<div class="meta" style="margin-top:2px">比上个月 <b class="' + (delta >= 0 ? 'up' : 'dn') + '">' + (delta >= 0 ? '▲' : '▼') + Math.abs(delta) + '</b></div>' : '');
+  if (open) {
+    h += '<div class="det" onclick="event.stopPropagation()"><div class="card">' + dims.map(([d, it]) => {
+      const rr = it['分'] == null ? null : it['分'] / it['满'];
+      return '<div class="dim"><b>' + d + '</b><span class="bar"><i style="width:' + (rr == null ? 0 : Math.round(rr * 100)) + '%;background:' + (rr == null ? 'var(--faint)' : DCOL(rr)) + '"></i></span><span class="v">' + (it['分'] == null ? '—' : it['分'].toFixed(1)) + '<span style="color:var(--sub)">/' + it['满'] + '</span></span><span class="dimtxt">' + esc(it['值']) + '</span></div>';
+    }).join('') + '</div>';
+    if (r['要点'] && r['要点'].length) h += '<div class="card" style="margin-top:8px">' + r['要点'].map(x => '<div style="font-size:13px;margin:3px 0">' + esc(x) + '</div>').join('') + '</div>';
+    if (staff && staff.length) {
+      h += '<div class="card" style="margin-top:8px"><div style="font-size:12px;color:var(--sub);margin-bottom:4px">员工出勤（指纹打卡，' + staff.length + ' 人；只列事实，不打分）</div><table class="tbl"><tr><th>姓名</th><th>天</th><th>工时</th><th>每班</th><th>22点后</th><th>缺卡</th></tr>' +
+        staff.map(x => '<tr><td>' + esc(x[0]) + '</td><td>' + x[1] + '</td><td>' + x[2] + '</td><td>' + x[3] + '</td><td>' + x[4] + '</td><td' + (x[5] ? ' class="dn"' : '') + '>' + (x[5] || '') + '</td></tr>').join('') + '</table></div>';
+    }
+    h += '</div>';
+  }
+  return h + '</div>';
+}
+function tgHr(k) { hrOpen.has(k) ? hrOpen.delete(k) : hrOpen.add(k); render(); }
+
+// ================= 🧹 卫生检查 =================
+function renderHy() {
+  if (!HR) return hrErr ? '<div class="err">' + esc(hrErr) + '</div>' : '<div class="empty">读取中…</div>';
+  const all = hrParse().hy.filter(c => c['店'] !== '三幸園' && c['店'] !== '品川1');
+  if (!all.length) return '<div class="empty">还没有卫生检查数据</div>';
+  const by = {}; all.forEach(c => (by[c['店']] = by[c['店']] || []).push(c));
+  Object.values(by).forEach(l => l.sort((a, b) => a['日期'].localeCompare(b['日期'])));
+  const latest = Object.values(by).map(l => l[l.length - 1]).sort((a, b) => a['合计'] - b['合计']);
+  const avg = Math.round(latest.reduce((s, c) => s + c['合计'], 0) / latest.length);
+  const sev = latest.filter(c => (c['严重'] || []).length);
+  const food = latest.filter(c => (c['严重'] || []).some(i => /过期|变质|食材确认|食品包装/.test(i['项'])));
+  let h = '<div class="sec"><div class="grid g3"><div class="card kpi"><small>各店最近一次 平均</small><b>' + avg + '</b><span class="u">／200</span><div class="d">' + latest.length + ' 家・前厅＋后厨各 100</div></div>' +
+    '<div class="card kpi"><small>有严重扣分（15 分以上）</small><b class="' + (sev.length ? 'dn' : '') + '">' + sev.length + '</b><span class="u">家</span><div class="d">食品相关 ' + food.length + ' 家</div></div>' +
+    '<div class="card kpi"><small>没过 150 分</small><b class="' + (latest.filter(c => c['合计'] < 150).length ? 'dn' : '') + '">' + latest.filter(c => c['合计'] < 150).length + '</b><span class="u">家</span><div class="d">要复查</div></div></div>' +
+    '<p class="note">「店长/负责人」「责任人」两栏表里还没填，填了这里会显示。检查人：人事李・人事曾・林社长。</p></div>';
+  h += '<div class="sec"><h2>各店（分数低的在上）<small>点店看扣分和整改</small></h2><div class="card rows">' + latest.map(c => {
+    const l = by[c['店']], p = l.length > 1 ? l[l.length - 2] : null, open = hyOpen.has(c['店']);
+    const d = p ? c['合计'] - p['合计'] : null;
+    const col = c['合计'] >= 180 ? 'var(--good)' : c['合计'] >= 150 ? 'var(--warn)' : 'var(--bad)';
+    let x = '<div class="r' + (open ? ' open' : '') + '" onclick="tgHy(\'' + esc(c['店']) + '\')"><div class="nm">' + esc(c['店']) + '<small>' + (c['日期是推的'] ? +c['日期'].slice(5, 7) + '月' : c['日期'].slice(5).replace('-', '/')) + ' 检查' + (c['负责人'] ? '・' + esc(c['负责人']) : '') + '</small></div>' +
+      '<div class="big" style="color:' + col + '">' + c['合计'] + '</div><div class="meta"><span>前厅 <b>' + c['前厅'] + '</b></span><span>后厨 <b>' + c['后厨'] + '</b></span><span>扣分 ' + c['扣分项'] + ' 项</span>' +
+      (d != null ? '<span>比上次（' + p['日期'].slice(5).replace('-', '/') + ' ' + p['合计'] + '）<b class="' + (d >= 0 ? 'up' : 'dn') + '">' + (d >= 0 ? '▲' : '▼') + Math.abs(d) + '</b></span>' : '') +
+      ((c['严重'] || []).length ? '<span class="dn">严重：' + c['严重'].map(i => esc(i['项'])).join('、') + '</span>' : '') + '</div>';
+    if (open) {
+      x += '<div class="det" onclick="event.stopPropagation()"><div class="card">' + ((c['问题'] || []).map(i => '<div class="issue"><span class="pill ' + (i['扣'] >= 15 ? 'p-bad' : i['扣'] >= 3 ? 'p-warn' : 'p-soft') + '">−' + i['扣'] + '</span><span>' + esc(i['区']) + '・' + esc(i['项']) + '</span>' + (i['整改'] ? '<span class="x">' + esc(i['整改']) + '</span>' : '') + '</div>').join('') || '<div class="empty">没有扣分</div>') +
+        '</div>' + (l.length > 1 ? '<p class="note">历次：' + l.map(z => z['日期'].slice(5).replace('-', '/') + ' ' + z['合计']).join(' → ') + '</p>' : '') + '<p class="note">检查人：' + esc(c['检查人']) + '　表：' + esc(c['表']) + '</p></div>';
+    }
+    return x + '</div>';
+  }).join('') + '</div></div>';
+  return h;
+}
+function tgHy(k) { hyOpen.has(k) ? hyOpen.delete(k) : hyOpen.add(k); render(); }
+
+load();
+</script>
+</body>
+</html>
