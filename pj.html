@@ -179,7 +179,7 @@ main{padding:12px 14px calc(30px + env(safe-area-inset-bottom));max-width:760px;
 </header>
 <main id="main"><div class="empty">读取中…</div></main>
 <script>
-const APPV = 'yunying-v22';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v23';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 在 空桌一览 里面（pj.html）还是独立 APP
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
 const LS = {
@@ -906,20 +906,20 @@ function renderYc() {
   const OKM = { T: ['○', '△'], H: ['◎', '○', '△'] };
   const pages = (Y['页'] || []).map(x => Array.isArray(x) ? { '平台': x[0], '店': x[1], '品牌': x[2], '链接': x[3], '日': Object.fromEntries(dl.map((d, i) => [d, { '记号': x[4][i], '能订': (OKM[x[0]] || OKM.H).includes(x[4][i]) }])) } : x);
   const nP = pl => pages.filter(x => x['平台'] === pl).length;
-  let h = '<div class="sec"><div class="tyhd"><h2 style="margin:0">🚨 预约异常</h2><span class="tyc">' + esc(Y.at) + ' 查；' + '今天 ' + md(dl[0]) + ' 起 ' + dl.length + ' 天（到 ' + md(dl[dl.length - 1]) + '）' + '；食べログ ' + nP('T') + ' 页・ホットペッパー ' + nP('H') + ' 页（ぐるなび・Retty 之后加）</span></div>';
+  let h = '<div class="sec"><div class="tyhd"><h2 style="margin:0">🚨 预约异常</h2><span class="tyc">' + esc(Y.at) + ' 查；' + '今天 ' + md(dl[0]) + ' 起 ' + dl.length + ' 天（到 ' + md(dl[dl.length - 1]) + '）' + '；T ' + nP('T') + ' 页・H ' + nP('H') + ' 页（G・R 之后加）</span></div>';
   // 11/16 用户「有异常是正常，每天都对的反而奇怪」→ 每次检查都自检，证明检查本身是好的
   const SC = Y['自检'];
   if (SC) h += '<div class="card" style="margin-bottom:8px;font-size:13px;border-left:4px solid ' + (SC['过'] ? 'var(--good)' : 'var(--bad)') + '">' +
     (SC['过'] ? '🧪 <b>自检通过</b>：检查程序正常，下面的结果可信' : '⚠ <b style="color:var(--bad)">自检没过</b>：检查程序可能失灵，下面的「都能订」不可信，请告诉 Claude') +
-    '<div class="tyc" style="margin-top:4px;line-height:1.6">① ホットペッパー 对照组（确定停掉的页）：' + (SC['H对照'] || []).map(x => esc(x[0]) + ' → ' + esc(x[1]) + (x[2] ? ' ✅' : ' ❌')).join('、') +
-    '<br>② 食べログ 每页 7 天都读到：' + SC['T读全'][0] + '/' + SC['T读全'][1] + ' 页（读不到的会当「订不了」报出来，不会悄悄变成全对）' +
-    '<br>③ 同一份食べログ 数据里也读得出「不能订」（几人不能订）：' + SC['T有不能订值'][0] + ' 页' +
+    '<div class="tyc" style="margin-top:4px;line-height:1.6">① H 对照组（确定停掉的页）：' + (SC['H对照'] || []).map(x => esc(x[0]) + ' → ' + esc(x[1]) + (x[2] ? ' ✅' : ' ❌')).join('、') +
+    '<br>② T 每页 7 天都读到：' + SC['T读全'][0] + '/' + SC['T读全'][1] + ' 页（读不到的会当「订不了」报出来，不会悄悄变成全对）' +
+    '<br>③ 同一份 T 数据里也读得出「不能订」（几人不能订）：' + SC['T有不能订值'][0] + ' 页' +
     '<br>④ 明天起读到的记号：' + Object.entries(SC['记号'] || {}).map(([k, n]) => esc(k) + ' ' + n).join('・') + '</div></div>';
   const G = {};
   (Y['订不了'] || []).forEach(b => { const g = G[b['链接']] = G[b['链接']] || Object.assign({}, b, { ds: [] }); g.ds.push(b); });
   // 11/16 用户：座位数用「座位表格」（真实桌数・最多人数）→ 同一时间坐着的人 ≥ 最多人数的 8 成或组数 ≥ 桌数＝满了（正常）；否则＝没满却订不了（异常）
   const RANK = { '没满': 0, '待确认': 1, '满了': 2, '副页': 3 }, JC = { '没满': 'var(--bad)', '待确认': 'var(--warn)', '满了': 'var(--faint)', '副页': 'var(--faint)' };
-  const JT = { '没满': '🔴 没满却订不了', '待确认': '🟠 订不了（レストランボード 还没读到，满不满先确认）', '满了': '⚪ 订不了（店里已经满了，正常）', '副页': '⚪ 副页停了（同品牌另一页能订，客人订得到）' };
+  const JT = { '没满': '🔴 没满却订不了', '待确认': '🟠 订不了（RB 还没读到，满不满先确认）', '满了': '⚪ 订不了（店里已经满了，正常）', '副页': '⚪ 副页停了（同品牌另一页能订，客人订得到）' };
   const worstJ = g => g['另一页'] ? '副页' : g.ds.map(b => b['判断'] || '待确认').sort((a, b) => RANK[a] - RANK[b])[0];
   const L = Object.values(G).sort((a, b) => RANK[worstJ(a)] - RANK[worstJ(b)]);
   const nBad = L.filter(g => worstJ(g) === '没满' || worstJ(g) === '待确认').length;
@@ -927,9 +927,9 @@ function renderYc() {
   else h += '<div class="tyc" style="margin-bottom:6px">' + L.length + ' 个页面网上订不了' + (nBad ? '，其中 <b style="color:var(--bad)">' + nBad + ' 个要马上确认</b>' : '，<b>都不用担心</b>（店里满了，或同品牌另一页还能订）') + '。满不满＝同一时间坐着的人 ≥ 最多人数的 8 成，或组数 ≥ 桌数（座位表格：' + esc(Y['座位表'] || '没找到') + '）</div>' +
     L.map(g => { const j = worstJ(g); return '<div class="card" style="border-left:4px solid ' + JC[j] + ';margin-bottom:8px">' +
       '<div style="font-size:12px;font-weight:700;color:' + JC[j] + '">' + JT[j] + '</div>' +
-      '<div style="font-weight:700;font-size:15px">' + esc(g['店']) + '・' + PN[g['平台']] + '「' + esc(g['品牌']) + '」网上订不了</div>' +
-      '<div style="font-size:13px;margin:4px 0;line-height:1.6">' + g.ds.map(b => md(b['日']) + '：' + (b['记号'] === '停止' ? '<b style="color:var(--bad)">网上预约停了</b>（页面写「現在通常予約を受け付けていません」）' : '<b style="color:var(--bad)">' + esc(b['记号']) + '</b>（' + (b['记号'] === '×' ? '满席' : b['记号'] === 'TEL' ? '要打电话' : '没有可订的') + '）') +
-        '；レストランボード 已订 ' + (b['已订'] ? b['已订'][0] + ' 组 ' + b['已订'][1] + ' 人（最大一组 ' + b['已订'][2] + ' 人）' : '<span class="tyc">还没读到</span>') +
+      '<div style="font-weight:700;font-size:15px">' + esc(g['店']) + '・' + g['平台'] + ' 平台「' + esc(g['品牌']) + '」网上订不了</div>' +
+      '<div style="font-size:13px;margin:4px 0;line-height:1.6">' + g.ds.map(b => md(b['日']) + '：' + (b['记号'] === '停止' ? '<b style="color:var(--bad)">网上预约停了</b>（页面写着「目前不接受普通预约」）' : '<b style="color:var(--bad)">' + esc(b['记号']) + '</b>（' + (b['记号'] === '×' ? '满席' : b['记号'] === 'TEL' ? '要打电话' : '没有可订的') + '）') +
+        '；RB 已订 ' + (b['已订'] ? b['已订'][0] + ' 组 ' + b['已订'][1] + ' 人（最大一组 ' + b['已订'][2] + ' 人）' : '<span class="tyc">还没读到</span>') +
         (b['峰'] && b['座'] ? '<br><span class="tyc">　同一时间最多坐 ' + b['峰'][0] + ' 人／最多 ' + b['座'][1] + ' 人（' + Math.round(b['峰'][0] / Math.max(b['座'][1], 1) * 100) + '%）・' + b['峰'][1] + ' 组／' + b['座'][0] + ' 桌（' + esc(b['峰'][2]) + ' 左右）</span>' : '')).join('<br>') + '</div>' +
       (g['另一页'] ? '<div class="tyc">同品牌另一页还开着：' + esc(g['另一页'][0]) + ' <a href="' + esc(g['另一页'][1]) + '" target="_blank" rel="noopener">看 ↗</a>（客人从这一页进来还是订不了）</div>' : '<div class="tyc" style="color:var(--bad)">这个品牌在这个平台上没有别的页面能订</div>') +
       '<div style="margin-top:6px"><a href="' + esc(g['链接']) + '" target="_blank" rel="noopener" style="font-weight:700">打开这一页 ↗</a></div></div>'; }).join('');
@@ -942,7 +942,7 @@ function renderYc() {
   const keys = Object.keys(st).sort((a, b) => (bad(b) - bad(a)) || a.localeCompare(b));
   const WD = '日月火水木金土';
   const head = '<tr><th></th>' + dl.map(d => { const t = new Date(d + 'T00:00:00'), w = t.getDay(); return '<th>' + (t.getMonth() + 1) + '/' + t.getDate() + '<br><span style="font-weight:400;color:' + (w === 0 ? 'var(--bad)' : w === 6 ? 'var(--brand)' : 'var(--sub)') + '">' + WD[w] + '</span></th>'; }).join('') + '</tr>';
-  h += '<h2 style="margin:14px 0 6px;font-size:16px">各店（' + keys.length + ' 家）</h2><div class="tyc" style="margin-bottom:6px">每家店：上面＝レストランボード 那天已订（组/人，不算取消）・最大一组・同一时间最多坐几人（占最多人数的几成，8 成以上橙色）；下面＝每个网页那天能不能订：食べログ ○能订 △少 ×不能，ホットペッパー ◎○△能订 ×满席 TEL要电话，停止＝网上预约停了，—＝那天网上不接了（多半是时间过了），红字＝订不了</div><div class="ycwrap">' +
+  h += '<h2 style="margin:14px 0 6px;font-size:16px">各店（' + keys.length + ' 家）</h2><div class="tyc" style="margin-bottom:6px">每家店：上面＝RB 那天已订（组/人，不算取消）・最大一组・同一时间最多坐几人（占最多人数的几成，8 成以上橙色）；下面＝每个网页那天能不能订：T 的 ○能订 △少 ×不能；H 的 ◎○△能订 ×满席 TEL＝要打电话；停止＝网上预约停了，—＝那天网上不接了（多半是时间过了），红字＝订不了</div><div class="ycwrap">' +
     keys.map(k => {
       const c = SEAT[k], r = RB[k] || {};
       const rw = (lb, f) => '<tr><td class="lb">' + lb + '</td>' + dl.map(d => '<td>' + (r[d] ? f(r[d]) : '<span class="tyc">—</span>') + '</td>').join('') + '</tr>';
@@ -954,7 +954,7 @@ function renderYc() {
         '</table></div></div>';
     }).join('') + '</div>';
   if ((Y['读不到'] || []).length) h += '<p class="note">这次没读到的页面：' + Y['读不到'].map(esc).join('；') + '</p>';
-  return h + '<p class="note">每天 10:30（早上补读完レストランボード 以后）和 12:00 自动查。食べログ 用公开的空席接口，ホットペッパー 读店铺页的空席日历，只读公开网页、不登录。满不满用「座位表格」（真实桌数・最多人数）和レストランボード 每组的时段算同一时间最多坐几人・几组。ぐるなび・Retty 要先找到每个品牌的店铺页，之后加。</p></div>';
+  return h + '<p class="note">每天 10:30 和 12:00 自动查：先从 RB（预约系统）读今天起 7 天的预约，再查 T・H 每个网页的空席日历（只读公开网页、不登录）。满不满用「座位表格」（真实桌数・最多人数）和 RB 每组的时段，算同一时间最多坐几人・几组。G・R 要先找到每个品牌的店铺页网址，之后加。</p></div>';
 }
 
 // ================= 🧹 卫生检查 =================
