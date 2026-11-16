@@ -167,7 +167,7 @@ main{padding:12px 14px calc(30px + env(safe-area-inset-bottom));max-width:760px;
 </header>
 <main id="main"><div class="empty">读取中…</div></main>
 <script>
-const APPV = 'yunying-v9';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v10';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 在 空桌一览 里面（pj.html）还是独立 APP
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
 const LS = {
@@ -687,10 +687,19 @@ function renderTy() {
   };
   const hourBars = (B, note, cum) => {   // cum＝第一格是「0 点到第一次读取」的累计（食べログ页面那份），算最多时段时不算它
     if (!B.length) return '<div class="tyc">' + (note || '这段时间没有每小时数据') + '</div>';
-    const bm = Math.max(1, ...B.map(x => x[1][0])), peak = B.filter((x, i) => !(cum && i === 0 && x[0].startsWith('0-')) || B.length === 1).sort((a, b) => b[1][0] - a[1][0])[0];
-    const sumN = B.reduce((a, x) => a + x[1][0], 0);
-    return (peak && peak[1][0] ? '<div class="tyc" style="margin-bottom:4px">合计 ' + fmt(sumN) + ' 人；最多的时段：<b style="color:var(--ink)">' + peak[0] + '</b> ' + fmt(peak[1][0]) + ' 人（' + Math.round(peak[1][0] / Math.max(sumN, 1) * 100) + '%）</div>' : '') +
-      B.map(x => '<div class="dim" style="grid-template-columns:64px 1fr 92px"><span>' + x[0] + '</span><span class="bar"><i style="width:' + Math.round(x[1][0] / bm * 100) + '%;background:' + (x === peak ? 'var(--bad)' : 'var(--t)') + '"></i></span><span class="v">' + fmt(x[1][0]) + ' 人' + (x[1][1] != null ? '<small style="color:var(--sub)">・存 ' + x[1][1] + '</small>' : '') + '</span></div>').join('');
+    // 11/16 用户：取消要分开看 → x[1][3]＝其中后来取消的人；有它时 深色＝留着、灰色＝取消，最多时段按留着的算
+    const hasC = B.some(x => x[1][3] != null), keep = x => x[1][0] - (x[1][3] || 0);
+    const bm = Math.max(1, ...B.map(x => x[1][0])), peak = B.filter((x, i) => !(cum && i === 0 && x[0].startsWith('0-')) || B.length === 1).sort((a, b) => keep(b) - keep(a))[0];
+    const sumN = B.reduce((a, x) => a + x[1][0], 0), sumC = B.reduce((a, x) => a + (x[1][3] || 0), 0), sumK = sumN - sumC;
+    const head = !peak || !peak[1][0] ? '' : hasC
+      ? '<div class="tyc" style="margin-bottom:4px">下单 ' + fmt(sumN) + ' 人 ＝ <b style="color:var(--ink)">留着 ' + fmt(sumK) + ' 人</b> ＋ 后来取消 ' + fmt(sumC) + ' 人（取消率 <b style="color:' + (sumC / Math.max(sumN, 1) >= 0.3 ? 'var(--bad)' : 'var(--ink)') + '">' + Math.round(sumC / Math.max(sumN, 1) * 100) + '%</b>）；留着最多的时段：<b style="color:var(--ink)">' + peak[0] + '</b> ' + fmt(keep(peak)) + ' 人（' + Math.round(keep(peak) / Math.max(sumK, 1) * 100) + '%）</div>'
+      : '<div class="tyc" style="margin-bottom:4px">合计 ' + fmt(sumN) + ' 人；最多的时段：<b style="color:var(--ink)">' + peak[0] + '</b> ' + fmt(peak[1][0]) + ' 人（' + Math.round(peak[1][0] / Math.max(sumN, 1) * 100) + '%）</div>';
+    return head + B.map(x => {
+      const k = keep(x), c = x[1][3] || 0, col = x === peak ? 'var(--bad)' : 'var(--t)';
+      return '<div class="dim" style="grid-template-columns:64px 1fr 112px"' + (hasC ? ' title="下单 ' + x[1][0] + ' 人，取消 ' + c + ' 人（' + Math.round(c / Math.max(x[1][0], 1) * 100) + '%）"' : '') + '><span>' + x[0] + '</span><span class="bar"><i style="width:' + Math.round(k / bm * 100) + '%;background:' + col + '"></i>' +
+        (c ? '<i style="left:' + Math.round(k / bm * 100) + '%;width:' + Math.max(1, Math.round(c / bm * 100)) + '%;background:var(--faint);opacity:.45;border-radius:0 4px 4px 0"></i>' : '') + '</span><span class="v">' + fmt(k) + ' 人' +
+        (hasC ? (c ? '<small style="color:var(--sub)">・消 ' + fmt(c) + '</small>' : '') : x[1][1] != null ? '<small style="color:var(--sub)">・存 ' + x[1][1] + '</small>' : '') + '</span></div>';
+    }).join('');
   };
   const hsel = sel.filter(s => HRS[s]);
   // 11/16 用户：时间段要完整 → 默认用レストランボード 的受付时间（10/1 起、T・H・G・R、能按店）；食べログ页面每小时那份（11/16 起、只有 T）留作第二个选项
@@ -699,13 +708,14 @@ function renderTy() {
   const rbSt = (() => { const t = {}; sel.forEach(ds => Object.entries((PRD[ds] || {}).hs || {}).forEach(([key, m]) => { const [pp, k] = key.split('|'); if (tyHrPl !== 'all' && pp !== tyHrPl) return; t[k] = (t[k] || 0) + Object.values(m).reduce((a, n) => a + n, 0); })); return Object.keys(t).sort((a, b) => t[b] - t[a]); })();
   const hrList = tyHrSrc === 'rb' ? rbSt : stores, hrSt = hrList.includes(tyHrSt) ? tyHrSt : '';
   const rbHours = (list, onlyStore, pl) => {
-    const a = Array(24).fill(0); let days = 0, inc = 0;
+    const a = Array(24).fill(0), c = Array(24).fill(0); let days = 0, inc = 0;   // a＝下单人数，c＝其中后来取消的（hc / hsc）
+    const addSt = (src, arr) => Object.entries(src || {}).forEach(([key, m]) => { const [pp, k] = key.split('|'); if (k !== onlyStore || (pl !== 'all' && pp !== pl)) return; Object.entries(m).forEach(([hh, n]) => arr[+hh] += n); });
+    const addAll = (src, arr) => Object.entries(src || {}).forEach(([pp, v]) => { if (pl !== 'all' && pp !== pl) return; v.forEach((n, i) => arr[i] += n); });
     list.forEach(ds => {
       const o = PRD[ds]; if (!o) return; days++; if (o['缺'] > 0) inc++;
-      if (onlyStore) Object.entries(o.hs || {}).forEach(([key, m]) => { const [pp, k] = key.split('|'); if (k !== onlyStore || (pl !== 'all' && pp !== pl)) return; Object.entries(m).forEach(([hh, n]) => a[+hh] += n); });
-      else Object.entries(o.h || {}).forEach(([pp, arr]) => { if (pl !== 'all' && pp !== pl) return; arr.forEach((n, i) => a[i] += n); });
+      if (onlyStore) { addSt(o.hs, a); addSt(o.hsc, c); } else { addAll(o.h, a); addAll(o.hc, c); }
     });
-    return { days, inc, B: a.map((n, i) => [i + '-' + (i + 1) + '点', [n, null, i]]).filter(x => x[1][0] > 0) };
+    return { days, inc, B: a.map((n, i) => [i + '-' + (i + 1) + '点', [n, null, i, c[i]]]).filter(x => x[1][0] > 0) };
   };
   const slot = onlyStore => {
     if (tyHrSrc === 'pg') return hourBars(hb(hsel, onlyStore), '这段时间没有食べログ页面的每小时数据（11/16 16 点起才有）', true);
@@ -717,12 +727,12 @@ function renderTy() {
     '<span class="seg" style="margin:0">' + [['rb', '按受付时间（T・H・G・R）'], ['pg', '食べログ页面（T）']].map(([k, n]) => '<button class="' + (tyHrSrc === k ? 'on' : '') + '" onclick="tySet(\'src\',\'' + k + '\')">' + n + '</button>').join('') + '</span>' +
     (tyHrSrc === 'rb' ? '<span class="seg" style="margin:0">' + [['all', '全部'], ['T', 'T'], ['H', 'H'], ['G', 'G'], ['R', 'R']].map(([k, n]) => '<button class="' + (tyHrPl === k ? 'on' : '') + '" onclick="tySet(\'pl\',\'' + k + '\')">' + n + '</button>').join('') + '</span>' : '') +
     '<select class="tysel" onchange="tySet(\'hr\',this.value)"><option value="">全部店</option>' + hrList.map(k => '<option' + (hrSt === k ? ' selected' : '') + '>' + esc(k) + '</option>').join('') + '</select></div>' +
-    '<div class="tyc" style="margin-bottom:6px">' + (tyHrSrc === 'rb' ? '那' + (range ? '段时间每天' : '天') + '几点有人在网上下了预约（レストランボード 的受付时间，只算网上预约，含后来取消的）' + (range ? '，加起来' : '') : '食べログ页面「本日 N 人」每小时增加多少；第一格＝0 点到第一次读取时的累计') + '</div>' +
+    '<div class="tyc" style="margin-bottom:6px">' + (tyHrSrc === 'rb' ? '那' + (range ? '段时间每天' : '天') + '几点有人在网上下了预约（レストランボード 的受付时间，只算网上预约' + (range ? '，加起来' : '') + '）。<b style="color:var(--t)">深色＝现在还留着的</b>，<span style="color:var(--faint)">灰色＝后来取消的</span>（数字＝留着的人，「消」＝取消的人）' : '食べログ页面「本日 N 人」每小时增加多少；第一格＝0 点到第一次读取时的累计') + '</div>' +
     slot(hrSt) + '</div>';
   // ⑤ 各店：预约・保存并排，下面灰字上月同期
   let L = Object.entries(cur.st);
   L.sort(tySort === 'r' ? (a, b) => (b[1].r ?? -1) - (a[1].r ?? -1) : (a, b) => (b[1].s ?? -1) - (a[1].s ?? -1));
-  h += '<div class="sec"><div class="tyhd"><h2 style="margin:0">各店</h2><div class="seg" style="margin:0">' + [['r', '按预约'], ['s', '按保存']].map(([k, n]) => '<button class="' + (tySort === k ? 'on' : '') + '" onclick="tySet(\'sort\',\'' + k + '\')">' + n + '</button>').join('') + '</div><span class="tyc" style="margin-left:auto">点店看品牌页和时间段</span></div><div class="card rows">' +
+  if (L.length) h += '<div class="sec"><div class="tyhd"><h2 style="margin:0">各店</h2><div class="seg" style="margin:0">' + [['r', '按预约'], ['s', '按保存']].map(([k, n]) => '<button class="' + (tySort === k ? 'on' : '') + '" onclick="tySet(\'sort\',\'' + k + '\')">' + n + '</button>').join('') + '</div><span class="tyc" style="margin-left:auto">点店看品牌页和时间段</span></div><div class="card rows">' +
     L.map(([k, x], i) => {
       const open = tyOpen.has(k), cn = cN.st[k] || {}, cp = cP.st[k] || {};
       let r = '<div class="r tyr' + (open ? ' open' : '') + '" onclick="tyOpen.has(\'' + esc(k) + '\')?tyOpen.delete(\'' + esc(k) + '\'):tyOpen.add(\'' + esc(k) + '\');render()">' +
@@ -764,14 +774,15 @@ function prBlock(R, sel, range) {
     chk += '<div class="tyc" style="margin-bottom:6px">两次读取对账（T・H・G・R）：早上提前读的来店日过完、日报系统再读一次后自动比对，第一批 11/18 起有结果。</div>';
   }
   const ds = sel.filter(d => PR[d]);
-  let h = '<div class="sec" style="margin-top:18px"><div class="tyhd"><h2 style="margin:0">🌐 各平台网上预约</h2><span class="tyc">レストランボード 按受付日（那天进了多少），含后来取消的</span></div>';
+  let h = '<div class="sec" style="margin-top:18px"><div class="tyhd"><h2 style="margin:0">🌐 各平台网上预约</h2><span class="tyc">レストランボード 按受付日（那天进了多少）；大数字＝现在还留着的，取消分开写</span></div>';
   h += chk;
   if (!ds.length) return h + '<div class="card tyc">这' + (range ? '段时间' : '天') + '还没有レストランボード 数据（10/1 起；每天早上 5 点自动读）</div></div>';
   const sum = list => {
-    const t = {}, st = {}; PK.forEach(p => t[p] = [0, 0, 0]);
+    // t[p]＝[组, 下单人, 其中取消人, 其中無断人]；st[店][p]＝留着的人，st[店].c＝取消人，st[店].n＝下单人
+    const t = {}, st = {}; PK.forEach(p => t[p] = [0, 0, 0, 0]);
     list.forEach(d => Object.entries(PR[d].s).forEach(([k, v]) => {
-      const x = st[k] = st[k] || { T: 0, H: 0, G: 0, R: 0 };
-      Object.entries(v).forEach(([p, a]) => { if (!t[p]) return; t[p][0] += a[0]; t[p][1] += a[1]; t[p][2] += a[2]; x[p] += a[1]; });
+      const x = st[k] = st[k] || { T: 0, H: 0, G: 0, R: 0, c: 0, n: 0 };
+      Object.entries(v).forEach(([p, a]) => { if (!t[p]) return; t[p][0] += a[0]; t[p][1] += a[1]; t[p][2] += a[2]; t[p][3] += a[3] || 0; x[p] += a[1] - a[2]; x.c += a[2]; x.n += a[1]; });
     }));
     return { t, st };
   };
@@ -781,10 +792,13 @@ function prBlock(R, sel, range) {
   const cmpP = (now, was) => !pairs.length ? '<span class="tyc">上月同期：还没有数据</span>' :
     '<span class="tyc">上月同期 ' + fmt(was) + ' <span class="' + (now >= was ? 'up' : 'dn') + '">' + (now >= was ? '▲' : '▼') + fmt(Math.abs(now - was)) + (was ? '（' + (now >= was ? '+' : '−') + Math.abs(Math.round((now / was - 1) * 100)) + '%）' : '') + '</span></span>';
   if (inc.length) h += '<div class="err" style="margin-bottom:8px">还在补：' + inc.map(d => +d.slice(5, 7) + '/' + +d.slice(8)).join('、') + '——这些天进的、之后才来店的预约还没读全，数字还会变大（每天早上 5 点自动补读，读全了这行就会消失）。</div>';
-  const all = PK.reduce((a, p) => a + cur.t[p][1], 0);
-  h += '<div class="grid g5" style="margin-bottom:8px">' + PK.map(p => '<div class="card kpi"><span class="plat" style="color:' + PCOL[p] + '"><span class="dot" style="background:' + PCOL[p] + '"></span>' + p + ' ' + PN[p] + '</span><br><b>' + fmt(cur.t[p][1]) + '</b><span class="u">人</span>' +
-    '<div class="d">' + fmt(cur.t[p][0]) + ' 组' + (cur.t[p][2] ? '・后来取消 ' + fmt(cur.t[p][2]) + ' 人' : '') + '</div><div class="d">' + cmpP(cN.t[p][1], cP.t[p][1]) + '</div></div>').join('') +
-    '<div class="card kpi"><small>4 个平台合计</small><b>' + fmt(all) + '</b><span class="u">人</span><div class="d">' + PK.map(p => p + ' ' + (all ? Math.round(cur.t[p][1] / all * 100) : 0) + '%').join('・') + '</div><div class="d">' + cmpP(PK.reduce((a, p) => a + cN.t[p][1], 0), PK.reduce((a, p) => a + cP.t[p][1], 0)) + '</div></div></div>';
+  // 11/16 用户：取消分开看（老板视角）→ 大数字＝留着的；下一行 下单＝留着＋取消、取消率（≥30% 红）、無断；和上月比用「下单」（最近几天的取消还会继续发生，留着的数不稳定）
+  const all = PK.reduce((a, p) => a + cur.t[p][1], 0), allC = PK.reduce((a, p) => a + cur.t[p][2], 0), allNs = PK.reduce((a, p) => a + cur.t[p][3], 0);
+  const cRate = (c, n) => n ? '<span style="font-weight:700;color:' + (c / n >= 0.3 ? 'var(--bad)' : 'var(--ink)') + '">' + Math.round(c / n * 100) + '%</span>' : '—';   // 不用 <b>：卡片里的 b 是大字
+  const kpiLines = (n, c, ns, g) => '<div class="d">下单 ' + fmt(n) + ' 人' + (g != null ? '（' + fmt(g) + ' 组）' : '') + '</div><div class="d">取消 ' + fmt(c) + ' 人・取消率 ' + cRate(c, n) + (ns ? '・其中無断 ' + fmt(ns) + ' 人' : '') + '</div>';
+  h += '<div class="grid g5" style="margin-bottom:8px">' + PK.map(p => '<div class="card kpi"><span class="plat" style="color:' + PCOL[p] + '"><span class="dot" style="background:' + PCOL[p] + '"></span>' + p + ' ' + PN[p] + '</span><br><b>' + fmt(cur.t[p][1] - cur.t[p][2]) + '</b><span class="u">人留着</span>' +
+    kpiLines(cur.t[p][1], cur.t[p][2], cur.t[p][3], cur.t[p][0]) + '<div class="d">下单 ' + cmpP(cN.t[p][1], cP.t[p][1]) + '</div></div>').join('') +
+    '<div class="card kpi"><small>4 个平台合计</small><b>' + fmt(all - allC) + '</b><span class="u">人留着</span>' + kpiLines(all, allC, allNs, null) + '<div class="d">' + PK.map(p => p + ' ' + (all ? Math.round(cur.t[p][1] / all * 100) : 0) + '%').join('・') + '（下单占比）</div><div class="d">下单 ' + cmpP(PK.reduce((a, p) => a + cN.t[p][1], 0), PK.reduce((a, p) => a + cP.t[p][1], 0)) + '</div></div></div>';
   // 双重核对：T（レストランボード）vs 食べログ页面
   const pv = ds.map(d => PV[d]).filter(Boolean);
   if (pv.length) {
@@ -795,9 +809,9 @@ function prBlock(R, sel, range) {
     h += '<div class="tyc" style="margin-bottom:8px">T 双重核对：和食べログ页面「本日 N 人」逐店比——页面要有当天 23:45 的全天数（11/16 起）才比，每天自动做。</div>';
   }
   const L = Object.entries(cur.st).map(([k, x]) => [k, x, PK.reduce((a, p) => a + x[p], 0)]).sort((a, b) => b[2] - a[2]);
-  h += '<div class="card" style="overflow-x:auto;padding:4px 10px"><table class="tbl"><tr><th>店</th>' + PK.map(p => '<th style="color:' + PCOL[p] + '">' + p + '</th>').join('') + '<th>合计</th></tr>' +
-    L.map(([k, x, t]) => '<tr><td>' + esc(k) + '</td>' + PK.map(p => '<td>' + (x[p] || '') + '</td>').join('') + '<td><b>' + t + '</b></td></tr>').join('') + '</table></div>';
-  return h + '<p class="note">T＝食べログ、H＝ホットペッパー、G＝ぐるなび、R＝Retty，只算「ネット予約」（电话预约不算）；人数＝预约人数，含后来取消的（和食べログ页面「本日 N 人」同一口径）。数据：レストランボード（读来店日 10/1〜今天+30 天的预约，按受付时间加起来）。上月同期＝上个月同一周同一个星期几，两边都读全的天才比。</p></div>';
+  h += '<div class="card" style="overflow-x:auto;padding:4px 10px"><div class="tyc" style="margin:4px 0">各店：T・H・G・R・合计＝留着的人；取消率 30% 以上红字</div><table class="tbl"><tr><th>店</th>' + PK.map(p => '<th style="color:' + PCOL[p] + '">' + p + '</th>').join('') + '<th>留着</th><th>取消</th><th>取消率</th></tr>' +
+    L.map(([k, x, t]) => '<tr><td>' + esc(k) + '</td>' + PK.map(p => '<td>' + (x[p] || '') + '</td>').join('') + '<td><b>' + t + '</b></td><td style="color:var(--sub)">' + (x.c || '') + '</td><td>' + cRate(x.c, x.n) + '</td></tr>').join('') + '</table></div>';
+  return h + '<p class="note">T＝食べログ、H＝ホットペッパー、G＝ぐるなび、R＝Retty，只算「ネット予約」（电话预约不算）。<b>留着</b>＝到现在还没取消的人（来店待ち・来店済み・退店・会計済み 等；最近几天的以后还可能取消）；<b>取消</b>＝顧客ｷｬﾝｾﾙ・キャンセル・無断ｷｬﾝｾﾙ・貴店ｷｬﾝｾﾙ；<b>下单</b>＝留着＋取消（和食べログ页面「本日 N 人」同一口径，T 双重核对和「上月同期」都用下单）。数据：レストランボード（读来店日 10/1〜今天+30 天的预约，按受付时间加起来）。上月同期＝上个月同一周同一个星期几，两边都读全的天才比。</p></div>';
 }
 
 // ================= 🧹 卫生检查 =================
