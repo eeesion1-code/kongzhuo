@@ -112,6 +112,18 @@ main{padding:12px 14px calc(30px + env(safe-area-inset-bottom));max-width:760px;
 .syst b{color:var(--ink);font-size:15px}
 .mcell{display:inline-block;min-width:44px;text-align:center;font-size:12px;border-radius:6px;padding:1px 4px;margin:0 3px 3px 0;background:var(--soft);color:var(--sub);font-variant-numeric:tabular-nums}
 .mcell b{display:block;font-size:14px;color:var(--ink)}
+/* T预约 */
+.tyc{font-size:11px;color:var(--sub);line-height:1.35}
+.tyc .up,.tyc .dn{font-weight:700}
+.tyhd{display:flex;align-items:center;gap:10px;margin:0 0 8px;flex-wrap:wrap}
+.rows .r.tyr{grid-template-columns:minmax(0,1fr) 88px 88px;align-items:start}
+.tyn{text-align:right;line-height:1.2}
+.tyn b{font-size:20px;font-variant-numeric:tabular-nums}
+.tyn small{font-size:11px;color:var(--sub);margin-left:2px}
+.tyn .tyc{display:block;margin-top:2px}
+.typick{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:0 0 8px}
+.typick input[type=date],.tysel{font:inherit;font-size:15px;padding:6px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)}
+.tysel{margin-left:auto;font-size:13px}
 /* 11/16 用户：老板在电脑上看要像网页（宽屏多栏），手机上保持单栏 */
 .hdin{max-width:760px;margin:0 auto}
 @media (min-width:1000px){
@@ -154,7 +166,7 @@ main{padding:12px 14px calc(30px + env(safe-area-inset-bottom));max-width:760px;
 </header>
 <main id="main"><div class="empty">读取中…</div></main>
 <script>
-const APPV = 'yunying-v3';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v4';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 在 空桌一览 里面（pj.html）还是独立 APP
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
 const LS = {
@@ -550,50 +562,149 @@ function renderSy() {
 
 // ================= 📅 T（食べログ）每日预约・保存 =================
 // 数据：KA「运营部\T的每日保存和每日进的预约数」（tabelog_hourly.py 每小时＋23:45 读 61 个食べログ页），电脑每天 12 点读一次传上来
-let tyDay = '', tyOpen = new Set(), tySort = LS.get('tySort', 'r');
+// 11/16 用户：预约・保存并排；灰色小字＝上个月同一周（1〜7/8〜14/15〜21/22 日〜）同一个星期几的对比；要期间搜索和时间段
+let tyMode = LS.get('tyMode', 'day'), tyDay = '', tyA = '', tyB = '', tyOpen = new Set(), tySort = LS.get('tySort', 'r'), tyHrSt = '';
+const WKD = '日一二三四五六';
+const ymd = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+const dOf = s => new Date(s + 'T00:00:00');
+const mdw = s => { const d = dOf(s); return (d.getMonth() + 1) + '/' + d.getDate() + '（' + WKD[d.getDay()] + '）'; };
+function lastMonthSame(s) {   // 上个月同一周（1〜7/8〜14/15〜21/22 日〜）的同一个星期几；22 日〜那周有两个就取日子最近的
+  const d = dOf(s), wd = d.getDay(), wk = Math.min(3, Math.floor((d.getDate() - 1) / 7));
+  const y = d.getMonth() === 0 ? d.getFullYear() - 1 : d.getFullYear(), m = d.getMonth() === 0 ? 11 : d.getMonth() - 1;
+  const last = new Date(y, m + 1, 0).getDate();
+  let best = null;
+  for (let day = 1; day <= last; day++) {
+    const c = new Date(y, m, day);
+    if (c.getDay() !== wd || Math.min(3, Math.floor((day - 1) / 7)) !== wk) continue;
+    if (!best || Math.abs(day - d.getDate()) < Math.abs(best.getDate() - d.getDate())) best = c;
+  }
+  return best ? ymd(best) : null;
+}
+function tySet(k, v) {
+  if (k === 'mode') { tyMode = v; LS.set('tyMode', v); }
+  else if (k === 'day') { tyDay = v; }
+  else if (k === 'a') tyA = v;
+  else if (k === 'b') tyB = v;
+  else if (k === 'hr') tyHrSt = v;
+  else if (k === 'sort') { tySort = v; LS.set('tySort', v); }
+  render();
+}
+function tyQuick(q, first, latest) {
+  const L = dOf(latest);
+  if (q === '7') { tyB = latest; tyA = ymd(new Date(L.getFullYear(), L.getMonth(), L.getDate() - 6)); }
+  else if (q === '30') { tyB = latest; tyA = ymd(new Date(L.getFullYear(), L.getMonth(), L.getDate() - 29)); }
+  else if (q === 'm') { tyA = ymd(new Date(L.getFullYear(), L.getMonth(), 1)); tyB = latest; }
+  else if (q === 'pm') { tyA = ymd(new Date(L.getFullYear(), L.getMonth() - 1, 1)); tyB = ymd(new Date(L.getFullYear(), L.getMonth(), 0)); }
+  else { tyA = first; tyB = latest; }
+  if (tyA < first) tyA = first;
+  render();
+}
 function renderTy() {
   if (!PJ) return pjErr ? '<div class="err">' + esc(pjErr) + '</div>' : '<div class="empty">读取中…</div>';
-  const D = pjParse();
-  const days = ((PJ && PJ.rows) || []).filter(r => r.k === 'ty').sort((a, b) => a['日'].localeCompare(b['日']));
-  const hr = ((PJ && PJ.rows) || []).find(r => r.k === 'tyh');
+  const D = pjParse(), R = (PJ && PJ.rows) || [];
+  const days = R.filter(r => r.k === 'ty').sort((a, b) => a['日'].localeCompare(b['日']));
   if (!days.length) return '<div class="empty">还没有 T 预约数据（KA「运营部」文件夹）</div>';
-  if (!tyDay || !days.some(d => d['日'] === tyDay)) tyDay = days[days.length - 1]['日'];
+  const DM = {}; days.forEach(d => DM[d['日']] = d);
+  const HRS = {}; R.filter(r => r.k === 'tyh').forEach(r => HRS[r['日']] = r);
+  const first = days[0]['日'], latest = days[days.length - 1]['日'];
+  if (!tyDay || !DM[tyDay]) tyDay = latest;
+  if (!tyA) tyA = days[Math.max(0, days.length - 7)]['日'];
+  if (!tyB) tyB = latest;
+  if (tyA > tyB) { const t = tyA; tyA = tyB; tyB = t; }
+  const range = tyMode === 'range';
+  const sel = range ? days.filter(d => d['日'] >= tyA && d['日'] <= tyB).map(d => d['日']) : [tyDay];
   const page2st = {}; D.pg.filter(p => p['平台'] === '食べログ').forEach(p => page2st[p['品牌页']] = p['店']);
-  const sum = (d, i) => { let t = 0, n = 0; Object.values(d.p).forEach(v => { if (v[i] != null) { t += v[i]; n++; } }); return [t, n]; };
-  const byStore = d => { const o = {}; Object.entries(d.p).forEach(([pg, v]) => { const k = page2st[pg] || pg; const x = o[k] = o[k] || { r: null, s: null, pages: [] }; if (v[1] != null) x.r = (x.r || 0) + v[1]; if (v[0] != null) x.s = (x.s || 0) + v[0]; x.pages.push([pg, v]); }); return o; };
-  const cur = days.find(d => d['日'] === tyDay), idx = days.indexOf(cur), prev = days[idx - 1];
-  const lab = d => +d['日'].slice(5, 7) + '/' + +d['日'].slice(8) + '（' + '日一二三四五六'[new Date(d['日'] + 'T00:00:00').getDay()] + '）';
-  let h = '<div class="seg" style="flex-wrap:nowrap;overflow-x:auto">' + days.map(d => '<button class="' + (d['日'] === tyDay ? 'on' : '') + '" onclick="tyDay=\'' + d['日'] + '\';render()">' + lab(d) + (d['标'] && d['标'].includes('截至') ? ' 进行中' : '') + '</button>').join('') + '</div>';
-  const [rt, rn] = sum(cur, 1), [st, sn] = sum(cur, 0), np = Object.keys(cur.p).length;
-  const [pr] = prev ? sum(prev, 1) : [null];
-  h += '<div class="grid" style="margin-bottom:6px"><div class="card kpi"><small>' + lab(cur) + ' 网上预约（人）</small><b>' + fmt(rt) + '</b>' +
-    (pr != null ? ' <span class="' + (rt >= pr ? 'up' : 'dn') + '" style="font-size:13px">' + (rt >= pr ? '▲' : '▼') + fmt(Math.abs(rt - pr)) + '</span>' : '') +
-    '<div class="d">' + (cur['标'] ? esc(cur['标']) + '・' : '') + rn + '/' + np + ' 页有数' + (prev ? '・前一组 ' + lab(prev) + ' ' + fmt(pr) : '') + '</div></div>' +
-    '<div class="card kpi"><small>保存（人）</small><b>' + fmt(st) + '</b><div class="d">' + sn + '/' + np + ' 页有数</div></div></div>';
-  // 每天合计走势
-  const mx = Math.max(1, ...days.map(d => sum(d, 1)[0]));
-  h += '<div class="card" style="margin-bottom:10px"><div style="font-size:12px;color:var(--sub);margin-bottom:6px">每天网上预约合计（点柱子换日子）</div><div style="display:flex;gap:6px;align-items:flex-end;height:90px">' +
-    days.map(d => { const [t] = sum(d, 1); return '<div style="flex:1;text-align:center;cursor:pointer" onclick="tyDay=\'' + d['日'] + '\';render()"><div style="font-size:11px">' + fmt(t) + '</div><div style="height:' + Math.round(t / mx * 60) + 'px;background:' + (d['日'] === tyDay ? 'var(--t)' : 'var(--line)') + ';border-radius:4px 4px 0 0"></div><div style="font-size:11px;color:var(--sub)">' + +d['日'].slice(8) + '日</div></div>'; }).join('') + '</div></div>';
-  // 今天每小时
-  if (hr && hr['日'] === tyDay && hr.h && hr.h.length) {
-    const hm = Math.max(1, ...hr.h.map(x => x[1] || 0));
-    h += '<div class="card" style="margin-bottom:10px"><div style="font-size:12px;color:var(--sub);margin-bottom:6px">今天每小时新增预约（第一格＝0 点到那时的累计）</div>' +
-      hr.h.map(x => '<div class="dim" style="grid-template-columns:48px 1fr 60px"><span>' + esc(x[0]) + '</span><span class="bar"><i style="width:' + Math.round((x[1] || 0) / hm * 100) + '%;background:var(--t)"></i></span><span class="v">' + (x[1] ?? '—') + ' 人</span></div>').join('') + '</div>';
+  const agg = list => {
+    const st = {}, tot = { r: 0, s: 0, rn: 0, sn: 0 };
+    list.forEach(ds => {
+      const d = DM[ds]; if (!d) return;
+      Object.entries(d.p).forEach(([pg, v]) => {
+        const k = page2st[pg] || pg, x = st[k] = st[k] || { r: null, s: null, pages: {} }, pp = x.pages[pg] = x.pages[pg] || [null, null];
+        if (v[1] != null) { x.r = (x.r || 0) + v[1]; pp[1] = (pp[1] || 0) + v[1]; tot.r += v[1]; tot.rn++; }
+        if (v[0] != null) { x.s = (x.s || 0) + v[0]; pp[0] = (pp[0] || 0) + v[0]; tot.s += v[0]; tot.sn++; }
+      });
+    });
+    return { st, tot };
+  };
+  const cur = agg(sel);
+  // 上月同期：选中的每一天对到上个月同一周同一个星期几，两边都有数据的天才比
+  const pairs = sel.map(s => [s, lastMonthSame(s)]), okp = pairs.filter(p => p[1] && DM[p[1]]);
+  const cN = agg(okp.map(p => p[0])), cP = agg(okp.map(p => p[1]));
+  const refLab = range ? '上月同期' : '上月同期 ' + (pairs[0][1] ? mdw(pairs[0][1]) : '');
+  const cmp = (now, was, short) => {
+    if (!okp.length || was == null) return '<span class="tyc">' + (short ? '上月同期 —' : esc(refLab) + '：还没有数据') + '</span>';
+    if (now == null) return '<span class="tyc">上月 ' + fmt(was) + '</span>';
+    const d = now - was, p = was ? Math.round((now / was - 1) * 100) : null;
+    return '<span class="tyc">' + (short ? '上月 ' : esc(refLab) + ' ') + fmt(was) + ' <span class="' + (d >= 0 ? 'up' : 'dn') + '">' + (d >= 0 ? '▲' : '▼') + fmt(Math.abs(d)) + (p != null && !short ? '（' + (d >= 0 ? '+' : '−') + Math.abs(p) + '%）' : '') + '</span></span>';
+  };
+  // ① 单日 / 期间
+  let h = '<div class="seg">' + [['day', '单日'], ['range', '📅 期间（自己选）']].map(([k, n]) => '<button class="' + (tyMode === k ? 'on' : '') + '" onclick="tySet(\'mode\',\'' + k + '\')">' + n + '</button>').join('') + '</div>';
+  if (!range) {
+    h += '<div class="seg" style="flex-wrap:nowrap;overflow-x:auto">' + days.map(d => '<button class="' + (d['日'] === tyDay ? 'on' : '') + '" onclick="tySet(\'day\',\'' + d['日'] + '\')">' + mdw(d['日']) + (d['标'] && d['标'].includes('截至') ? ' 进行中' : '') + '</button>').join('') + '</div>';
+  } else {
+    h += '<div class="card typick"><input type="date" value="' + tyA + '" min="' + first + '" max="' + latest + '" onchange="tySet(\'a\',this.value)"><span>〜</span><input type="date" value="' + tyB + '" min="' + first + '" max="' + latest + '" onchange="tySet(\'b\',this.value)">' +
+      '<span class="seg" style="margin:0">' + [['7', '最近 7 天'], ['30', '最近 30 天'], ['m', '本月'], ['pm', '上个月'], ['all', '全部']].map(([q, n]) => '<button onclick="tyQuick(\'' + q + '\',\'' + first + '\',\'' + latest + '\')">' + n + '</button>').join('') + '</span>' +
+      '<span class="tyc" style="margin-left:auto">' + sel.length + ' 天有数据' + (sel.length ? '（' + sel.map(s => +s.slice(8)).join('・') + ' 日）' : '') + '</span></div>';
   }
-  // 各店
-  const S = byStore(cur), P = prev ? byStore(prev) : {};
-  let L = Object.entries(S);
+  const title = range ? mdw(tyA) + '〜' + mdw(tyB) : mdw(tyDay) + (DM[tyDay]['标'] ? '（' + DM[tyDay]['标'] + '）' : '');
+  // ② 合计
+  h += '<div class="grid" style="margin-bottom:8px"><div class="card kpi"><small>' + esc(title) + ' 网上预约</small><b style="color:var(--t)">' + fmt(cur.tot.r) + '</b><span class="u">人</span>' +
+    (range && sel.length ? '<div class="d">日均 ' + fmt(Math.round(cur.tot.r / sel.length)) + ' 人</div>' : '') + '<div class="d">' + cmp(cN.tot.r, okp.length ? cP.tot.r : null) + '</div></div>' +
+    '<div class="card kpi"><small>保存</small><b>' + fmt(cur.tot.s) + '</b><span class="u">人</span>' + (range && sel.length ? '<div class="d">日均 ' + fmt(Math.round(cur.tot.s / sel.length)) + ' 人</div>' : '') +
+    '<div class="d">' + cmp(cN.tot.s, okp.length ? cP.tot.s : null) + '</div></div></div>';
+  // ③ 每天合计
+  const show = range ? days.filter(d => d['日'] >= tyA && d['日'] <= tyB) : days;
+  const tot1 = d => Object.values(d.p).reduce((a, v) => a + (v[1] || 0), 0);
+  const mx = Math.max(1, ...show.map(tot1));
+  const multiM = show.length > 0 && show[0]['日'].slice(0, 7) !== show[show.length - 1]['日'].slice(0, 7);
+  if (show.length) h += '<div class="card" style="margin-bottom:10px"><div class="tyc" style="margin-bottom:6px">每天网上预约合计' + (range ? '' : '（点柱子换日子）') + '</div><div style="display:flex;gap:6px;align-items:flex-end;height:96px">' +
+    show.map(d => { const t = tot1(d), on = range || d['日'] === tyDay; return '<div style="flex:1;min-width:0;text-align:center;cursor:pointer" onclick="tySet(\'day\',\'' + d['日'] + '\');tySet(\'mode\',\'day\')"><div style="font-size:11px">' + fmt(t) + '</div><div style="height:' + Math.round(t / mx * 60) + 'px;background:' + (on ? 'var(--t)' : 'var(--line)') + ';border-radius:4px 4px 0 0"></div><div style="font-size:11px;color:var(--sub)">' + (multiM ? +d['日'].slice(5, 7) + '/' + +d['日'].slice(8) : +d['日'].slice(8) + '日') + WKD[dOf(d['日']).getDay()] + '</div></div>'; }).join('') + '</div></div>';
+  // ④ 时间段（每个钟头进了多少预约）
+  const stores = Object.keys(cur.st).sort((a, b) => (cur.st[b].r || 0) - (cur.st[a].r || 0));
+  const hb = (list, onlyStore) => {   // 时段 → [预约, 保存]
+    const m = new Map();
+    list.forEach(ds => {
+      const x = HRS[ds]; if (!x) return;
+      x.h.forEach((end, i) => {
+        const st = i === 0 ? '0' : x.h[i - 1].replace(':00', ''), en = end.replace(':00', '');
+        const lab = st + '-' + en + '点';
+        let r = 0, s = 0;
+        Object.entries(x.r || {}).forEach(([pg, arr]) => { if (!onlyStore || (page2st[pg] || pg) === onlyStore) r += arr[i] || 0; });
+        Object.entries(x.s || {}).forEach(([pg, arr]) => { if (!onlyStore || (page2st[pg] || pg) === onlyStore) s += arr[i] || 0; });
+        const o = m.get(lab) || [0, 0, parseFloat(st)]; o[0] += r; o[1] += s; m.set(lab, o);
+      });
+    });
+    return [...m.entries()].sort((a, b) => a[1][2] - b[1][2] || a[0].localeCompare(b[0]));
+  };
+  const hourBars = (B, note) => {
+    if (!B.length) return '<div class="tyc">' + (note || '这段时间没有每小时数据（11/16 16 点起才有）') + '</div>';
+    const bm = Math.max(1, ...B.map(x => x[1][0])), peak = B.filter(x => !x[0].startsWith('0-') || B.length === 1).sort((a, b) => b[1][0] - a[1][0])[0];
+    return (peak && peak[1][0] ? '<div class="tyc" style="margin-bottom:4px">预约最多的时段：<b style="color:var(--ink)">' + peak[0] + '</b> ' + peak[1][0] + ' 人</div>' : '') +
+      B.map(x => '<div class="dim" style="grid-template-columns:64px 1fr 92px"><span>' + x[0] + '</span><span class="bar"><i style="width:' + Math.round(x[1][0] / bm * 100) + '%;background:var(--t)"></i></span><span class="v">' + x[1][0] + ' 人<small style="color:var(--sub)">・存 ' + x[1][1] + '</small></span></div>').join('');
+  };
+  const hsel = sel.filter(s => HRS[s]);
+  h += '<div class="card" style="margin-bottom:10px"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px"><b style="font-size:14px">⏰ 时间段</b><span class="tyc">每个钟头新进的预约' + (range ? '（' + hsel.length + ' 天加起来）' : '') + '；第一格＝0 点到第一次读取时的累计</span>' +
+    '<select class="tysel" onchange="tySet(\'hr\',this.value)"><option value="">全部店</option>' + stores.map(k => '<option' + (tyHrSt === k ? ' selected' : '') + '>' + esc(k) + '</option>').join('') + '</select></div>' +
+    hourBars(hb(hsel, tyHrSt)) + '</div>';
+  // ⑤ 各店：预约・保存并排，下面灰字上月同期
+  let L = Object.entries(cur.st);
   L.sort(tySort === 'r' ? (a, b) => (b[1].r ?? -1) - (a[1].r ?? -1) : (a, b) => (b[1].s ?? -1) - (a[1].s ?? -1));
-  h += '<div class="sec"><h2>各店<small>点店看各品牌页</small></h2><div class="seg">' + [['r', '按预约'], ['s', '按保存']].map(([k, n]) => '<button class="' + (tySort === k ? 'on' : '') + '" onclick="tySort=\'' + k + '\';LS.set(\'tySort\',\'' + k + '\');render()">' + n + '</button>').join('') + '</div><div class="card rows">' +
+  h += '<div class="sec"><div class="tyhd"><h2 style="margin:0">各店</h2><div class="seg" style="margin:0">' + [['r', '按预约'], ['s', '按保存']].map(([k, n]) => '<button class="' + (tySort === k ? 'on' : '') + '" onclick="tySet(\'sort\',\'' + k + '\')">' + n + '</button>').join('') + '</div><span class="tyc" style="margin-left:auto">点店看品牌页和时间段</span></div><div class="card rows">' +
     L.map(([k, x], i) => {
-      const pv = P[k], d = pv && pv.r != null && x.r != null ? x.r - pv.r : null, open = tyOpen.has(k);
-      let r = '<div class="r' + (open ? ' open' : '') + '" onclick="tyOpen.has(\'' + esc(k) + '\')?tyOpen.delete(\'' + esc(k) + '\'):tyOpen.add(\'' + esc(k) + '\');render()"><div class="nm"><span style="color:var(--sub);font-weight:400;font-size:13px;display:inline-block;width:22px">' + (i + 1) + '</span>' + esc(k) + '</div>' +
-        '<div class="big" style="color:var(--t)">' + (x.r ?? '—') + '<span style="font-size:12px;color:var(--sub);font-weight:400"> 人</span></div><div class="meta"><span>保存 <b>' + (x.s ?? '—') + '</b></span>' +
-        (d != null ? '<span>比前一组 <b class="' + (d >= 0 ? 'up' : 'dn') + '">' + (d >= 0 ? '▲' : '▼') + Math.abs(d) + '</b></span>' : '') + '</div>';
-      if (open) r += '<div class="det"><table class="tbl card" style="padding:0"><tr><th>品牌页</th><th>预约</th><th>保存</th></tr>' + x.pages.map(([pg, v]) => '<tr><td>' + esc(brandShort(pg) || pg) + '</td><td>' + (v[1] ?? '未显示') + '</td><td>' + (v[0] ?? '未显示') + '</td></tr>').join('') + '</table></div>';
+      const open = tyOpen.has(k), cn = cN.st[k] || {}, cp = cP.st[k] || {};
+      let r = '<div class="r tyr' + (open ? ' open' : '') + '" onclick="tyOpen.has(\'' + esc(k) + '\')?tyOpen.delete(\'' + esc(k) + '\'):tyOpen.add(\'' + esc(k) + '\');render()">' +
+        '<div class="nm"><span style="color:var(--sub);font-weight:400;font-size:13px;display:inline-block;width:22px">' + (i + 1) + '</span>' + esc(k) + '</div>' +
+        '<div class="tyn"><b style="color:var(--t)">' + (x.r ?? '—') + '</b><small>人预约</small>' + cmp(cn.r ?? null, okp.length ? (cp.r ?? null) : null, true) + '</div>' +
+        '<div class="tyn"><b>' + (x.s ?? '—') + '</b><small>人保存</small>' + cmp(cn.s ?? null, okp.length ? (cp.s ?? null) : null, true) + '</div>';
+      if (open) {
+        r += '<div class="det" onclick="event.stopPropagation()"><table class="tbl card" style="padding:0;margin-bottom:8px"><tr><th>品牌页</th><th>预约</th><th>保存</th></tr>' +
+          Object.entries(x.pages).map(([pg, v]) => '<tr><td>' + esc(brandShort(pg) || pg) + '</td><td>' + (v[1] ?? '未显示') + '</td><td>' + (v[0] ?? '未显示') + '</td></tr>').join('') + '</table>' +
+          '<div class="card"><div class="tyc" style="margin-bottom:4px">⏰ ' + esc(k) + ' 的时间段</div>' + hourBars(hb(hsel, k)) + '</div></div>';
+      }
       return r + '</div>';
     }).join('') + '</div></div>';
-  h += '<p class="note">预约＝那天在食べログ上产生的网络预约人数（「本日、N人のネット予約が入りました」），不是那天到店的人数；保存＝「本日、N人が保存しました」。当天每小时更新，23:45 那次是全天最终数；「未显示」「没读到」不算进合计（11/13 以前是另一套系统记的，很多页「未显示」）。数据：KA「运营部\T的每日保存和每日进的预约数」，电脑每天 12 点读一次。</p>';
+  h += '<p class="note">预约＝那天在食べログ上产生的网络预约人数（「本日、N人のネット予約が入りました」），不是那天到店的人数；保存＝「本日、N人が保存しました」。当天每小时更新，23:45 那次是全天最终数；「未显示」「没读到」不算进合计（11/13 以前是另一套系统记的，很多页「未显示」；11/14・15 没有数据）。' +
+    '灰字「上月同期」＝上个月同一周（1〜7/8〜14/15〜21/22 日〜）的同一个星期几，期间就是每一天各自对上再加起来，两边都有数据的天才比（数据从 11/10 开始记，12 月起才有得比）。数据：KA「运营部\\T的每日保存和每日进的预约数」，电脑每天 12 点读一次。</p>';
   return h;
 }
 
