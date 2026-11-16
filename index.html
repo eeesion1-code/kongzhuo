@@ -472,7 +472,7 @@ button.svdlab{color:var(--ink);font-family:inherit;line-height:1.3}
 <script>
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v52';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v53';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -1133,11 +1133,12 @@ function svMonthFc(y, m) {
 }
 // 某个月的实际合计（每天都有日报才算）
 // 11/15 用户：①同店预测——去年同月和今年店数不一样（新开・关掉的店），只算去年同月也开着的店，和这些店去年的合计比
-// 同店＝现在开着、去年那个月有一半以上天数有数据、而且那时已开满 30 天的店
+// 同店＝现在开着、去年那个月有一半以上天数有营业额的店
+// 11/16 用户：新店只有立川（一家两台收银）・錦糸町・大宮 4 台；池袋4F・本厚木 2025/11/18 以前没有营业额（本厚木那时两家关了一家）→ 去年 11 月不满半个月不算，12 月起算。原来的「开满 30 天」会把它们 12 月也排掉，去掉
 function svSameStore(y, m) {
   const key = 'S' + y + '-' + m; if (svFcMemo[key]) return svFcMemo[key];
   const M = svFModel(), today = svToday(), lyDays = svMonDays(y - 1, m), days = svMonDays(y, m);
-  const S = new Set([...M.open].filter(n => { const sd = M.S[n] || {}; return lyDays.filter(d => sd[d] != null).length >= lyDays.length / 2 && M.first[n] <= svAdd(lyDays[0], -30); }));
+  const S = new Set([...M.open].filter(n => { const sd = M.S[n] || {}; return lyDays.filter(d => sd[d] > 0).length >= lyDays.length / 2; }));
   let fc = 0, ly = 0;
   S.forEach(n => lyDays.forEach(d => ly += (M.S[n] || {})[d] || 0));
   days.forEach(ds => {
@@ -1145,7 +1146,10 @@ function svSameStore(y, m) {
     if (x) x.s.forEach(r => { if (S.has(r[1])) fc += r[2]; });
     else { const f = svFDay(ds), k = f.t0 ? f.t / f.t0 : 1; S.forEach(n => fc += (svFStore(M, n, ds) || 0) * k); }
   });
-  return svFcMemo[key] = { n: S.size, all: M.open.size, fc, ly };
+  const stn = {}; const L0 = SV.days[SV.days.length - 1]; if (L0) L0.s.forEach(r => stn[r[1]] = r[0]);
+  const cnt = {}; [...M.open].filter(n => !S.has(n)).forEach(n => { const k = stn[n] || n; cnt[k] = (cnt[k] || 0) + 1; });
+  const out = Object.entries(cnt).map(([k, c]) => c > 1 ? `${k}×${c}` : k);
+  return svFcMemo[key] = { n: S.size, all: M.open.size, fc, ly, out };
 }
 let svFcSame = LS.get('svFcSame', '') === '1';
 function svSetFcSame(v) { svFcSame = v; LS.set('svFcSame', v ? '1' : ''); renderSales(); }
@@ -1777,7 +1781,7 @@ function svTabFc(today) {
   h += `<div class="svcard svhero"><div class="lab">${m} 月预测</div><div class="val">约 ${cnBig(F.t)}</div>`
     + `<div class="sub">${lyMonSum ? `去年 ${m} 月实际 ${cnBig(lyMonSum)}　${svDl(F.t, lyMonSum)}` : '去年同月没有完整数据'}　${SV.sk ? '（堂食・外卖分开算）' : `（全部 ${M.open.size} 家）`}</div></div>`;
   const SS = svSameStore(y, m);
-  if (SS.n && !SV.sk) h += `<div class="svcard"><div class="svct">① 同店预测<small>去年 ${m} 月也开着的 ${SS.n} 家（不算今年新开的 ${SS.all - SS.n} 家）</small></div>`
+  if (SS.n && !SV.sk) h += `<div class="svcard"><div class="svct">① 同店预测<small>去年 ${m} 月也开着的 ${SS.n} 家；不算 ${SS.all - SS.n} 台收银：${SS.out.join('、')}（新店，或去年这个月营业不满半个月）</small></div>`
     + `<div class="svmini"><div>①预测<b>约 ${svOku(SS.fc)}</b></div><div>去年这 ${SS.n} 家<b>${svOku(SS.ly)}</b></div><div>同店增减<b>${svDl(SS.fc, SS.ly)}</b></div></div>`
     + `<div class="svnote">店数一样才好比：上面的 ${m} 月预测是现在全部 ${SS.all} 家，去年同月的店数不一样（今年新开的店、已经关的店）；①只算两年都开着的店。</div></div>`;
   h += `<div class="svmini"><div>已到（${F.actN} 天）<b>${F.actN ? svOku(F.act) : '—'}</b></div><div>剩下（${F.n} 天）<b>约 ${svOku(F.rest)}</b></div><div>上半月／下半月<b>${svOku(F.half[0])}／${svOku(F.half[1])}</b></div></div>`;
