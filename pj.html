@@ -167,7 +167,7 @@ main{padding:12px 14px calc(30px + env(safe-area-inset-bottom));max-width:760px;
 </header>
 <main id="main"><div class="empty">读取中…</div></main>
 <script>
-const APPV = 'yunying-v6';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v7';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 在 空桌一览 里面（pj.html）还是独立 APP
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
 const LS = {
@@ -289,7 +289,7 @@ function rvCard(r, showStore) {
     (showStore ? ' <b>' + esc(r['店']) + '</b>' : '') + ' <span class="who">' + esc(brandShort(r['品牌页'])) + ' · ' + esc(date) + '</span></div>' +
     (r['标题'] ? '<div class="rvt"><b>' + esc(r['标题']) + '</b></div>' : '') +
     (r['内容'] ? '<div class="rvt">' + esc(r['内容']) + '</div>' : '<div class="rvt" style="color:var(--faint)">（只打了分，没写内容）</div>') +
-    '<div class="rvf">' + reply + '<span>' + esc(r['作者'] || '') + '</span>' + (r['网址'] ? '<a class="lk" href="' + esc(r['网址']) + '" target="_blank" rel="noopener">打开页面 ↗</a>' : '') + '</div></div>';
+    '<div class="rvf">' + reply + '<span>' + esc(r['作者'] || '') + '</span>' + (r['链'] ? '<a class="lk" href="' + esc(r['链']) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">打开这条评价 ↗</a>' : r['网址'] ? '<a class="lk" href="' + esc(r['网址']) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">' + (r['平台'] === 'Google' ? '打开 Google 店铺页（在「クチコミ」里找）↗' : '打开店铺页 ↗') + '</a>' : '') + '</div></div>';
 }
 function platKpi(name, g) {
   if (!g) return '';
