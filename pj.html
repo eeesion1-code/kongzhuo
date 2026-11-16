@@ -106,6 +106,11 @@ main{padding:12px 14px calc(30px + env(safe-area-inset-bottom));max-width:760px;
 .issue .x{grid-column:2;color:var(--sub);font-size:12px}
 .lk{font-size:12px}
 .err{background:var(--warnBg);color:var(--warn);border-radius:10px;padding:10px 12px;font-size:13px;margin:0 0 12px}
+.syq{width:100%;font:inherit;font-size:16px;padding:8px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);margin:0 0 8px}
+.syst{font-size:13px;color:var(--sub);margin:12px 2px 4px;display:flex;gap:8px;align-items:baseline}
+.syst b{color:var(--ink);font-size:15px}
+.mcell{display:inline-block;min-width:44px;text-align:center;font-size:12px;border-radius:6px;padding:1px 4px;margin:0 3px 3px 0;background:var(--soft);color:var(--sub);font-variant-numeric:tabular-nums}
+.mcell b{display:block;font-size:14px;color:var(--ink)}
 .keybox{max-width:360px;margin:40px auto;text-align:center}
 .keybox input{width:100%;font:inherit;font-size:16px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);margin:10px 0}
 .keybox button{width:100%;border:0;background:var(--brand);color:#fff;border-radius:10px;padding:10px;font-weight:700}
@@ -123,7 +128,7 @@ main{padding:12px 14px calc(30px + env(safe-area-inset-bottom));max-width:760px;
 </header>
 <main id="main"><div class="empty">读取中…</div></main>
 <script>
-const APPV = 'yunying-v1';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v2';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 在 空桌一览 里面（pj.html）还是独立 APP
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
 const LS = {
@@ -146,7 +151,8 @@ const pct = x => x == null ? '' : (x >= 0 ? '▲' : '▼') + Math.abs(x * 100).t
 const today = new Date(); const TD = today.toISOString().slice(0, 10);
 
 let PJ = null, HR = null, pjErr = '', hrErr = '', owner = false;
-const tabFromUrl = (location.hash.match(/^#(pj|hr|hy)$/) || [])[1];   // 网址带 #hr 直接开人事评价、#hy 卫生、#pj 评价
+const tabFromUrl = (location.hash.match(/^#(pj|hr|hy|sy)$/) || [])[1];   // 网址带 #hr 直接开人事评价、#hy 卫生、#pj 评价
+let syMonth = LS.get('syMonth', 'year'), syQ = '', sySort = LS.get('sySort', 'store'), syOpen = new Set();
 let tab = tabFromUrl || LS.get('pjTab', 'pj'), stSort = LS.get('pjSort', 'g'), rvPlat = '', openSt = new Set(), hrMonth = '', hrOpen = new Set(), hyOpen = new Set();
 
 // ---------- 读数据 ----------
@@ -187,11 +193,11 @@ function changeKey() { showKey(''); }
 // ---------- 公共 ----------
 function setTab(t) { tab = t; LS.set('pjTab', t); render(); window.scrollTo(0, 0); }
 function render() {
-  const tabs = [['pj', '⭐ 评价'], ...(owner ? [['hr', '👔 人事评价'], ['hy', '🧹 卫生检查']] : [])];
+  const tabs = [['pj', '⭐ 评价'], ...(owner ? [['hr', '👔 人事'], ['sy', '👤 社员'], ['hy', '🧹 卫生']] : [])];
   $('tabs').innerHTML = tabs.map(([k, n]) => '<button class="' + (tab === k ? 'on' : '') + '" onclick="setTab(\'' + k + '\')">' + n + '</button>').join('');
   const at = tab === 'pj' ? (PJ && PJ.at) : (HR && HR.at);
   $('at').textContent = at ? at.slice(5).replace('-', '/') + ' 更新' : '';
-  $('main').innerHTML = (tab === 'hr' ? renderHr() : tab === 'hy' ? renderHy() : renderPj()) +
+  $('main').innerHTML = (tab === 'hr' ? renderHr() : tab === 'sy' ? renderSy() : tab === 'hy' ? renderHy() : renderPj()) +
     '<div class="foot"><a onclick="changeKey()">🔑 换密码（老板 / 店长）</a>' + (IN_KZ ? '' : '　版本 ' + APPV.replace('yunying-v', '')) + '</div>';
 }
 const stars = s => s == null ? '' : '<span class="stars">' + '★'.repeat(Math.round(s)) + '<span style="opacity:.25">' + '★'.repeat(5 - Math.round(s)) + '</span></span>';
@@ -430,6 +436,85 @@ function hrRow(r, p, staff, M) {
   return h + '</div>';
 }
 function tgHr(k) { hrOpen.has(k) ? hrOpen.delete(k) : hrOpen.add(k); render(); }
+
+// ================= 👤 社员评分 =================
+// 数据：公司「売上ボナース计算表」每人每月的评分（k=sy）和全年汇总（k=sya）；出勤＝指纹打卡天数
+function syParse() {
+  const o = { sy: [], sya: [], hs: {}, order: [] };
+  for (const r of (HR && HR.rows) || []) {
+    if (r.k === 'sy') o.sy.push(r);
+    else if (r.k === 'sya') o.sya.push(r);
+    else if (r.k === 'hs') { (o.hs[r['月']] = o.hs[r['月']] || {})[r['店']] = r; if (!o.order.includes(r['店'])) o.order.push(r['店']); }
+  }
+  return o;
+}
+const scCol = v => v == null ? 'var(--faint)' : v >= 95 ? 'var(--good)' : v >= 80 ? 'var(--ink)' : v >= 70 ? 'var(--warn)' : 'var(--bad)';
+function setSyMonth(m) { syMonth = m; LS.set('syMonth', m); render(); }
+function setSySort(m) { sySort = m; LS.set('sySort', m); render(); }
+function onSyQ(v) { syQ = v; clearTimeout(window._syT); window._syT = setTimeout(() => { render(); const q = $('syq'); if (q) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); } }, 250); }
+function tgSy(k) { syOpen.has(k) ? syOpen.delete(k) : syOpen.add(k); render(); }
+function renderSy() {
+  if (!HR) return hrErr ? '<div class="err">' + esc(hrErr) + '</div>' : '<div class="empty">读取中…</div>';
+  const D = syParse();
+  if (!D.sy.length) return '<div class="empty">还没有社员评分（找不到「売上ボナース计算表」）</div>';
+  const months = [...new Set(D.sy.map(r => r['月']))].sort();
+  if (syMonth !== 'year' && !months.includes(syMonth)) syMonth = 'year';
+  const ord = s => { const i = D.order.indexOf(s); return i < 0 ? 999 : i; };
+  const q = syQ.trim();
+  const hit = r => !q || String(r['名']).includes(q) || String(r['店']).includes(q) || (r['店历'] || []).some(x => String(x).includes(q));
+  let h = '<div class="seg">' + [['year', '全年']].concat(months.map(m => [m, +m.slice(5) + ' 月'])).map(([k, n]) => '<button class="' + (syMonth === k ? 'on' : '') + '" onclick="setSyMonth(\'' + k + '\')">' + n + '</button>').join('') + '</div>';
+  h += '<input class="syq" id="syq" placeholder="🔍 搜姓名 / 店名" value="' + esc(syQ) + '" oninput="onSyQ(this.value)">';
+  h += '<div class="seg">' + [['store', '按店'], ['score', '按分数']].map(([k, n]) => '<button class="' + (sySort === k ? 'on' : '') + '" onclick="setSySort(\'' + k + '\')">' + n + '</button>').join('') + '</div>';
+  if (syMonth === 'year') {
+    let L = D.sya.filter(hit);
+    const got = L.filter(r => r['平均'] != null);
+    h += '<div class="grid" style="margin-bottom:10px"><div class="card kpi"><small>' + (D.sya[0] ? D.sya[0]['年'] : '') + ' 年 社员平均分（有分的月份）</small><b>' + (got.length ? (got.reduce((a, r) => a + r['平均'], 0) / got.length).toFixed(1) : '—') + '</b><div class="d">' + got.length + ' 人有分・' + months.map(m => +m.slice(5)).join('/') + ' 月</div></div>' +
+      '<div class="card kpi"><small>売上ボナース 合计</small><b>' + fmt(Math.round(L.reduce((a, r) => a + (r['奖金'] || 0), 0) / 1e4)) + '</b><span class="u">万円</span><div class="d">' + L.length + ' 人</div></div></div>';
+    L.sort(sySort === 'score' ? (a, b) => (b['平均'] ?? -1) - (a['平均'] ?? -1) : (a, b) => ord(a['店']) - ord(b['店']) || (b['平均'] ?? -1) - (a['平均'] ?? -1));
+    let last = '';
+    h += L.map((r, i) => {
+      let x = '';
+      if (sySort === 'store' && r['店'] !== last) { last = r['店']; x += '<div class="syst"><b>' + esc(r['店']) + '</b></div>'; }
+      const key = 'y|' + r['名'], open = syOpen.has(key);
+      x += '<div class="card" style="margin:0 0 6px;cursor:pointer" onclick="tgSy(\'' + esc(key) + '\')"><div style="display:flex;align-items:center;gap:8px">' +
+        (sySort === 'score' ? '<span style="color:var(--sub);width:22px">' + (i + 1) + '</span>' : '') +
+        '<div style="flex:1;min-width:0"><b style="font-size:16px">' + esc(r['名']) + '</b> <small style="color:var(--sub)">' + esc(r['店历'].join('→')) + '</small><div style="margin-top:4px">' +
+        r['各月'].map(m => '<span class="mcell">' + +m[0].slice(5) + '月<b style="color:' + scCol(m[1]) + '">' + (m[1] == null ? '—' : m[1]) + '</b></span>').join('') + '</div></div>' +
+        '<div style="text-align:right"><div style="font-size:24px;font-weight:800;color:' + scCol(r['平均']) + '">' + (r['平均'] ?? '—') + '</div><div style="font-size:11px;color:var(--sub)">全年平均・' + r['月数'] + ' 个月</div></div></div>';
+      if (open) {
+        const ms = D.sy.filter(s => s['名'] === r['名']).sort((a, b) => a['月'].localeCompare(b['月']));
+        x += '<table class="tbl" style="margin-top:8px"><tr><th>月</th><th>店</th><th>评分</th><th>店达成率</th><th>T/G 扣</th><th>奖金</th><th>出勤</th></tr>' +
+          ms.map(s => '<tr><td>' + +s['月'].slice(5) + '月</td><td>' + esc(s['店']) + '</td><td style="color:' + scCol(s['评分']) + ';font-weight:700">' + (s['评分'] ?? '—') + '</td><td>' + (s['达成率'] != null ? Math.round(s['达成率'] * 100) + '%' : '') + '</td><td>' + ((s['T'] || s['G']) ? (s['T'] || 0) + '/' + (s['G'] || 0) : '') + '</td><td>' + (s['奖金'] ? fmt(s['奖金']) : '') + '</td><td>' + (s['出勤天'] ? s['出勤天'] + ' 天' : '') + '</td></tr>').join('') +
+          '</table><p class="note">最高 ' + (r['最高'] ?? '—') + '・最低 ' + (r['最低'] ?? '—') + '・全年奖金 ' + fmt(r['奖金']) + ' 円</p>';
+      }
+      return x + '</div>';
+    }).join('');
+  } else {
+    let L = D.sy.filter(r => r['月'] === syMonth).filter(hit);
+    const got = L.filter(r => r['有分']);
+    const st = D.hs[syMonth] || {};
+    h += '<div class="grid" style="margin-bottom:10px"><div class="card kpi"><small>' + +syMonth.slice(5) + ' 月 社员平均分</small><b>' + (got.length ? (got.reduce((a, r) => a + r['评分'], 0) / got.length).toFixed(1) : '—') + '</b><div class="d">' + got.length + ' / ' + L.length + ' 人有分（' + new Set(got.map(r => r['店'])).size + ' 家店）</div></div>' +
+      '<div class="card kpi"><small>売上ボナース 合计</small><b>' + fmt(Math.round(L.reduce((a, r) => a + (r['奖金'] || 0), 0) / 1e4)) + '</b><span class="u">万円</span><div class="d">空着的＝这个月没算分</div></div></div>';
+    L.sort(sySort === 'score' ? (a, b) => (b['评分'] ?? -1) - (a['评分'] ?? -1) : (a, b) => ord(a['店']) - ord(b['店']) || (b['评分'] ?? -1) - (a['评分'] ?? -1));
+    let last = '';
+    h += L.map((r, i) => {
+      let x = '';
+      if (sySort === 'store' && r['店'] !== last) {
+        last = r['店'];
+        const s = st[r['店']];
+        x += '<div class="syst"><b>' + esc(r['店']) + '</b>' + (r['达成率'] != null ? '<span>达成率 ' + Math.round(r['达成率'] * 100) + '%</span>' : '') + ((r['T'] || r['G']) ? '<span>T ' + (r['T'] || 0) + '・G ' + (r['G'] || 0) + '</span>' : '') +
+          (s && s['总分'] != null ? '<span style="margin-left:auto">店长考核 <b style="font-size:13px">' + s['总分'] + '</b> ' + s['等级'] + '</span>' : '') + '</div>';
+      }
+      return x + '<div class="card" style="margin:0 0 6px;display:flex;align-items:center;gap:8px">' +
+        (sySort === 'score' ? '<span style="color:var(--sub);width:22px">' + (r['有分'] ? i + 1 : '') + '</span>' : '') +
+        '<div style="flex:1;min-width:0"><b style="font-size:16px">' + esc(r['名']) + '</b>' + (sySort === 'score' ? ' <small style="color:var(--sub)">' + esc(r['店']) + '</small>' : '') +
+        '<div style="font-size:12px;color:var(--sub)">' + (r['有分'] ? '百分比 ' + Math.round((r['百分比'] || 0) * 100) + '%・奖金 ' + fmt(r['奖金']) + ' 円' : '这个月没算分') + (r['出勤天'] ? '・出勤 ' + r['出勤天'] + ' 天' : '') + '</div></div>' +
+        '<div style="font-size:24px;font-weight:800;color:' + scCol(r['评分']) + '">' + (r['评分'] ?? '—') + '</div></div>';
+    }).join('');
+  }
+  h += '<p class="note">数据：公司「売上ボナース计算表」（工资表文件夹，每月一页）。评分是表上原样；百分比＝（评分 − T − G）÷100，奖金按百分比算；T・G 是全店的扣分。空着的月份＝那个月没算分（没发奖金），全年平均只算有分的月份。出勤＝指纹打卡那个月有打卡的天数（10 月起）。颜色：95 以上绿、80〜94 黑、70〜79 橙、不到 70 红。</p>';
+  return h;
+}
 
 // ================= 🧹 卫生检查 =================
 function renderHy() {
