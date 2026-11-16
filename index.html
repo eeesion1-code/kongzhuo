@@ -392,7 +392,7 @@ nav button.on{color:var(--brand)}
 .svmon{margin:4px 0}
 .svfcm{display:flex;flex-direction:column;gap:2px}
 .svfcm p{margin:6px 0 2px;padding-top:6px;border-top:1px dashed var(--line);font-size:12px;color:var(--sub);font-weight:700}
-.svfcm button{display:grid;grid-template-columns:44px 1fr 56px 46px;gap:6px;align-items:center;border:0;background:none;color:var(--ink);padding:6px 4px;border-radius:8px;text-align:left;font-size:13.5px}
+.svfcm button,.svfcm .hd{display:grid;grid-template-columns:44px 1fr 54px 54px 44px;gap:6px;align-items:center;border:0;background:none;color:var(--ink);padding:6px 4px;border-radius:8px;text-align:left;font-size:13.5px}
 .svfcm button.on{background:var(--soft);font-weight:700}
 .svfcm span small{display:block;font-size:10px;color:var(--sub);font-weight:400}
 .svfcm i{position:relative;height:12px;background:var(--soft);border-radius:4px}
@@ -400,6 +400,8 @@ nav button.on{color:var(--brand)}
 .svfcm u{position:absolute;left:0;top:0;bottom:0;background:var(--fcbar);border-radius:4px}
 .svfcm s{position:absolute;top:-3px;bottom:-3px;width:2px;background:var(--ink)}
 .svfcm b{text-align:right;font-variant-numeric:tabular-nums}
+.svfcm em{font-style:normal;text-align:right;font-size:12.5px;color:var(--sub);font-variant-numeric:tabular-nums}
+.svfcm .hd{gap:6px;padding:0 4px;font-size:11px;color:var(--faint)}.svfcm .hd span{text-align:right}.svfcm .hd span:first-child{text-align:left}
 .svfcm .dl{text-align:right;font-size:12px}
 /* 11/14 期间（自选）*/
 .hol{color:#dc2626;font-weight:600}
@@ -470,7 +472,7 @@ button.svdlab{color:var(--ink);font-family:inherit;line-height:1.3}
 <script>
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v51';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v52';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -1792,12 +1794,12 @@ function svTabFc(today) {
     + `同店增减＝最近 ${FC_WIN / 7} 周每家店比去年同期，数据少的店往全集团平均靠。已经关的店不算。${Object.keys(M.usedMon).length ? `去年 ${Object.keys(M.usedMon).sort().map(k => +k.slice(5) + ' 月').join('・')} 有的店收银台数据还没补到，先用云端月报的月合计（按那家店的星期几规律分到每天），补到后自动换成收银台数据。` : ''}${SV.sk ? '三幸園只有一家店，预测和集团用同一套方法，误差会比集团大。外卖 2026/2 起从 3% 涨到 25% 左右，所以堂食、外卖分开算：堂食按自己比去年的增减，外卖按最近 4 周的水平（不然「去年没有 Uber」的涨幅会一直乘下去）。' : svFcAcc}</div></div>`;
   // 到明年 12 月每个月
   const ms = []; for (let k = 0; ; k++) { const t = new Date(+curMon.slice(0, 4), +curMon.slice(5, 7) - 1 + k, 1), mk = svStr(t).slice(0, 7); if (mk > maxMon) break;
-    const yy = t.getFullYear(), mm = t.getMonth() + 1, f = svMonthFc(yy, mm), ss = FS ? svSameStore(yy, mm) : null, l = ss ? (ss.n ? ss.ly : 0) : svMonAct(yy - 1, mm); ms.push({ mk, yy, mm, t: ss ? (ss.n ? ss.fc : 0) : f.t, l, a: f.actN }); }
+    const yy = t.getFullYear(), mm = t.getMonth() + 1, f = svMonthFc(yy, mm), ss = FS ? svSameStore(yy, mm) : null, l = ss ? (ss.n && svMonDays(yy - 1, mm).pop() < today ? ss.ly : 0) : svMonAct(yy - 1, mm); ms.push({ mk, yy, mm, t: ss ? (ss.n ? ss.fc : 0) : f.t, l, a: f.actN }); }
   const mx = Math.max(...ms.map(o => Math.max(o.t, o.l)));
-  h += `<div class="svcard"><div class="svct">到 ${maxMon.slice(0, 4)} 年 12 月每个月${SV.sk ? '' : `<span class="svseg2"><button class="${FS ? '' : 'on'}" onclick="svSetFcSame(false)">全部店</button><button class="${FS ? 'on' : ''}" onclick="svSetFcSame(true)">①同店</button></span>`}</div><div class="svfcm">`
+  h += `<div class="svcard"><div class="svct">到 ${maxMon.slice(0, 4)} 年 12 月每个月${SV.sk ? '' : `<span class="svseg2"><button class="${FS ? '' : 'on'}" onclick="svSetFcSame(false)">全部店</button><button class="${FS ? 'on' : ''}" onclick="svSetFcSame(true)">①同店</button></span>`}</div><div class="svfcm"><div class="hd"><span>月</span><span></span><span>${FS ? '①预测' : '预测'}</span><span>去年</span><span>增减</span></div>`
     + ms.map((o, i) => (i && o.yy !== ms[i - 1].yy ? `<p>${o.yy} 年</p>` : '') + `<button class="${o.mk === svMon ? 'on' : ''}" onclick="svMon='${o.mk}';renderSales();document.getElementById('salesView').scrollTop=0"><span>${o.mm} 月${o.a ? '<small>含实际</small>' : ''}</span>`
-      + `<i><u style="width:${(100 * o.t / mx).toFixed(1)}%"></u>${o.l ? `<s style="left:${(100 * o.l / mx).toFixed(1)}%"></s>` : ''}</i><b>${o.t ? svOku(o.t) : '—'}</b>${o.l && o.t ? svDl(o.t, o.l) : '<span class="dl">—</span>'}</button>`).join('')
-    + `</div><div class="svlegend"><span><i class="f"></i>${FS ? '①同店预测' : '预测（全部店）'}</span><span><s></s>${FS ? '去年这些店' : '去年同月实际'}</span></div>${FS ? '<div class="svnote">①同店：每个月只算去年那个月也开着的店；去年同月还没过完的月份写「—」。</div>' : ''}`;
+      + `<i><u style="width:${(100 * o.t / mx).toFixed(1)}%"></u>${o.l ? `<s style="left:${(100 * o.l / mx).toFixed(1)}%"></s>` : ''}</i><b>${o.t ? svOku(o.t) : '—'}</b><em>${o.l ? svOku(o.l) : '—'}</em>${o.l && o.t ? svDl(o.t, o.l) : '<span class="dl">—</span>'}</button>`).join('')
+    + `</div><div class="svlegend"><span><i class="f"></i>${FS ? '①同店预测' : '预测（全部店）'}</span><span><s></s>${FS ? '去年这些店' : '去年同月实际'}</span></div>${FS ? '<div class="svnote">①同店：每个月只算去年那个月也开着的店（已经关的店，比如品川 1 号店，两边都不算）；「去年」＝这些店去年同月的实际；去年同月还没过完的月份写「—」。</div>' : '<div class="svnote">「去年」＝去年同月全部店的实际（当时开着的店）。</div>'}`;
   // 年合计（整年每天都有实际或预测才算）
   const yr = Y => { let t = 0; for (let mm = 1; mm <= 12; mm++) { const k = Y + '-' + String(mm).padStart(2, '0'); if (k > maxMon) return 0;
     if (k >= curMon) t += svMonthFc(Y, mm).t; else { const a = svMonAct(Y, mm); if (!a) return 0; t += a; } } return t; };
