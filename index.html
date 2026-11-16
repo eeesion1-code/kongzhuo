@@ -322,6 +322,8 @@ nav button.on{color:var(--brand)}
 .svlabh u{background:var(--held)}
 .svlabh .hd span{font-size:11px;color:var(--faint)}
 .svlabh .dl{font-weight:600}
+.svsof{flex-wrap:wrap}
+.svsot td small{color:var(--sub)}
 .svlabh em small{display:block;font-size:9.5px;color:var(--faint)}
 .svlabbt td small{color:var(--faint)}
 .svld.bg{background:var(--freeBg)}.svld.bm{background:var(--remindBg)}.svld.brr{background:var(--overBg)}
@@ -473,7 +475,7 @@ button.svdlab{color:var(--ink);font-family:inherit;line-height:1.3}
 <script>
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v55';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v56';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -1167,7 +1169,7 @@ function svMonAct(y, m) {
 // 分页：总览（最重要的几个数）｜每日（月历・某天对比）｜时段（每小时对比）｜各店（排名・增减）｜预测
 // 全页一个「对比」开关（svCmpM：去年同期／上个月同期／上周同日），所有增减都跟着它
 let svTab = LS.get('svTab', 'ov'), svStSort = LS.get('svStSort', 'amt');
-const SV_TABS = [['ov', '总览'], ['day', '每日'], ['hr', '时段'], ['st', '各店'], ['fc', '预测'], ['lab', '人工']];
+const SV_TABS = [['ov', '总览'], ['day', '每日'], ['hr', '时段'], ['st', '各店'], ['fc', '预测'], ['lab', '人工'], ['so', '品切れ']];   // so＝三幸園才有（11/16）
 function svGo(tab, ds) { if (ds) { svDay = ds; svMon = ds.slice(0, 7); svRg = null; svRgCal = null; } svTab = tab; LS.set('svTab', tab); renderSales(); const v = document.getElementById('salesView'); if (v) v.scrollTop = 0; }
 function svStep(n) { const d = svAdd(svDay, n); if (d <= svToday()) svPick(d); }
 function svSetSort(s) { svStSort = s; LS.set('svStSort', s); renderSales(); }
@@ -1370,11 +1372,12 @@ function renderSales() {
   const today = svToday();
   if (SV.sk && (svTab === 'st' || svTab === 'lab')) svTab = 'ov';
   if (svTab === 'lab' && !Object.keys(SV.lab || {}).length) svTab = 'ov';
+  if (svTab === 'so' && !SV.sk) svTab = 'ov';
   document.getElementById('svTitle').textContent = SV.sk ? '🥩 三幸園 营业额' : '💴 集团总营业额';
   let h = (SVK && SVK.days.length && SVG && SVG.days.length ? `<div class="svco"><button class="${SV.sk ? '' : 'on'}" onclick="svSetCo('')">💴 集团</button><button class="${SV.sk ? 'on' : ''}" onclick="svSetCo('sk')">🥩 三幸園</button></div>` : '')
-    + '<div class="svtabs">' + SV_TABS.filter(([k]) => !(SV.sk && (k === 'st' || k === 'lab')) && !(k === 'lab' && !Object.keys(SV.lab || {}).length)).map(([k, n]) => `<button class="${svTab === k ? 'on' : ''}" onclick="svGo('${k}')">${n}</button>`).join('') + '</div>';
-  if (svTab !== 'fc' && svTab !== 'lab') h += svCmpBar();
-  h += ({ ov: svTabOv, day: svTabDay, hr: svTabHr, st: svTabSt, fc: svTabFc, lab: svTabLab }[svTab] || svTabOv)(today);
+    + '<div class="svtabs">' + SV_TABS.filter(([k]) => !(SV.sk && (k === 'st' || k === 'lab')) && !(k === 'so' && !SV.sk) && !(k === 'lab' && !Object.keys(SV.lab || {}).length)).map(([k, n]) => `<button class="${svTab === k ? 'on' : ''}" onclick="svGo('${k}')">${n}</button>`).join('') + '</div>';
+  if (svTab !== 'fc' && svTab !== 'lab' && svTab !== 'so') h += svCmpBar();
+  h += ({ ov: svTabOv, day: svTabDay, hr: svTabHr, st: svTabSt, fc: svTabFc, lab: svTabLab, so: svTabSo }[svTab] || svTabOv)(today);
   h += SV.sk ? `<div class="foot">三幸園（麻布十番，コーズ经营）：每天的数字来自三幸園 ダイニー 后台（含税，取消的单不算），不算进集团合计；今天是实时程序读的（折扣前，以第二天日报为准）。营业额含外卖（Uber・便当）；外卖单都是晚上集中补登的，所以组数・客数・客单价・时段只算堂食。最后更新：${esc(SV.at || '')}</div>`
     : `<div class="foot">每天的数字来自 12 点日报（收银台下载，含税）；今天是实时程序读的，晚上会变。集团不含三幸園（三幸園单独看）。最后更新：${esc(SV.at || '')}</div>`;
   el.innerHTML = h;
@@ -1799,6 +1802,72 @@ function svLabDayStore(L, ds, n, ok) {
   const R = E[1].map((p, i) => ({ hh: E[0] + i, p, v: (E[2][i] || 0) * 100 })).map(e => Object.assign(e, e.hh === 23 && r[11] != null ? { c: r[11], nd: true } : { c: e.v * rt / SV_WAGE }));
   h += `<div class="svcard"><div class="svct">每个钟头：在班几人<small>${svMD(ds)} 这一天</small></div>` + svLabHrs(R)
     + `<div class="svnote">在班＝那个钟头打了卡在店里的人（按分钟算，半小时在就算 0.5 人）。撑得起＝那个钟头营业额 × 本店罚线 ${svPctS(rt)} ÷ ${SV_WAGE.toLocaleString()} 円；23 点那一行是需要几人。差＝在班 − 基准，红＝多 1.5 人以上。17 点前多半在备菜，多排工时只算 17 点以后。</div></div>`;
+  return h;
+}
+
+// ---- 三幸園 品切れ（11/16 用户：品切的每天、每月总结、可选择的数据也放进三幸園）----
+// 数据：?what=skso（老板・三幸園店长密码）＝云端「三幸園品切れ」：每天 {d, r: {时刻: [[菜名, 分类, 料理/酒水, 价格, 类型, ★, 判断依据, 从哪天起], …]}}
+// 电脑上 三幸園日报\品切れ\品切れ_APP.py 每天 19:30・21:20 品切れ跑完后写。
+let SKSO = null, skSoBusy = false, skSoGot = 0, skSoErr = '', svSoMon = '', svSoDay = '', svSoT = '', svSoF = LS.get('svSoF', 'all');
+function skSoFetch() {
+  if (skSoBusy || !K) return; skSoBusy = true;
+  fetch(API + '?fmt=json&what=skso&k=' + encodeURIComponent(K), { cache: 'no-store' }).then(r => r.json()).then(d => {
+    skSoBusy = false; if (d.error) throw new Error(d.error === 'owner' ? '要用老板或三幸園密码' : d.error);
+    SKSO = d; skSoGot = Date.now(); skSoErr = ''; if (svOpen() && svTab === 'so') renderSales();
+  }).catch(e => { skSoBusy = false; skSoErr = String(e.message || e); if (svOpen() && svTab === 'so') renderSales(); });
+}
+function svSoSet(k, v) { if (k === 'm') { svSoMon = v; svSoDay = ''; } else if (k === 'd') { svSoDay = v; svSoT = ''; } else if (k === 't') svSoT = v; else if (k === 'f') { svSoF = v; LS.set('svSoF', v); } renderSales(); }
+const SV_SOF = [['all', '全部'], ['料理', '料理'], ['酒水', '酒水'], ['star', '★おすすめ'], ['売切', '売切'], ['非表示', '非表示'], ['删除・改价', '删除・改价']];
+const svSoKeep = it => svSoF === 'all' ? true : svSoF === 'star' ? !!it[5] : (svSoF === '料理' || svSoF === '酒水') ? it[2] === svSoF : it[4] === svSoF;
+const svSoHM = t => t.length === 4 ? t.slice(0, 2) + ':' + t.slice(2) : t;
+const svSoLast = r => r[Object.keys(r).sort().pop()] || [];   // 一天里最后一次读取（21:20 优先于 19:30）
+const svSoCls = n => n === 0 ? 'g' : n <= 3 ? 'm' : 'rr';
+function svTabSo() {
+  if (!SKSO) { if (!skSoBusy) skSoFetch(); return `<div class="svnote">${skSoErr ? '读不到品切れ（' + esc(skSoErr) + '）' : '读取中…'}</div>`; }
+  if (Date.now() - skSoGot > 5 * 60000 && !skSoBusy) skSoFetch();
+  const by = {}; (SKSO.days || []).forEach(x => by[x.d] = x.r || {});
+  const ds = Object.keys(by).sort();
+  if (!ds.length) return '<div class="svnote">还没有品切れ记录（每天 19:30・21:20 读一次，读完自动放进来）。</div>';
+  const mons = [...new Set(ds.map(d => d.slice(0, 7)))];
+  if (!svSoMon || !mons.includes(svSoMon)) svSoMon = mons[mons.length - 1];
+  const md = ds.filter(d => d.startsWith(svSoMon));
+  if (!svSoDay || !by[svSoDay]) svSoDay = md[md.length - 1];
+  const [y, m] = svSoMon.split('-').map(Number), mi = mons.indexOf(svSoMon);
+  let h = `<div class="svmon"><button class="iconbtn" onclick="svSoSet('m','${mons[mi - 1] || ''}')" ${mi > 0 ? '' : 'disabled'} aria-label="上个月">‹</button><b>${y} 年 ${m} 月</b><button class="iconbtn" onclick="svSoSet('m','${mons[mi + 1] || ''}')" ${mi < mons.length - 1 ? '' : 'disabled'} aria-label="下个月">›</button></div>`;
+  h += `<div class="svseg2 wide svsof">${SV_SOF.map(([k, n]) => `<button class="${svSoF === k ? 'on' : ''}" onclick="svSoSet('f','${k}')">${n}</button>`).join('')}</div>`;
+  // 这个月：每天最后一次读取（筛选后）
+  const cnt = {}; md.forEach(d => cnt[d] = svSoLast(by[d]).filter(svSoKeep).length);
+  const tot = md.reduce((a, d) => a + cnt[d], 0), maxD = md.reduce((a, d) => cnt[d] > (cnt[a] || -1) ? d : a, md[0]);
+  const zero = md.filter(d => !cnt[d]).length, star = md.reduce((a, d) => a + svSoLast(by[d]).filter(it => it[5] && svSoKeep(it)).length, 0);
+  h += `<div class="svcard svhero"><div class="lab">${m} 月品切れ（${md.length} 天有记录${svSoF !== 'all' ? '，只看「' + SV_SOF.find(x => x[0] === svSoF)[1] + '」' : ''}）</div><div class="val"><span class="${svSoCls(Math.round(tot / Math.max(1, md.length)))}">${(tot / Math.max(1, md.length)).toFixed(1)}</span><small style="font-size:16px"> 道／天</small></div>`
+    + `<div class="sub">合计 ${tot} 道次；最多 ${svMD(maxD)}（${svWk(maxD)}）${cnt[maxD]} 道；一道都没有的日子 ${zero} 天${star ? `；★おすすめ 品切れ ${star} 道次` : ''}</div></div>`;
+  // 日历
+  const d1 = new Date(y, m - 1, 1), nd = new Date(y, m, 0).getDate();
+  let cal = '<div class="svcal">' + [...'日一二三四五六'].map((w, i) => `<b class="${i === 0 ? 'rr' : i === 6 ? 'bl' : ''}">${w}</b>`).join('');
+  for (let i = 0; i < d1.getDay(); i++) cal += '<span></span>';
+  for (let i = 1; i <= nd; i++) {
+    const d = svStr(new Date(y, m - 1, i)), has = d in cnt, dow = (d1.getDay() + i - 1) % 7;
+    cal += `<button class="svd svld ${has ? 'b' + svSoCls(cnt[d]) : ''}${d === svSoDay ? ' on' : ''}" ${has ? '' : 'disabled'} onclick="svSoSet('d','${d}')"><i class="${dow === 0 || SV_HOLI.has(d) ? 'rr' : dow === 6 ? 'bl' : ''}">${i}</i><small>${has ? cnt[d] + ' 道' : ''}</small></button>`;
+  }
+  h += `<div class="svcard"><div class="svct">每天<small>格子＝那天最后一次读取的品切れ道数，点日子看明细</small></div>${cal + '</div>'}</div>`;
+  // 选中的那天
+  const runs = Object.keys(by[svSoDay] || {}).sort();
+  if (!svSoT || !runs.includes(svSoT)) svSoT = runs[runs.length - 1];
+  const items = ((by[svSoDay] || {})[svSoT] || []).filter(svSoKeep);
+  const grp = {}; items.forEach(it => (grp[it[4]] = grp[it[4]] || []).push(it));
+  h += `<div class="svcard"><div class="svct">${svMD(svSoDay)}（${svWk(svSoDay)}）${items.length} 道<small>${runs.length > 1 ? '选读取时间' : svSoHM(svSoT) + ' 读取'}</small></div>`
+    + (runs.length > 1 ? `<div class="svseg2 wide">${runs.map(t => `<button class="${t === svSoT ? 'on' : ''}" onclick="svSoSet('t','${t}')">${svSoHM(t)}</button>`).join('')}</div>` : '')
+    + (items.length ? Object.entries(grp).map(([k, arr]) => `<div class="svsub2">${esc(k)}　<small>${arr.length} 道</small></div><table class="svcmpt svsot">`
+      + arr.map(it => `<tr><td>${it[5] ? '<b class="m">★</b> ' : ''}${esc(it[0])}<br><small>${esc(it[1])}${it[2] ? '・' + esc(it[2]) : ''}${it[7] ? '・从 ' + esc(it[7]) + ' 起' : ''}</small></td><td>${it[3] ? yen(it[3]) : ''}</td></tr>`).join('') + '</table>').join('')
+      : '<div class="svnote g">✅ 这次读取没有品切れ。</div>') + '</div>';
+  // 每月总结：哪道菜品切れ最多天
+  const agg = {}; md.forEach(d => svSoLast(by[d]).filter(svSoKeep).forEach(it => { const k = it[0]; const a = agg[k] = agg[k] || { n: 0, last: '', it, kinds: new Set() }; a.n++; a.last = d > a.last ? d : a.last; a.kinds.add(it[4]); }));
+  const rank = Object.entries(agg).sort((p, q) => q[1].n - p[1].n || (q[1].last > p[1].last ? 1 : -1));
+  const kc = {}; md.forEach(d => svSoLast(by[d]).filter(svSoKeep).forEach(it => kc[it[4]] = (kc[it[4]] || 0) + 1));
+  h += `<div class="svcard"><div class="svct">${m} 月总结<small>${md.length} 天里，每道菜品切れ了几天</small></div>`
+    + (Object.keys(kc).length ? `<div class="svmini">${Object.entries(kc).slice(0, 3).map(([k, n]) => `<div>${esc(k)}<b>${n} 道次</b></div>`).join('')}</div>` : '')
+    + (rank.length ? `<table class="svcmpt svsot"><tr><th>菜</th><th>天数</th><th>最近</th></tr>` + rank.slice(0, 40).map(([k, a]) => `<tr><td>${a.it[5] ? '<b class="m">★</b> ' : ''}${esc(k)}<br><small>${esc(a.it[1])}・${[...a.kinds].map(esc).join('/')}</small></td><td><b class="${a.n >= 5 ? 'rr' : a.n >= 2 ? 'm' : ''}">${a.n} 天</b></td><td>${svMD(a.last)}</td></tr>`).join('') + '</table>' : '<div class="svnote g">这个月没有品切れ。</div>')
+    + `<div class="svnote">口径和 32 家的品切れ一样：ダイニー「在庫」关掉＝売切；お客様表示关掉＝非表示；标准菜单里的菜被删・价格改 0・移到不算的分类＝删除・改价（每天都会再列，直到本部同意）。只看有价钱的料理和酒水。每天 19:30・21:20 读两次，每月总结用每天最后一次。最后更新：${esc(SKSO.at || '')}</div></div>`;
   return h;
 }
 
