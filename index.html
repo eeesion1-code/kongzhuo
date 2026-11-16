@@ -472,7 +472,7 @@ button.svdlab{color:var(--ink);font-family:inherit;line-height:1.3}
 <script>
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v53';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v54';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -1572,8 +1572,10 @@ function svLabPt(a, b) {   // 人件费率和上个月比：升＝红（多花�
   const d = 100 * (a - b); if (Math.abs(d) < 0.05) return '<span class="dl">±0</span>';
   return `<span class="dl ${d > 0 ? 'dn' : 'up'}">${d > 0 ? '▲' : '▼'}${Math.abs(d).toFixed(1)}</span>`;
 }
-function svLabSum(L) {
-  const ok = L.st.filter(r => r[1] && r[2]);
+const svLabFP = L => !!(L && L.info && L.info['工资表'] === false);   // 11/16：这个月工资表还没出 → 用指纹人工（st[10]），只算打卡齐的店（上个月覆盖 70% 以上）
+function svLabSum(L, forceFP) {
+  const fp = svLabFP(L) || !!forceFP;   // forceFP：上个月也用指纹人工比（本月进行中时，两边口径一样）
+  const ok = L.st.filter(r => r[1] && (fp ? r[10] && r[4] >= 0.7 : r[2])).map(r => fp ? Object.assign(r.slice(), { 2: r[10] }) : r);
   const S = ok.reduce((a, r) => a + r[1], 0), P = ok.reduce((a, r) => a + r[2], 0);
   return { ok, S, P, rate: S ? P / S : null, map: Object.fromEntries(L.st.map(r => [r[0], r])) };
 }
@@ -1590,17 +1592,20 @@ function svTabLab() {
   let h = svLabV === 'b' ? '' : `<div class="svmon"><button class="iconbtn" onclick="svLabSet('m','${ms[i - 1] || ''}')" ${i > 0 ? '' : 'disabled'} aria-label="上个月">‹</button><b>${y} 年 ${m} 月</b>`
     + `<button class="iconbtn" onclick="svLabSet('m','${ms[i + 1] || ''}')" ${i < ms.length - 1 ? '' : 'disabled'} aria-label="下个月">›</button></div>`;
   h += `<div class="svseg2 wide">${[['m', '月度'], ['d', '每日'], ['b', '本月预算']].map(([k, t]) => `<button class="${svLabV === k ? 'on' : ''}" onclick="svLabDSet('v','${k}')">${t}</button>`).join('')}</div>`;
+  h += svLabAlert();
   if (svLabV === 'd') return h + svTabLabDay(L);
   if (svLabV === 'b') return h + svLabBudget(SV.lab[ms[ms.length - 1]]);
   if (svLabSt && L.st.some(r => r[0] === svLabSt)) return h + svLabStore(L, P, svLabSt, m);
   svLabSt = '';
-  const A = svLabSum(L), B = P ? svLabSum(P) : null, GL = svLabGrpLine(L, n => A.ok.some(r => r[0] === n));
+  const A = svLabSum(L), B = P ? svLabSum(P, svLabFP(L)) : null, GL = svLabGrpLine(L, n => A.ok.some(r => r[0] === n));
   const judged = A.ok.map(r => ({ n: r[0], S: r[1], W: r[2], rate: r[2] / r[1], ln: svLabLine(L, r[0]) })).filter(x => x.ln);
   const cnt = { rr: 0, m: 0, g: 0 }; judged.forEach(x => cnt[svLabCls(x.rate, x.ln)]++);
   const overSum = judged.reduce((a, x) => a + Math.max(0, x.W - x.S * x.ln.p), 0);
-  h += `<div class="svcard svhero"><div class="lab">${m} 月人件费率（${A.ok.length} 家）</div><div class="val"><span class="${svLabCls(A.rate, GL)}">${svPctS(A.rate)}</span></div>`
-    + `<div class="sub">工资 ${man(A.P)} ÷ 营业额 ${man(A.S)}${B ? `　比上个月 ${svLabPt(A.rate, B.rate)}` : ''}</div>`
-    + `<div class="sub">按奖惩表：<span class="rr">超罚线 ${cnt.rr} 家</span>・<span class="m">两线之间 ${cnt.m} 家</span>・<span class="g">奖励线以下 ${cnt.g} 家</span>；超出罚线的工资合计 <b class="rr">${man(overSum)}</b></div></div>`;
+  const FP = svLabFP(L);
+  h += `<div class="svcard svhero"><div class="lab">${m} 月人件费率（${A.ok.length} 家${FP ? `，1〜${+L.info['到'].slice(8)} 日` : ''}）</div><div class="val"><span class="${svLabCls(A.rate, GL)}">${svPctS(A.rate)}</span></div>`
+    + (FP ? `<div class="sub">这个月还没过完、工资表还没出：用<b>指纹人工</b>（打卡工时 × 时薪）÷ 已到的营业额；打卡不全的店不算。罚线按「已到营业额 ÷ 天数 × 整月」估的档位。</div>` : '')
+    + `<div class="sub">${FP ? '指纹人工' : '工资'} ${man(A.P)} ÷ 营业额 ${man(A.S)}${B ? `　比上个月 ${svLabPt(A.rate, B.rate)}` : ''}</div>`
+    + `<div class="sub">按奖惩表：<span class="rr">超罚线 ${cnt.rr} 家</span>・<span class="m">两线之间 ${cnt.m} 家</span>・<span class="g">奖励线以下 ${cnt.g} 家</span>；超出罚线的${svLabFP(L) ? '人工' : '工资'}合计 <b class="rr">${man(overSum)}</b></div></div>`;
   // 闲时段
   const SLS = [...new Set(L.x.map(r => r[2]))];
   if (!SLS.includes(svLabSl)) svLabSl = SLS.includes(SV_LATE) ? SV_LATE : SLS[0];
@@ -1629,8 +1634,8 @@ function svTabLab() {
     + st.map((x, k) => { const mx = Math.max(x.rate, x.ln.p) * 1.15, c = svLabCls(x.rate, x.ln);
       return `<button onclick="svLabSet('st','${esc(x.n)}')"><span class="nm"><small>${k + 1}</small>${esc(x.n)}</span><i><u class="${c}" style="width:${(100 * x.rate / mx).toFixed(1)}%"></u><s style="left:${(100 * x.ln.p / mx).toFixed(1)}%"></s></i>`
         + `<b class="${c}">${svPctS(x.rate)}</b><em>${x.over > 0 ? `<span class="rr">超 ${man(x.over)}</span>` : c === 'g' ? '<span class="g">奖励</span>' : `<span class="m">差 ${man(x.toG)}</span>`}</em></button>`; }).join('') + '</div>';
-  const miss = L.st.filter(r => !(r[1] && r[2]));
-  if (miss.length) h += `<div class="svmiss">还没算：${miss.map(r => esc(r[0]) + (r[7] ? '（' + esc(r[7].replace(/^.*（/, '').replace(/）$/, '')) + '）' : '')).join('、')}</div>`;
+  const miss = L.st.filter(r => r[1] && !A.ok.some(o => o[0] === r[0]));
+  if (miss.length) h += `<div class="svmiss">还没算：${miss.map(r => esc(r[0]) + (FP ? (r[10] ? '（打卡不全）' : '（没有指纹打卡）') : r[7] ? '（' + esc(r[7].replace(/^.*（/, '').replace(/）$/, '')) + '）' : '')).join('、')}</div>`;
   h += `<div class="svnote">竖线＝本店罚线。红＝超过罚线（右边「超」＝超出的工资）；黄＝在两线之间（右边「差」＝再省多少到奖励线）；绿＝在奖励线以下。`
     + `口径：${esc((L.info || {})['口径'] || '营业额含税、人工＝工资表支給合計')}。</div></div>`;
   const inf = L.info || {};
@@ -1638,12 +1643,12 @@ function svTabLab() {
   return h;
 }
 function svLabStore(L, P, n, m) {
-  const r = L.st.find(x => x[0] === n), rate = r[1] && r[2] ? r[2] / r[1] : null, ln = svLabLine(L, n);
+  const FP = svLabFP(L), r0 = L.st.find(x => x[0] === n), r = FP ? Object.assign(r0.slice(), { 2: r0[10], 7: r0[10] ? '' : '没有指纹打卡' }) : r0, rate = r[1] && r[2] ? r[2] / r[1] : null, ln = svLabLine(L, n);
   const pr = P && P.st.find(x => x[0] === n), prate = pr && pr[1] && pr[2] ? pr[2] / pr[1] : null;
   const cov = r[4], ok = cov != null && cov >= 0.7;
   let h = `<button class="svmore" style="margin:0 0 4px" onclick="svLabSet('st','')">‹ 全部店</button>`
     + `<div class="svcard svhero"><div class="lab">${esc(n)}　${m} 月人件费率</div><div class="val"><span class="${svLabCls(rate, ln)}">${svPctS(rate)}</span></div>`
-    + `<div class="sub">${r[2] ? `工资 ${man(r[2])} ÷ 营业额 ${man(r[1])}` : `营业额 ${man(r[1] || 0)}，工资表还没算（${esc((r[7] || '').replace(/^.*（/, '').replace(/）$/, '')) || '没找到'}）`}${prate != null ? `　比上个月 ${svLabPt(rate, prate)}` : ''}</div>`
+    + `<div class="sub">${r[2] ? `${FP ? '指纹人工（工资表还没出）' : '工资'} ${man(r[2])} ÷ 营业额 ${man(r[1])}` : `营业额 ${man(r[1] || 0)}，工资表还没算（${esc((r[7] || '').replace(/^.*（/, '').replace(/）$/, '')) || '没找到'}）`}${prate != null ? `　比上个月 ${svLabPt(rate, prate)}` : ''}</div>`
     + (ln ? `<div class="sub">奖惩表：罚线 ${svPctS(ln.p)}・奖励线 ${svPctS(ln.g)}${rate != null ? `　${rate > ln.p ? `<b class="rr">超罚线 ${man(r[2] - r[1] * ln.p)}</b>` : rate < ln.g ? '<b class="g">在奖励线以下</b>' : `<b class="m">离奖励线还差 ${man(r[2] - r[1] * ln.g)}</b>`}` : ''}</div>` : '') + '</div>';
   h += `<div class="svmini"><div>人时营业额<b>${ok && r[3] ? yen(r[1] / r[3]) : '—'}</b>营业额 ÷ 工时</div><div>指纹工时<b>${r[3] ? Math.round(r[3]).toLocaleString() + ' h' : '—'}</b>${r[5] != null ? `${r[5]} / ${r[6]} 人有打卡` : '没有指纹记录'}</div>`
     + `<div>打卡覆盖<b class="${ok ? 'g' : 'm'}">${cov != null ? Math.round(100 * cov) + '%' : '—'}</b>指纹人工 ÷ 工资</div></div>`;
@@ -1670,6 +1675,25 @@ function svLabHrs(R) {
         + `<b>${e.p ? e.p.toFixed(1) : '—'}</b><em>${e.c.toFixed(1)}${e.nd ? '<small>需要</small>' : ''}</em><span class="dl ${d >= 1.5 ? 'dn' : d <= -1 ? 'up' : ''}">${Math.abs(d) < 0.05 ? '±0' : (d > 0 ? '+' : '−') + Math.abs(d).toFixed(1)}</span></div>`; }).join('') + '</div>';
 }
 
+// ---- 指纹打卡异常（11/16 用户：每天检查考勤机和各店有没有打卡）：最新一个月的 info.检查 ----
+function svLabAlert() {
+  const ms = Object.keys(SV.lab || {}).sort(), L = ms.length ? SV.lab[ms[ms.length - 1]] : null, C = L && L.info && L.info['检查'];
+  if (!C || !C['店']) return '';
+  const upto = L.info['到'], d2s = C['部门对店'] || {}, bad = [];
+  Object.entries(C['店']).forEach(([dn, o]) => {
+    const k = d2s[dn]; if (!k || k === '品川1') return;   // 不用的部门・本部・已关的店不看
+    if (!o['有打卡']) bad.push(`<b>${esc(k)}</b>：这个月没人打卡（后台登记 ${o['登记']} 人）`);
+    else if (o['最后'] < upto) bad.push(`<b>${esc(k)}</b>：${svMD(o['最后'])} 以后没人打卡`);
+  });
+  const off = [...new Set((C['机子'] || []).filter(e => !e[1]).map(e => e[0]))].filter(n => !/品川1/.test(n));
+  const none = (C['没部门'] || []).filter(n => n !== '品川1');
+  if (!bad.length && !off.length && !none.length) return `<div class="svnote">✅ 指纹打卡：各店到 ${svMD(upto)} 都有打卡，考勤机都在线。</div>`;
+  return `<div class="svmiss"><b>⚠ 指纹打卡异常</b>（到 ${svMD(upto)}，每天自动检查）`
+    + (bad.length ? '<br>' + bad.join('<br>') : '')
+    + (off.length ? `<br>考勤机没连上：${off.map(esc).join('、')}` : '')
+    + (none.length ? `<br>后台没有这家店（没装机子）：${none.map(esc).join('、')}` : '') + '</div>';
+}
+
 // ---- 人工・本月预算（按奖惩表）：本月预测营业额 × 本店那一档的罚线・奖励线 ----
 function svLabBudget(L) {
   const B = L && L.info && L.info['奖惩表'], names = L && L.info && L.info['店名'];
@@ -1686,14 +1710,22 @@ function svLabBudget(L) {
   const band = s => B.filter(b => s / 1e4 >= b[0]).pop() || B[0];
   const rows = Object.entries(names).map(([k, ns]) => { const f = ns.reduce((a, n) => a + (fc[nm(n)] || 0), 0), a = ns.reduce((s2, n) => s2 + (act[nm(n)] || 0), 0); const b = band(f); return { k, f, a, b }; })
     .filter(r => r.f > 0).sort((p, q) => q.f - p.f);
+  // 11/16：本月已用人工（指纹打卡后台，每天更新）→ 按现在的人件费率推到月底
+  const CL = SV.lab[today.slice(0, 7)], cov = {}, used = {}, sMTD = {};
+  if (CL && CL.d) { CL.st.forEach(r => cov[r[0]] = r[4]); CL.d.forEach(r => { used[r[1]] = (used[r[1]] || 0) + (r[5] || 0); sMTD[r[1]] = (sMTD[r[1]] || 0) + (r[2] || 0); }); }
+  rows.forEach(r => { r.u = used[r.k] || 0; r.ok = r.u > 0 && cov[r.k] >= 0.7; r.p = r.ok && sMTD[r.k] ? r.u / sMTD[r.k] * r.f : null; });
   const T = rows.reduce((a, r) => a + r.f, 0), TP = rows.reduce((a, r) => a + r.f * r.b[1], 0), TG = rows.reduce((a, r) => a + r.f * r.b[2], 0);
+  const OK = rows.filter(r => r.p != null), U = OK.reduce((a, r) => a + r.u, 0), PJ = OK.reduce((a, r) => a + r.p, 0), PL = OK.reduce((a, r) => a + r.f * r.b[1], 0);
+  const pc = r => r.p == null ? '' : r.p > r.f * r.b[1] ? 'rr' : r.p < r.f * r.b[2] ? 'g' : 'm';
   let h = `<div class="svcard svhero"><div class="lab">${m} 月人工预算（按奖惩表，${rows.length} 家）</div><div class="val">${man(TP)}</div>`
-    + `<div class="sub">＝预测营业额 ${man(T)} × 各店罚线；想拿奖励要控制在 <b class="g">${man(TG)}</b> 以内</div></div>`;
-  h += `<div class="svcard"><div class="svct">各店<small>预测营业额 → 档位 → 人工上限（罚线）・目标（奖励线）</small></div><table class="svcmpt svlabbt"><tr><th>店</th><th>预测营业额</th><th>罚线</th><th>上限</th><th>目标</th></tr>`
-    + rows.map(r => `<tr><td>${esc(r.k)}<br><small>已到 ${man(r.a)}</small></td><td>${man(r.f)}</td><td>${svPctS(r.b[1])}</td><td class="rr">${man(r.f * r.b[1])}</td><td class="g">${man(r.f * r.b[2])}</td></tr>`).join('')
-    + `<tr class="on"><td>合计</td><td>${man(T)}</td><td>${T ? svPctS(TP / T) : ''}</td><td>${man(TP)}</td><td>${man(TG)}</td></tr></table>`
+    + `<div class="sub">＝预测营业额 ${man(T)} × 各店罚线；想拿奖励要控制在 <b class="g">${man(TG)}</b> 以内</div>`
+    + (OK.length ? `<div class="sub">已用（指纹人工，到 ${svMD(CL.info['到'])}，打卡齐的 ${OK.length} 家）<b>${man(U)}</b>；按现在的人件费率，月底预计 <b class="${PJ > PL ? 'rr' : 'g'}">${man(PJ)}</b>（这 ${OK.length} 家的上限 ${man(PL)}）</div>` : '') + '</div>';
+  h += `<div class="svcard"><div class="svct">各店<small>预测营业额 → 档位 → 人工上限（罚线）・目标（奖励线）</small></div><table class="svcmpt svlabbt"><tr><th>店</th><th>预测营业额</th><th>上限</th><th>已用</th><th>月底预计</th></tr>`
+    + rows.map(r => `<tr><td>${esc(r.k)}<br><small>罚线 ${svPctS(r.b[1])}</small></td><td>${man(r.f)}<br><small>已到 ${man(r.a)}</small></td><td><span class="rr">${man(r.f * r.b[1])}</span><br><small class="g">目标 ${man(r.f * r.b[2])}</small></td>`
+      + `<td>${r.u ? man(r.u) : '—'}${r.u && !r.ok ? '<br><small>打卡不全</small>' : !r.u ? '<br><small>没有指纹</small>' : ''}</td><td>${r.p != null ? `<b class="${pc(r)}">${man(r.p)}</b>` : '—'}</td></tr>`).join('')
+    + `<tr class="on"><td>合计</td><td>${man(T)}</td><td>${man(TP)}</td><td>${man(U)}</td><td>${man(PJ)}</td></tr></table>`
     + `<div class="svnote">预测营业额＝已到的日子用日报，剩下的日子用「预测」页同一套算法（每家店分开）。档位按预测的整月营业额查奖惩表；上限＝预测 × 罚线（超过就罚），目标＝预测 × 奖励线（低于有奖励）。`
-    + `本月实际用了多少人工，要等指纹打卡后台接上以后每天读（现在只有上个月的统计月报）。</div></div>`;
+    + `「已用」＝指纹打卡后台每天读的打卡工时 × 时薪（到昨天）；「月底预计」＝已用 ÷ 已到营业额 × 预测营业额：红＝会超过上限（罚线），黄＝在两线之间，绿＝在目标（奖励线）以内。打卡不全的店（上个月指纹人工不到工资的 70%）和没有指纹的店不算。</div></div>`;
   return h;
 }
 
