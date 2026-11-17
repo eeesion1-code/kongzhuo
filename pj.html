@@ -521,6 +521,7 @@ function hrRow(r, p, staff, M) {
 function tgHr(k) { hrOpen.has(k) ? hrOpen.delete(k) : hrOpen.add(k); render(); }
 
 // ================= 👤 社员评分 =================
+const zAvg = r => (r['年涨'] && r['年涨']['综合'] != null) ? r['年涨']['综合'] : null;   // 11/17 用户：全年视图的分数＝年涨综合分数（有分的月份平均）
 // 数据：公司「売上ボナース计算表」每人每月的评分（k=sy）和全年汇总（k=sya）；出勤＝指纹打卡天数
 function syParse() {
   const o = { sy: [], sya: [], hs: {}, order: [] };
@@ -550,40 +551,38 @@ function renderSy() {
   h += '<div class="seg">' + [['store', '按店'], ['score', '按分数']].map(([k, n]) => '<button class="' + (sySort === k ? 'on' : '') + '" onclick="setSySort(\'' + k + '\')">' + n + '</button>').join('') + '</div>';
   if (syMonth === 'year') {
     let L = D.sya.filter(hit);
-    const got = L.filter(r => r['平均'] != null);
-    h += '<div class="grid" style="margin-bottom:10px"><div class="card kpi"><small>' + (D.sya[0] ? D.sya[0]['年'] : '') + ' 年 社员平均分（有分的月份）</small><b>' + (got.length ? (got.reduce((a, r) => a + r['平均'], 0) / got.length).toFixed(1) : '—') + '</b><div class="d">' + got.length + ' 人有分・' + months.map(m => +m.slice(5)).join('/') + ' 月</div></div>' +
+    const got = L.filter(r => zAvg(r) != null);
+    h += '<div class="grid" style="margin-bottom:10px"><div class="card kpi"><small>' + (D.sya[0] ? D.sya[0]['年'] : '') + ' 年 社员年涨综合分数 平均</small><b>' + (got.length ? (got.reduce((a, r) => a + zAvg(r), 0) / got.length).toFixed(1) : '—') + '</b><div class="d">' + got.length + ' / ' + L.length + ' 人有年涨分数</div></div>' +
       '<div class="card kpi"><small>売上ボナース 合计</small><b>' + fmt(Math.round(L.reduce((a, r) => a + (r['奖金'] || 0), 0) / 1e4)) + '</b><span class="u">万円</span><div class="d">' + L.length + ' 人</div></div></div>';
-    L.sort(sySort === 'score' ? (a, b) => (b['平均'] ?? -1) - (a['平均'] ?? -1) : (a, b) => ord(a['店']) - ord(b['店']) || (b['平均'] ?? -1) - (a['平均'] ?? -1));
+    L.sort(sySort === 'score' ? (a, b) => (zAvg(b) ?? -1) - (zAvg(a) ?? -1) : (a, b) => ord(a['店']) - ord(b['店']) || (zAvg(b) ?? -1) - (zAvg(a) ?? -1));
     let last = '';
     h += '<div class="sylist">' + L.map((r, i) => {
       let x = '';
       if (sySort === 'store' && r['店'] !== last) { last = r['店']; x += '<div class="syst"><b>' + esc(r['店']) + '</b></div>'; }
       const key = 'y|' + r['名'], open = syOpen.has(key);
+      // 11/17 用户：右上角＝年涨综合分数的平均；姓名下面那排＝每月年涨综合分数（1〜10 月），奖金表每月评分（7〜10 月）挪到点开后的方框里（两块对调）
+      const Z = r['年涨'], role = Z ? Z['职位'] : '', cur = r['店'];
+      const zCells = Z ? Array.from({ length: 10 }, (_, k) => '2026-' + String(k + 1).padStart(2, '0')).map(m => { const e = (Z['月'] || {})[m]; const v = e ? Math.round(e.reduce((a, q) => a + q[2], 0) / e.length * 10) / 10 : null;
+        const rl = q => /^(店长|料理长)$/.test(q[1]) ? q[1] : '';   // 换过店或职位的月份：写出那个月的店・职位
+        const other = e && (e.length > 1 || e[0][0] !== cur || (rl(e[0]) && rl(e[0]) !== role)) ? e.map(q => esc(q[0]) + (rl(q) ? ' ' + esc(rl(q)) : '') + (e.length > 1 ? ' ' + q[2] : '')).join('・') : '';
+        return '<span class="mcell" title="' + (e ? e.map(q => esc(q[0] + ' ' + q[1] + ' ' + q[2])).join('、') : '没有分') + '">' + +m.slice(5) + '月<b style="color:' + scCol(v) + '">' + (v == null ? '—' : v) + '</b>' + (other ? '<small style="display:block;font-size:9.5px;color:var(--sub)">' + other + '</small>' : '') + '</span>'; }).join('') : '';
+      const bCells = r['各月'].map(m => '<span class="mcell">' + +m[0].slice(5) + '月<b style="color:' + scCol(m[1]) + '">' + (m[1] == null ? '—' : m[1]) + '</b></span>').join('');
       x += '<div class="card' + (open ? ' open' : '') + '" style="margin:0 0 6px;cursor:pointer" onclick="tgSy(\'' + esc(key) + '\')"><div style="display:flex;align-items:center;gap:8px">' +
         (sySort === 'score' ? '<span style="color:var(--sub);width:22px">' + (i + 1) + '</span>' : '') +
-        '<div style="flex:1;min-width:0"><b style="font-size:16px">' + esc(r['名']) + '</b> ' + (r['年涨'] && /^(店长|料理长)$/.test(r['年涨']['职位'] || '') ? '<span style="font-size:11px;font-weight:700;color:var(--brand);border:1px solid var(--brand);border-radius:6px;padding:0 5px;margin-right:4px">' + esc(r['年涨']['职位']) + '</span>' : '') + '<small style="color:var(--sub)">' + esc(r['店历'].join('→')) + '</small><div style="margin-top:4px">' +
-        r['各月'].map(m => '<span class="mcell">' + +m[0].slice(5) + '月<b style="color:' + scCol(m[1]) + '">' + (m[1] == null ? '—' : m[1]) + '</b></span>').join('') + '</div></div>' +
-        '<div style="text-align:right"><div style="font-size:24px;font-weight:800;color:' + scCol(r['平均']) + '">' + (r['平均'] ?? '—') + '</div><div style="font-size:11px;color:var(--sub)">全年平均・' + r['月数'] + ' 个月</div></div></div>';
+        '<div style="flex:1;min-width:0"><b style="font-size:16px">' + esc(r['名']) + '</b> ' + (/^(店长|料理长)$/.test(role || '') ? '<span style="font-size:11px;font-weight:700;color:var(--brand);border:1px solid var(--brand);border-radius:6px;padding:0 5px;margin-right:4px">' + esc(role) + '</span>' : '') + '<small style="color:var(--sub)">' + esc(r['店历'].join('→')) + '</small><div style="margin-top:4px">' +
+        (Z ? zCells : '<small style="color:var(--sub)">没有年涨分数・奖金表评分：</small>' + bCells) + '</div></div>' +
+        '<div style="text-align:right"><div style="font-size:24px;font-weight:800;color:' + scCol(zAvg(r)) + '">' + (zAvg(r) ?? '—') + '</div><div style="font-size:11px;color:var(--sub)">' + (Z ? '年涨综合平均・' + Z['月数'] + ' 个月' : '没有年涨分数') + '</div></div></div>';
       if (open) {
         const ms = D.sy.filter(s => s['名'] === r['名']).sort((a, b) => a['月'].localeCompare(b['月']));
         x += '<table class="tbl" style="margin-top:8px"><tr><th>月</th><th>店</th><th>评分</th><th>店达成率</th><th>T/G 扣</th><th>奖金</th><th>出勤</th></tr>' +
           ms.map(s => '<tr><td>' + +s['月'].slice(5) + '月</td><td>' + esc(s['店']) + '</td><td style="color:' + scCol(s['评分']) + ';font-weight:700">' + (s['评分'] ?? '—') + '</td><td>' + (s['达成率'] != null ? Math.round(s['达成率'] * 100) + '%' : '') + '</td><td>' + ((s['T'] || s['G']) ? (s['T'] || 0) + '/' + (s['G'] || 0) : '') + '</td><td>' + (s['奖金'] ? fmt(s['奖金']) : '') + '</td><td>' + (s['出勤天'] ? s['出勤天'] + ' 天' : '') + '</td></tr>').join('') +
           '</table><p class="note">最高 ' + (r['最高'] ?? '—') + '・最低 ' + (r['最低'] ?? '—') + '・全年奖金 ' + fmt(r['奖金']) + ' 円</p>';
-        // 11/17 用户：卡片里加「年涨综合评分」——公司「全店铺员工评分」1〜10 月每月分数（店长・料理长），有分的月份平均
-        const Z = r['年涨'];
-        if (Z) {
-          const mm = Array.from({ length: 10 }, (_, i) => '2026-' + String(i + 1).padStart(2, '0'));
-          const cur = r['店'], role = Z['职位'];
-          x += '<div style="margin-top:10px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--soft)">' +
-            '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><b style="font-size:14px">📈 年涨综合分数' + (/^(店长|料理长)$/.test(role || '') ? '<small style="font-weight:400;color:var(--sub)">（' + esc(role) + '）</small>' : '') + '</b><span style="font-size:24px;font-weight:800;color:' + scCol(Z['综合']) + '">' + Z['综合'] + '</span></div>' +
-            '<div style="font-size:12px;color:var(--sub);margin:2px 0 6px">右边＝下面每月年涨综合分数的平均（有分的 ' + Z['月数'] + ' 个月）・全员 ' + Z['人数'] + ' 人中第 ' + Z['排名'] + ' 名・近 3 个月 ' + Z['近3月'] + '・最高 ' + Z['最高'] + '・最低 ' + Z['最低'] + '</div>' +
-            '<div style="font-size:12px;font-weight:700;margin-bottom:2px">每月年涨综合分数</div>' +
-            '<div>' + mm.map(m => { const e = (Z['月'] || {})[m]; const v = e ? Math.round(e.reduce((a, q) => a + q[2], 0) / e.length * 10) / 10 : null;
-              const rl = q => /^(店长|料理长)$/.test(q[1]) ? q[1] : '';   // 换过店或职位的月份：写出那个月的店・职位
-              const other = e && (e.length > 1 || e[0][0] !== cur || (rl(e[0]) && rl(e[0]) !== role)) ? e.map(q => esc(q[0]) + (rl(q) ? ' ' + esc(rl(q)) : '') + (e.length > 1 ? ' ' + q[2] : '')).join('・') : '';
-              return '<span class="mcell" title="' + (e ? e.map(q => esc(q[0] + ' ' + q[1] + ' ' + q[2])).join('、') : '没有分') + '">' + +m.slice(5) + '月<b style="color:' + scCol(v) + '">' + (v == null ? '—' : v) + '</b>' + (other ? '<small style="display:block;font-size:9.5px;color:var(--sub)">' + other + '</small>' : '') + '</span>'; }).join('') + '</div>' +
-            '<p class="note" style="margin:6px 0 0">来源：公司「全店铺员工评分」（' + esc(Z['文件'] || '') + '）——表上每个月写的「分数」就是那个月的年涨综合分数，原样显示；职称＝表上店长・料理长那一栏（最近一个月）。一个月管两家店的，那个月取两家平均。7〜10 月和上面奖金表的评分逐个对过，一样。</p></div>';
-        }
+        // 方框＝奖金表每月评分（原来在姓名下面）＋全年平均；下面一行＝年涨综合分数的排名等（原来方框里的说明）
+        x += '<div style="margin-top:10px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--soft)">' +
+          '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><b style="font-size:14px">📋 奖金表评分<small style="font-weight:400;color:var(--sub)">（売上ボナース计算表）</small></b><span style="text-align:right"><span style="font-size:24px;font-weight:800;color:' + scCol(r['平均']) + '">' + (r['平均'] ?? '—') + '</span><br><small style="color:var(--sub)">全年平均・' + r['月数'] + ' 个月</small></span></div>' +
+          '<div style="font-size:12px;font-weight:700;margin:4px 0 2px">每月评分</div><div>' + bCells + '</div></div>' +
+          (Z ? '<p class="note" style="margin:6px 0 0">📈 年涨综合分数' + (/^(店长|料理长)$/.test(role || '') ? '（' + esc(role) + '）' : '') + '：右上角 ' + Z['综合'] + '＝姓名下面每月年涨综合分数的平均（有分的 ' + Z['月数'] + ' 个月）・全员 ' + Z['人数'] + ' 人中第 ' + Z['排名'] + ' 名・近 3 个月 ' + Z['近3月'] + '・最高 ' + Z['最高'] + '・最低 ' + Z['最低'] +
+            '。来源：公司「全店铺员工评分」（' + esc(Z['文件'] || '') + '）——表上每个月写的「分数」就是那个月的年涨综合分数，原样显示；职称＝表上店长・料理长那一栏（最近一个月）。一个月管两家店的，那个月取两家平均。7〜10 月和奖金表的评分逐个对过，一样。</p>' : '');
       }
       return x + '</div>';
     }).join('') + '</div>';
@@ -616,7 +615,7 @@ function renderSy() {
     '<tr><td>③ 百分比</td><td style="text-align:left">（评分 − T − G）÷ 100。T・G 是全店扣分：G 大致是当月 Google 差评数 × 0.5，T 和 食べログ 差评有关（表上没写规则）</td></tr>' +
     '<tr><td>④ 每人奖金</td><td style="text-align:left">2 万円 × 达成率 × 百分比。例：有楽町1 10 月 姚广壮＝2 万 × 1.17 × 0.89 ＝ 20,826 円</td></tr></table>' +
     '<p class="note">「评分」本身是表上直接填的数，怎么打的表里没有写。</p></div>';
-  h += '<p class="note">数据：公司「売上ボナース计算表」（工资表文件夹，每月一页）。全年平均只算有评分的月份。出勤＝指纹打卡那个月有打卡的天数（10 月起）。颜色：95 以上绿、80〜94 黑、70〜79 橙、不到 70 红。</p>';
+  h += '<p class="note">数据：公司「売上ボナース计算表」（工资表文件夹，每月一页）。「全年」每人右边的大字＝年涨综合分数的平均（公司「全店铺员工评分」，有分的月份），姓名下面那排＝每月年涨综合分数，按分数排序也按它；奖金表每月评分和全年平均在点开后的方框里。出勤＝指纹打卡那个月有打卡的天数（10 月起）。颜色：95 以上绿、80〜94 黑、70〜79 橙、不到 70 红。</p>';
   return h;
 }
 
@@ -974,11 +973,13 @@ function renderYc() {
   if (!Y) return '<div class="empty">还没有检查结果（每天 5:00・11:00・13:00・15:30・22:00 自动查）</div>';
   const md = ds => +ds.slice(5, 7) + '/' + +ds.slice(8), dl = Y['日'] || [];
   // 11/16 v2 压缩格式：页＝[平台, 店, 品牌, 链接, [每天的记号]]，rb＝{店: {日: [组, 人, 最大, 峰人, 峰组, 峰时]}}（rbk 是栏名）
-  const OKM = { T: ['○', '△'], H: ['◎', '○', '△'] };
-  const pages = (Y['页'] || []).map(x => Array.isArray(x) ? { '平台': x[0], '店': x[1], '品牌': x[2], '链接': x[3], '日': Object.fromEntries(dl.map((d, i) => [d, { '记号': x[4][i], '能订': (OKM[x[0]] || OKM.H).includes(x[4][i]) }])), '无料': x[5] === 1 } : x);
+  const OKM = { T: ['○', '△'], H: ['◎', '○', '△'], G: ['○', '■'], R: ['◯', '○', '△'] };
+  // 11/17 加 G・R：第 6 个＝1 无料页；＝「转H」「转G」「无网约」＝R 页自己不接网上预约（灰色、不预警）
+  const pages = (Y['页'] || []).map(x => Array.isArray(x) ? { '平台': x[0], '店': x[1], '品牌': x[2], '链接': x[3], '日': Object.fromEntries(dl.map((d, i) => [d, { '记号': x[4][i], '能订': (OKM[x[0]] || OKM.H).includes(x[4][i]) }])), '无料': x[5] === 1, '灰': typeof x[5] === 'string' ? x[5] : '' } : x);
+  const RGT = { '转H': 'R 页的预约跳到 H 去订', '转G': 'R 页的预约跳到 G 去订', '无网约': 'R 页没有网上预约' };
   // 11/17 用户「赤坂的 H 不能预约没显示在 APP」：无料页（本来就停）以前完全不列 → 也列出来，灰色、不预警、不算进页数
-  const nP = pl => pages.filter(x => x['平台'] === pl && !x['无料']).length, nFree = pages.filter(x => x['无料']).length;
-  let h = '<div class="sec"><div class="tyhd"><h2 style="margin:0">🚨 预约异常</h2><span class="tyc">' + esc(Y.at) + ' 查；' + '今天 ' + md(dl[0]) + ' 起 ' + dl.length + ' 天（到 ' + md(dl[dl.length - 1]) + '）' + '；T ' + nP('T') + ' 页・H ' + nP('H') + ' 页（G・R 之后加）' + (nFree ? '；另有 H 无料页 ' + nFree + ' 个（本来就停，灰色显示、不预警）' : '') + '</span></div>';
+  const nP = pl => pages.filter(x => x['平台'] === pl && !x['无料'] && !x['灰']).length, nFree = pages.filter(x => x['无料']).length, nGray = pages.filter(x => x['灰']).length;
+  let h = '<div class="sec"><div class="tyhd"><h2 style="margin:0">🚨 预约异常</h2><span class="tyc">' + esc(Y.at) + ' 查；' + '今天 ' + md(dl[0]) + ' 起 ' + dl.length + ' 天（到 ' + md(dl[dl.length - 1]) + '）' + '；T ' + nP('T') + ' 页・H ' + nP('H') + ' 页・G ' + nP('G') + ' 页・R ' + nP('R') + ' 页' + (nFree ? '；另有 H 无料页 ' + nFree + ' 个（本来就停，灰色显示、不预警）' : '') + (nGray ? '；R 页自己不接网上预约的 ' + nGray + ' 个（跳 H・G 去订或没有网约，灰色显示、不预警）' : '') + '</span></div>';
   // 11/16 用户「有异常是正常，每天都对的反而奇怪」→ 每次检查都自检，证明检查本身是好的
   const SC = Y['自检'];
   if (SC) h += '<div class="card" style="margin-bottom:8px;font-size:13px;border-left:4px solid ' + (SC['过'] ? 'var(--good)' : 'var(--bad)') + '">' +
@@ -986,6 +987,9 @@ function renderYc() {
     '<div class="tyc" style="margin-top:4px;line-height:1.6">① H 对照组（确定停掉的页）：' + (SC['H对照'] || []).map(x => esc(x[0]) + ' → ' + esc(x[1]) + (x[2] ? ' ✅' : ' ❌')).join('、') +
     '<br>② T 每页 7 天都读到：' + SC['T读全'][0] + '/' + SC['T读全'][1] + ' 页（读不到的会当「订不了」报出来，不会悄悄变成全对）' +
     '<br>③ 同一份 T 数据里也读得出「不能订」（几人不能订）：' + SC['T有不能订值'][0] + ' 页' +
+    (SC['G读全'] ? '<br>⑤ G 每页 7 天都读到、状态都认得：' + SC['G读全'][0] + '/' + SC['G读全'][1] + ' 页' : '') +
+    (SC['R读全'] ? '<br>⑥ R（Retty 自己的预约页）每页 7 天都读到：' + SC['R读全'][0] + '/' + SC['R读全'][1] + ' 页' : '') +
+    (SC['R对照'] ? '<br>⑦ R 对照组（R 自己不接的店，去读它的 Retty 预约页，必须读出 ×）：' + (SC['R对照'].length ? SC['R对照'].map(x => esc(x[0]) + ' → ' + esc(x[1]) + (x[2] ? ' ✅' : ' ❌')).join('、') : '这次没有') : '') +
     '<br>④ 明天起读到的记号：' + Object.entries(SC['记号'] || {}).map(([k, n]) => esc(k) + ' ' + n).join('・') + '</div></div>';
   const G = {};
   (Y['订不了'] || []).forEach(b => { const g = G[b['链接']] = G[b['链接']] || Object.assign({}, b, { ds: [] }); g.ds.push(b); });
@@ -1000,7 +1004,7 @@ function renderYc() {
     L.map(g => { const j = worstJ(g); return '<div class="card" style="border-left:4px solid ' + JC[j] + ';margin-bottom:8px">' +
       '<div style="font-size:12px;font-weight:700;color:' + JC[j] + '">' + JT[j] + '</div>' +
       '<div style="font-weight:700;font-size:15px">' + esc(g['店']) + '・' + g['平台'] + ' 平台「' + esc(g['品牌']) + '」网上订不了</div>' +
-      '<div style="font-size:13px;margin:4px 0;line-height:1.6">' + g.ds.map(b => md(b['日']) + '：' + (b['记号'] === '停止' ? '<b style="color:var(--bad)">网上预约停了</b>（页面写着「目前不接受普通预约」）' : '<b style="color:var(--bad)">' + esc(b['记号']) + '</b>（' + (b['记号'] === '×' ? '满席' : b['记号'] === 'TEL' ? '要打电话' : '没有可订的') + '）') +
+      '<div style="font-size:13px;margin:4px 0;line-height:1.6">' + g.ds.map(b => md(b['日']) + '：' + (b['记号'] === '停止' ? '<b style="color:var(--bad)">网上预约停了</b>（页面写着「目前不接受普通预约」）' : '<b style="color:var(--bad)">' + esc(b['记号']) + '</b>（' + (b['记号'] === '×' ? (b['平台'] === 'R' ? '那天订不了' : '满席') : b['记号'] === 'TEL' ? '要打电话' : b['记号'] === '－' ? '那天网上订不了' : b['记号'] === '无网约' ? '这页没有网上预约' : '没有可订的') + '）') +
         '；RB 已订 ' + (b['已订'] ? b['已订'][0] + ' 组 ' + b['已订'][1] + ' 人（最大一组 ' + b['已订'][2] + ' 人）' : '<span class="tyc">还没读到</span>') +
         (b['峰'] && b['座'] ? '<br><span class="tyc">　同一时间最多坐 ' + b['峰'][0] + ' 人／最多 ' + b['座'][1] + ' 人（' + Math.round(b['峰'][0] / Math.max(b['座'][1], 1) * 100) + '%）・' + b['峰'][1] + ' 组／' + b['座'][0] + ' 桌（' + esc(b['峰'][2]) + ' 左右）</span>' : '')).join('<br>') + '</div>' +
       (g['另一页'] ? '<div class="tyc">同品牌另一页还开着：' + esc(g['另一页'][0]) + ' <a href="' + esc(g['另一页'][1]) + '" target="_blank" rel="noopener">看 ↗</a>（客人从这一页进来还是订不了）</div>' : '<div class="tyc" style="color:var(--bad)">这个品牌在这个平台上没有别的页面能订</div>') +
@@ -1015,13 +1019,13 @@ function renderYc() {
   // 各店（11/16 用户：一家一块——上面 7 天的レストランボード 已订・最大一组・同时最多坐几人，下面每个网页 7 天能不能订，7 天全部显示）
   const RB = Y.rbk ? Object.fromEntries(Object.entries(Y.rb || {}).map(([k, dd]) => [k, Object.fromEntries(Object.entries(dd).map(([d, a]) => [d, Object.fromEntries(Y.rbk.map((kk, i) => [kk, a[i]]))]))])) : (Y.rb || {}), st = {};
   pages.forEach(x => (st[x['店']] = st[x['店']] || []).push(x));
-  const mk = (x, d) => { const o = (x['日'] || {})[d] || {}; return '<span style="font-weight:700;color:' + (x['无料'] || o['记号'] === '无料' ? 'var(--faint)' : o['能订'] ? 'var(--good)' : 'var(--bad)') + '">' + esc(o['记号'] || '—') + '</span>'; };
+  const mk = (x, d) => { const o = (x['日'] || {})[d] || {}; return '<span style="font-weight:700;' + (x['灰'] ? 'font-size:11px;' : '') + 'color:' + (x['无料'] || x['灰'] || o['记号'] === '无料' ? 'var(--faint)' : o['能订'] ? 'var(--good)' : 'var(--bad)') + '">' + esc(o['记号'] || '—') + '</span>'; };
   const SEAT = Y['座位'] || {};
-  const bad = k => st[k].some(x => !x['无料'] && dl.some(d => !((x['日'] || {})[d] || {})['能订']));
+  const bad = k => st[k].some(x => !x['无料'] && !x['灰'] && dl.some(d => !((x['日'] || {})[d] || {})['能订']));
   const keys = Object.keys(st).sort((a, b) => (bad(b) - bad(a)) || a.localeCompare(b));
   const WD = '日月火水木金土';
   const head = '<tr><th></th>' + dl.map(d => { const t = new Date(d + 'T00:00:00'), w = t.getDay(); return '<th>' + (t.getMonth() + 1) + '/' + t.getDate() + '<br><span style="font-weight:400;color:' + (w === 0 ? 'var(--bad)' : w === 6 ? 'var(--brand)' : 'var(--sub)') + '">' + WD[w] + '</span></th>'; }).join('') + '</tr>';
-  h += '<h2 style="margin:14px 0 6px;font-size:16px">各店（' + keys.length + ' 家）</h2><div class="tyc" style="margin-bottom:6px">每家店：上面＝RB 那天已订（组/人，不算取消；AA 和换账号留下的旧副本也不算，在「没算」那行）・最大一组・同一时间最多坐几人（占最多人数的几成，8 成以上橙色）；下面＝每个网页那天能不能订：T 的 ○能订 △少 ×不能；H 的 ◎○△能订 ×满席 TEL＝要打电话；停止＝网上预约停了，—＝那天网上不接了（多半是时间过了），红字＝订不了；灰字「无料页」＝本来就不接网上预约的免费页（不算异常，但客人从这页进来订不了）</div><div class="ycwrap">' +
+  h += '<h2 style="margin:14px 0 6px;font-size:16px">各店（' + keys.length + ' 家）</h2><div class="tyc" style="margin-bottom:6px">每家店：上面＝RB 那天已订（组/人，不算取消；AA 和换账号留下的旧副本也不算，在「没算」那行）・最大一组・同一时间最多坐几人（占最多人数的几成，8 成以上橙色）；下面＝每个网页那天能不能订：T 的 ○能订 △少 ×不能；H 的 ◎○△能订 ×满席 TEL＝要打电话；G 的 ○能订 ■リクエスト（也能网上申请）－＝那天网上订不了；R 的 ◯能订 ×订不了（Retty 自己的预约页，按 2 人查）；停止＝网上预约停了，—＝那天网上不接了（多半是时间过了），红字＝订不了；灰字「无料页」＝本来就不接网上预约的免费页；灰字「转H・转G」＝这家的 R 页点预约会跳到 H・G 去订（R 自己不接，H・G 那页照常在查）；「无网约」＝R 页没有网上预约（都不算异常，不预警）</div><div class="ycwrap">' +
     keys.map(k => {
       const c = SEAT[k], r = RB[k] || {};
       const rw = (lb, f) => '<tr><td class="lb">' + lb + '</td>' + dl.map(d => '<td>' + (r[d] ? f(r[d]) : '<span class="tyc">—</span>') + '</td>').join('') + '</tr>';
@@ -1030,11 +1034,11 @@ function renderYc() {
         (dl.some(d => r[d] && r[d]['去掉'] && (r[d]['去掉'][0] || r[d]['去掉'][1])) ? rw('没算', a => { const q = a['去掉'] || [0, 0]; return '<small style="color:var(--sub)">' + (q[1] ? 'AA ' + q[1] + '人' : '') + (q[1] && q[0] ? '<br>' : '') + (q[0] ? '副本 ' + q[0] : '') + (q[0] || q[1] ? '' : '—') + '</small>'; }) : '') +
         rw('最大一组', a => a['最大'] + '人') +
         (c ? rw('同时最多', a => { const pc = a['峰人'] / Math.max(c[1], 1); return '<span style="font-weight:700;color:' + (pc >= 0.8 ? 'var(--warn)' : 'var(--ink)') + '">' + a['峰人'] + '</span><br><small style="color:var(--sub)">' + Math.round(pc * 100) + '%</small>'; }) : '') +
-        st[k].map((x, i) => '<tr class="pg' + (i ? '' : ' pg1') + '"><td class="lb"><span style="color:' + PCOL[x['平台']] + ';font-weight:700">' + x['平台'] + '</span> ' + (x['无料'] ? '<small style="color:var(--faint)">无料 </small>' : '') + esc(brandShort(String(x['品牌']).replace('（无料页）', '')) || x['品牌']) + '</td>' + dl.map(d => '<td>' + mk(x, d) + '</td>').join('') + '</tr>').join('') +
+        st[k].map((x, i) => '<tr class="pg' + (i ? '' : ' pg1') + '"><td class="lb"><span style="color:' + PCOL[x['平台']] + ';font-weight:700">' + x['平台'] + '</span> ' + (x['无料'] ? '<small style="color:var(--faint)">无料 </small>' : '') + (x['灰'] ? '<small style="color:var(--faint)" title="' + esc(RGT[x['灰']] || x['灰']) + '">' + esc(x['灰']) + ' </small>' : '') + esc(brandShort(String(x['品牌']).replace('（无料页）', '')) || x['品牌']) + '</td>' + dl.map(d => '<td>' + mk(x, d) + '</td>').join('') + '</tr>').join('') +
         '</table></div></div>';
     }).join('') + '</div>';
   if ((Y['读不到'] || []).length) h += '<p class="note">这次没读到的页面：' + Y['读不到'].map(esc).join('；') + '</p>';
-  return h + '<p class="note">每天 5:00・11:00・13:00・15:30・22:00 自动查（17 点以后查的那次不判断今天）：先从 RB（预约系统）读今天起 7 天的预约，再查 T・H 每个网页的空席日历（只读公开网页、不登录）。满不满用「座位表格」（真实桌数・最多人数）和 RB 每组的时段，算同一时间最多坐几人・几组。G・R 要先找到每个品牌的店铺页网址，之后加。</p></div>';
+  return h + '<p class="note">每天 5:00・11:00・13:00・15:30・22:00 自动查（17 点以后查的那次不判断今天）：先从 RB（预约系统）读今天起 7 天的预约，再查 T・H・G・R 每个网页的空席日历（只读公开网页、不登录；G・R 的网址是 11/17 用户给的表）。满不满用「座位表格」（真实桌数・最多人数）和 RB 每组的时段，算同一时间最多坐几人・几组。G 那边的日历不是实时的（ぐるなび 每隔几小时算一次）。R 的「×」是 Retty 自己预约页上按 2 人查的结果。</p></div>';
 }
 
 // ================= 🧹 卫生检查 =================
