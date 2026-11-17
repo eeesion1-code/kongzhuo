@@ -179,7 +179,7 @@ main{padding:12px 14px calc(30px + env(safe-area-inset-bottom));max-width:760px;
 </header>
 <main id="main"><div class="empty">读取中…</div></main>
 <script>
-const APPV = 'yunying-v23';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v24';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 在 空桌一览 里面（pj.html）还是独立 APP
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
 const LS = {
@@ -805,13 +805,15 @@ function prBlock(R, sel, range) {
   } else {
     chk += '<div class="tyc" style="margin-bottom:6px">两次读取对账（T・H・G・R）：早上提前读的来店日过完、日报系统再读一次后自动比对，第一批 11/18 起有结果。</div>';
   }
-  // 11/16 AA 核对：WPS 表记的（按来店日）vs レストランボード 里找到的已取消 2 人组
+  // 11/16 AA 核对：WPS 表记的（按来店日）vs レストランボード 里找到的已取消席のみ组（11/17 起不限人数：10 月多是 6 人一组）
   if (PB) {
     const mo = Object.entries(PB['月'] || {}).filter(([m, v]) => v['问题']).map(([m, v]) => m.slice(5) + ' 月：' + esc(v['问题']).slice(0, 120));
     const gap = PB['WPS'] - PB['找到'];
     chk += '<div class="card" style="margin-bottom:8px;font-size:13px">' + (gap > Math.max(20, PB['WPS'] * 0.05) ? '⚠' : '✅') + ' <b>AA 核对</b>（WPS 表 ' + esc(PB.at) + ' 读）：已过的来店日 WPS 记 ' + fmt(PB['WPS']) + ' 人，レストランボード 里找到订了又取消的 ' + fmt(PB['找到']) + ' 人' +
-      (gap > 0 ? '，差 ' + fmt(gap) + ' 人（多半是那几天レストランボード 还没读全取消的组，补读后会对上）' : '') + (PB['WPS没记'] && PB['WPS没记'].length ? '；另有 ' + PB['WPS没记'].length + ' 个店日看着像 AA 但 WPS 没记' : '') +
+      (gap > 0 ? '，差 ' + fmt(gap) + ' 人（' + (Math.round(PB['找到'] / Math.max(PB['WPS'], 1) * 1000) / 10) + '% 对上；对不上的店日在下面）' : '') + (PB['WPS没记'] && PB['WPS没记'].length ? '；另有 ' + PB['WPS没记'].length + ' 个店日看着像 AA 但 WPS 没记' : '') +
       (PB['差'] && PB['差'].length ? '<div class="tyc" style="margin-top:4px">对不上的店日（WPS/找到）：' + PB['差'].slice(-8).map(x => x[0].slice(5) + ' ' + esc(x[1]) + ' ' + x[2] + '/' + x[3]).join('、') + '</div>' : '') +
+      (PB['WPS没这天'] && PB['WPS没这天'].length ? '<div class="tyc" style="margin-top:4px">WPS 表里没有这一天（不是 0，是整栏没有），按 RB 里成批订又取消的当 AA 扣掉了：' + [...new Set(PB['WPS没这天'].map(x => x[0].slice(5)))].join('、') + '，' + PB['WPS没这天'].length + ' 家店共 ' + fmt(PB['WPS没这天'].reduce((a, x) => a + x[2], 0)) + ' 人</div>' : '') +
+      '<div class="tyc" style="margin-top:4px">怎么认 AA：T 平台、已取消、席のみ（没选课程或选了席のみ方案）、人数不限，同一家店同一天加起来不超过 WPS 记的人数，先挑一口气订的那一批</div>' +
       (mo.length ? '<div class="tyc" style="margin-top:4px">WPS 表：' + mo.join('；') + '</div>' : '') + '</div>';
   }
   // 11/16 发现：日报系统的レストランボード 文件 11/5 前后起有的店日混进了别的日子的预约 → 这些店日挡掉不算（等重读）
@@ -933,6 +935,11 @@ function renderYc() {
         (b['峰'] && b['座'] ? '<br><span class="tyc">　同一时间最多坐 ' + b['峰'][0] + ' 人／最多 ' + b['座'][1] + ' 人（' + Math.round(b['峰'][0] / Math.max(b['座'][1], 1) * 100) + '%）・' + b['峰'][1] + ' 组／' + b['座'][0] + ' 桌（' + esc(b['峰'][2]) + ' 左右）</span>' : '')).join('<br>') + '</div>' +
       (g['另一页'] ? '<div class="tyc">同品牌另一页还开着：' + esc(g['另一页'][0]) + ' <a href="' + esc(g['另一页'][1]) + '" target="_blank" rel="noopener">看 ↗</a>（客人从这一页进来还是订不了）</div>' : '<div class="tyc" style="color:var(--bad)">这个品牌在这个平台上没有别的页面能订</div>') +
       '<div style="margin-top:6px"><a href="' + esc(g['链接']) + '" target="_blank" rel="noopener" style="font-weight:700">打开这一页 ↗</a></div></div>'; }).join('');
+  // 11/17 可能重复的预约：同一客人同一天同一家店 ≥2 组都还有效、时间重叠（往后 30 天；H 同一组两行、换账号的旧副本、AA 已先去掉）
+  const DP = Y['重复'] || [], STX = { '来店待ち': '等客人来', '待确认': '待确认' };
+  if (DP.length) h += '<h2 style="margin:14px 0 6px;font-size:16px">🔁 可能重复的预约（' + DP.length + ' 处，今天起 30 天）</h2><div class="tyc" style="margin-bottom:6px">同一位客人同一天在同一家店订了两组以上，都还有效、时间重叠——会白白占着座位。请店里联系客人确认，删掉多的那组。（已经先去掉、不在这里的：H 平台同一组在 RB 里的两行、11/5 换账号留下的旧账号副本、AA）</div>' +
+    DP.map(d => '<div class="card" style="border-left:4px solid var(--warn);margin-bottom:8px;font-size:13px"><b style="font-size:14px">' + md(d['日']) + ' ' + esc(d['店']) + '</b>　同一客人 ' + d['组'].length + ' 组' +
+      d['组'].map(g => '<div style="margin-top:2px">' + esc(g[0]) + '　<b>' + esc(g[1]) + ' 人</b>　' + (/^[THGR]$/.test(g[2]) ? '<span style="color:' + PCOL[g[2]] + ';font-weight:700">' + g[2] + '</span>' : '电话等') + '　<span class="tyc">受付 ' + esc(String(g[3]).slice(5)) + '・' + esc(STX[g[4]] || g[4]) + '</span></div>').join('') + '</div>').join('');
   // 各店（11/16 用户：一家一块——上面 7 天的レストランボード 已订・最大一组・同时最多坐几人，下面每个网页 7 天能不能订，7 天全部显示）
   const RB = Y.rbk ? Object.fromEntries(Object.entries(Y.rb || {}).map(([k, dd]) => [k, Object.fromEntries(Object.entries(dd).map(([d, a]) => [d, Object.fromEntries(Y.rbk.map((kk, i) => [kk, a[i]]))]))])) : (Y.rb || {}), st = {};
   pages.forEach(x => (st[x['店']] = st[x['店']] || []).push(x));
@@ -942,12 +949,13 @@ function renderYc() {
   const keys = Object.keys(st).sort((a, b) => (bad(b) - bad(a)) || a.localeCompare(b));
   const WD = '日月火水木金土';
   const head = '<tr><th></th>' + dl.map(d => { const t = new Date(d + 'T00:00:00'), w = t.getDay(); return '<th>' + (t.getMonth() + 1) + '/' + t.getDate() + '<br><span style="font-weight:400;color:' + (w === 0 ? 'var(--bad)' : w === 6 ? 'var(--brand)' : 'var(--sub)') + '">' + WD[w] + '</span></th>'; }).join('') + '</tr>';
-  h += '<h2 style="margin:14px 0 6px;font-size:16px">各店（' + keys.length + ' 家）</h2><div class="tyc" style="margin-bottom:6px">每家店：上面＝RB 那天已订（组/人，不算取消）・最大一组・同一时间最多坐几人（占最多人数的几成，8 成以上橙色）；下面＝每个网页那天能不能订：T 的 ○能订 △少 ×不能；H 的 ◎○△能订 ×满席 TEL＝要打电话；停止＝网上预约停了，—＝那天网上不接了（多半是时间过了），红字＝订不了</div><div class="ycwrap">' +
+  h += '<h2 style="margin:14px 0 6px;font-size:16px">各店（' + keys.length + ' 家）</h2><div class="tyc" style="margin-bottom:6px">每家店：上面＝RB 那天已订（组/人，不算取消；AA 和换账号留下的旧副本也不算，在「没算」那行）・最大一组・同一时间最多坐几人（占最多人数的几成，8 成以上橙色）；下面＝每个网页那天能不能订：T 的 ○能订 △少 ×不能；H 的 ◎○△能订 ×满席 TEL＝要打电话；停止＝网上预约停了，—＝那天网上不接了（多半是时间过了），红字＝订不了</div><div class="ycwrap">' +
     keys.map(k => {
       const c = SEAT[k], r = RB[k] || {};
       const rw = (lb, f) => '<tr><td class="lb">' + lb + '</td>' + dl.map(d => '<td>' + (r[d] ? f(r[d]) : '<span class="tyc">—</span>') + '</td>').join('') + '</tr>';
       return '<div class="card ycc"><div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><b style="font-size:15px">' + esc(k) + '</b><span class="tyc">' + (c ? c[0] + ' 桌・最多 ' + c[1] + ' 人' : '') + '</span></div><div style="overflow-x:auto"><table class="ycg">' + head +
         rw('已订<small> 组/人</small>', a => '<b>' + a['组'] + '</b>/' + a['人']) +
+        (dl.some(d => r[d] && r[d]['去掉'] && (r[d]['去掉'][0] || r[d]['去掉'][1])) ? rw('没算', a => { const q = a['去掉'] || [0, 0]; return '<small style="color:var(--sub)">' + (q[1] ? 'AA ' + q[1] + '人' : '') + (q[1] && q[0] ? '<br>' : '') + (q[0] ? '副本 ' + q[0] : '') + (q[0] || q[1] ? '' : '—') + '</small>'; }) : '') +
         rw('最大一组', a => a['最大'] + '人') +
         (c ? rw('同时最多', a => { const pc = a['峰人'] / Math.max(c[1], 1); return '<span style="font-weight:700;color:' + (pc >= 0.8 ? 'var(--warn)' : 'var(--ink)') + '">' + a['峰人'] + '</span><br><small style="color:var(--sub)">' + Math.round(pc * 100) + '%</small>'; }) : '') +
         st[k].map((x, i) => '<tr class="pg' + (i ? '' : ' pg1') + '"><td class="lb"><span style="color:' + PCOL[x['平台']] + ';font-weight:700">' + x['平台'] + '</span> ' + esc(brandShort(x['品牌']) || x['品牌']) + '</td>' + dl.map(d => '<td>' + mk(x, d) + '</td>').join('') + '</tr>').join('') +
