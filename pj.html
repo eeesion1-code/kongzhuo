@@ -179,7 +179,7 @@ main{padding:12px 14px calc(30px + env(safe-area-inset-bottom));max-width:760px;
 </header>
 <main id="main"><div class="empty">读取中…</div></main>
 <script>
-const APPV = 'yunying-v32';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v33';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 在 空桌一览 里面（pj.html）还是独立 APP
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
 const LS = {
@@ -776,20 +776,48 @@ function renderTy() {
     const boost = bz.reduce((s, n) => s + n, 0);
     return { days, inc, boost, B: a.map((n, i) => [i + '-' + (i + 1) + '点', [n - bz[i], null, i, c[i] - bz[i]]]).filter(x => x[1][0] > 0) };
   };
-  // 11/16 用户：T 的时间段只看 3 个（按来店开始时间）：昼 11〜14・夕方 17〜19・夜 19〜22；H・G・R・全部 照旧按受付钟头
-  //   数据 pr 行 tb：店 → [昼, 夕方, 夜, 其他]，每格 [下单人, 取消人, AA 人]；真实下单＝下单−AA，真实取消＝取消−AA
-  const TBN = ['昼 11〜14点', '夕方 17〜19点', '夜 19〜22点'];
+  // 11/16 用户：T 的时间段只看 3 个（昼・夕方・夜）→ 11/17 用户：「忘记了统计 22〜23:55、0〜11 点…这 6 段」→ T 一天 6 段（H・G・R・全部 照旧按受付钟头）
+  //   数据 pr 行 tb：店 → 7 格 [0〜11, 昼, 14〜17, 夕方, 夜, 22 点以后, 时间没写]，每格 [下单人, 取消人, AA 人]（11/16 以前上传的旧格式是 4 格 [昼, 夕方, 夜, 其他]）
+  //   真实下单＝下单−AA，真实取消＝取消−AA
+  const TBN = ['0〜11点', '昼 11〜14点', '14〜17点', '夕方 17〜19点', '夜 19〜22点', '22点以后'];
   const tBands = (onlyStore, r) => {
-    const a = [0, 1, 2, 3].map(() => [0, 0, 0]);
-    sel.forEach(ds => Object.entries((PRD[ds] || {}).tb || {}).forEach(([k, v]) => { if (onlyStore && k !== onlyStore) return; v.forEach((x, i) => { a[i][0] += x[0]; a[i][1] += x[1]; a[i][2] += x[2]; }); }));
-    const B = TBN.map((nm, i) => [nm, [a[i][0] - a[i][2], null, i, a[i][1] - a[i][2]]]), aa = a.reduce((t, x) => t + x[2], 0), o = a[3];
+    const a = [0, 1, 2, 3, 4, 5, 6].map(() => [0, 0, 0]), old = [0, 0, 0];   // old＝旧格式的「其他」（分不了段）
+    const add = (dst, x) => { dst[0] += x[0]; dst[1] += x[1]; dst[2] += x[2]; };
+    sel.forEach(ds => Object.entries((PRD[ds] || {}).tb || {}).forEach(([k, v]) => { if (onlyStore && k !== onlyStore) return;
+      if (v.length === 4) { add(a[1], v[0]); add(a[3], v[1]); add(a[4], v[2]); add(old, v[3]); } else v.forEach((x, i) => add(a[i], x)); }));
+    const B = TBN.map((nm, i) => [nm, [a[i][0] - a[i][2], null, i, a[i][1] - a[i][2]]]), aa = a.reduce((t, x) => t + x[2], 0) + old[2];
     return (r.inc ? '<div class="tyc" style="margin-bottom:4px">⚠ 其中 ' + r.inc + ' 天还在补（之后来店的预约还没读全），数字还会变大</div>' : '') +
       (aa ? '<div class="tyc" style="margin-bottom:4px">已扣掉 AA ' + fmt(aa) + ' 人，下面都是真实的</div>' : '') +
       hourBars(B.every(x => !x[1][0]) ? [] : B, '没有 T 的网上预约', false, 104) +
-      (o[0] - o[2] > 0 ? '<div class="tyc" style="margin-top:4px">另有 ' + fmt(o[0] - o[2]) + ' 人订的不在这三个时段（14〜17 点、22 点以后开始），其中留着 ' + fmt(o[0] - o[1]) + ' 人</div>' : '');
+      (a[6][0] - a[6][2] > 0 ? '<div class="tyc" style="margin-top:4px">另有 ' + fmt(a[6][0] - a[6][2]) + ' 人的预约没写来店时间</div>' : '') +
+      (old[0] - old[2] > 0 ? '<div class="tyc" style="margin-top:4px">另有 ' + fmt(old[0] - old[2]) + ' 人是旧数据（0〜11・14〜17・22 点以后混在一起，分不了段），读新数据后会分开</div>' : '');
+  };
+  // 11/17：食べログ页面（T）也按同样 6 段（「本日 N 人」每小时新增加起来）；第一次读取以前的累计（表头「此前」，或一格跨好几个钟头）分不了段，单独一行
+  const TPN = ['0〜11点', '昼 11〜14点', '14〜17点', '夕方 17〜19点', '夜 19〜22点', '22〜23:55'];
+  const tPgBands = (list, onlyStore) => {
+    const seg = TPN.map(() => [0, 0]), pre = [0, 0]; let any = false;
+    const hr = s => { const m = /^(\d{1,2}):(\d{2})$/.exec(String(s || '')); return m ? +m[1] + +m[2] / 60 : null; };
+    const band = h => h < 11 ? 0 : h < 14 ? 1 : h < 17 ? 2 : h < 19 ? 3 : h < 22 ? 4 : 5;
+    list.forEach(ds => {
+      const x = HRS[ds]; if (!x) return; any = true;
+      x.h.forEach((end, i) => {
+        const e = hr(end), sPrev = i === 0 ? 0 : hr(x.h[i - 1]), s = sPrev == null ? (e == null ? null : e - 1) : sPrev;
+        let r = 0, sv = 0;
+        Object.entries(x.r || {}).forEach(([pg, arr]) => { if (!onlyStore || (page2st[pg] || pg) === onlyStore) r += arr[i] || 0; });
+        Object.entries(x.s || {}).forEach(([pg, arr]) => { if (!onlyStore || (page2st[pg] || pg) === onlyStore) sv += arr[i] || 0; });
+        const dst = e == null || s == null || band(s) !== band(Math.max(s, e - 0.01)) ? pre : seg[band(s)];
+        dst[0] += r; dst[1] += sv;
+      });
+    });
+    if (!any) return [[], pre];
+    return [TPN.map((nm, i) => [nm, [seg[i][0], seg[i][1], i]]), pre];
   };
   const slot = onlyStore => {
-    if (tyHrSrc === 'pg') return hourBars(hb(hsel, onlyStore), '这段时间没有食べログ页面的每小时数据（11/16 16 点起才有）', true);
+    if (tyHrSrc === 'pg') {
+      const [B, pre] = tPgBands(hsel, onlyStore);
+      return hourBars(B, '这段时间没有食べログ页面的每小时数据（11/16 16 点起才有）', false, 104) +
+        (pre[0] || pre[1] ? '<div class="tyc" style="margin-top:4px">另有第一次读取以前的累计（11/16 那天 16 点才开始读，分不了段）：预约 ' + fmt(pre[0]) + ' 人・保存 ' + fmt(pre[1]) + ' 人</div>' : '');
+    }
     const r = rbHours(sel, onlyStore, tyHrPl);
     if (!r.days) return '<div class="tyc">这' + (range ? '段时间' : '天') + '还没有レストランボード 数据（10/1 起；每天早上 5 点自动读）</div>';
     if (tyHrPl === 'T') return tBands(onlyStore, r);
@@ -800,7 +828,7 @@ function renderTy() {
     '<span class="seg" style="margin:0">' + [['rb', 'レストランボード（T・H・G・R）'], ['pg', '食べログ页面（T）']].map(([k, n]) => '<button class="' + (tyHrSrc === k ? 'on' : '') + '" onclick="tySet(\'src\',\'' + k + '\')">' + n + '</button>').join('') + '</span>' +
     (tyHrSrc === 'rb' ? '<span class="seg" style="margin:0">' + [['all', '全部'], ['T', 'T'], ['H', 'H'], ['G', 'G'], ['R', 'R']].map(([k, n]) => '<button class="' + (tyHrPl === k ? 'on' : '') + '" onclick="tySet(\'pl\',\'' + k + '\')">' + n + '</button>').join('') + '</span>' : '') +
     '<select class="tysel" onchange="tySet(\'hr\',this.value)"><option value="">全部店</option>' + hrList.map(k => '<option' + (hrSt === k ? ' selected' : '') + '>' + esc(k) + '</option>').join('') + '</select></div>' +
-    '<div class="tyc" style="margin-bottom:6px">' + (tyHrSrc === 'rb' && tyHrPl === 'T' ? '那' + (range ? '段时间' : '天') + '进的 T（食べログ）网上预约，订的是哪个时段（按来店开始时间：昼 11〜14 点・夕方 17〜19 点・夜 19〜22 点）。<b style="color:var(--t)">深色＝现在还留着的</b>，<span style="color:var(--faint)">灰色＝后来取消的</span>' : tyHrSrc === 'rb' ? '那' + (range ? '段时间每天' : '天') + '几点有人在网上下了预约（レストランボード 的受付时间，只算网上预约' + (range ? '，加起来' : '') + '）。<b style="color:var(--t)">深色＝现在还留着的</b>，<span style="color:var(--faint)">灰色＝后来取消的</span>（数字＝留着的人，「消」＝取消的人）' : '食べログ页面「本日 N 人」每小时增加多少；第一格＝0 点到第一次读取时的累计') + '</div>' +
+    '<div class="tyc" style="margin-bottom:6px">' + (tyHrSrc === 'rb' && tyHrPl === 'T' ? '那' + (range ? '段时间' : '天') + '进的 T（食べログ）网上预约，订的是哪个时段（按来店开始时间分 6 段：0〜11 点・昼 11〜14・14〜17・夕方 17〜19・夜 19〜22・22 点以后）。<b style="color:var(--t)">深色＝现在还留着的</b>，<span style="color:var(--faint)">灰色＝后来取消的</span>' : tyHrSrc === 'rb' ? '那' + (range ? '段时间每天' : '天') + '几点有人在网上下了预约（レストランボード 的受付时间，只算网上预约' + (range ? '，加起来' : '') + '）。<b style="color:var(--t)">深色＝现在还留着的</b>，<span style="color:var(--faint)">灰色＝后来取消的</span>（数字＝留着的人，「消」＝取消的人）' : '食べログ页面「本日 N 人」每小时增加多少，按下单（点保存）的时间分 6 段：0〜11 点・昼 11〜14・14〜17・夕方 17〜19・夜 19〜22・22〜23:55') + '</div>' +
     slot(hrSt) + '</div>';
   // ⑤ 各店：预约・保存并排，下面灰字上月同期
   let L = Object.entries(cur.st);
