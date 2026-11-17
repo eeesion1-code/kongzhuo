@@ -179,7 +179,7 @@ main{padding:12px 14px calc(30px + env(safe-area-inset-bottom));max-width:760px;
 </header>
 <main id="main"><div class="empty">读取中…</div></main>
 <script>
-const APPV = 'yunying-v28';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v29';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 在 空桌一览 里面（pj.html）还是独立 APP
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
 const LS = {
@@ -439,6 +439,8 @@ function renderDk(DK) {
     ((r['缺卡'] || []).length ? '<div class="tyc" style="margin-top:2px">缺卡（只打了一次）：' + r['缺卡'].map(x => esc(x[0]) + ' ' + esc(x[1])).join('、') + '</div>' : '') +
     ((r['时长'] || []).length ? '<div class="tyc">时长要核对：' + r['时长'].map(x => esc(x[0]) + ' ' + esc(x[1]) + '〜' + esc(x[2]) + '（' + x[3] + ' 小时）').join('、') + '</div>' : '') +
     ((r['没录指纹打卡'] || []).length ? '<div class="tyc">没录指纹、用别的方式打的：' + r['没录指纹打卡'].map(esc).join('、') + '</div>' : '') + '</div>').join('');
+  // 11/17 用户「打卡问题要变成证据 PDF，放运营部的打卡检查文件夹」
+  h += R['证据'] ? '<p class="note">📄 证据 PDF 已存：' + esc(String(R['证据']).split('/').pop()) + '（Google 云端和电脑的「运营部 → 打卡检查」里，含原始打卡时间和后台考勤机页截图）</p>' : (R['证据出错'] ? '<p class="note wn">📄 证据 PDF 这次没做成：' + esc(R['证据出错']) + '</p>' : '');
   if (ok.length) h += '<p class="note">没问题的 ' + ok.length + ' 家：' + ok.map(r => esc(r['店']) + (r['开门'] ? '' : '（没开门）')).join('、') + '</p>';
   return h + '</div>';
 }
