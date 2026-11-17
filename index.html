@@ -487,7 +487,7 @@ button.svdlab{color:var(--ink);font-family:inherit;line-height:1.3}
 <script>
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v62';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v63';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -1361,9 +1361,11 @@ function svHourBlock(ds, x, own) {
   const LB = SV.sk ? null : svLabGrp(ds, x);   // 三幸園看的那份没有人工
   let lab = '';
   if (LB && LB.st.length) {
-    const tp = Object.values(LB.P).reduce((s, p) => s + p, 0), cost = tp * SV_HR_WAGE, sales = (x[mk] || []).reduce((s, v) => s + v, 0) * 100;
+    // 费率和「选了单店」的每小时人工（svStLabHr）同一个口径：人工 ÷ 下单营业额（x.hd）；那天没有按下单的数据才用现在选的口径
+    const tp = Object.values(LB.P).reduce((s, p) => s + p, 0), cost = tp * SV_HR_WAGE;
+    const sd = (x.hd || []).reduce((s, v) => s + v, 0) * 100, sales = sd || (x[mk] || []).reduce((s, v) => s + v, 0) * 100;
     lab = `<div class="svnote">👥 上班（指纹打卡）：${LB.st.length} 家店合计 <b>${tp.toFixed(0)} 人时</b> × ${SV_HR_WAGE.toLocaleString()} 円＝人工 <b>${man(cost)}</b>`
-      + `${sales ? `（这天时段营业额的 ${(100 * cost / sales).toFixed(1)}%）` : ''}。每行最右边＝那个钟头几人在班・人工。`
+      + `${sales ? `（人工费率 ${(100 * cost / sales).toFixed(1)}%＝人工 ÷ ${sd ? '下单营业额 ' + man(sd) : '这天时段营业额 ' + man(sales)}）` : ''}。每行最右边＝那个钟头几人在班・人工。`
       + `${LB.miss.length ? `<br><span style="color:var(--warn)">没算进去（这天有营业额、但指纹打卡里没有人）：${LB.miss.map(esc).join('、')}——人数会比实际少</span>` : ''}</div>`;
   } else if (!SV.sk) lab = `<div class="svnote">👥 这天还没有上班人数（指纹打卡每天中午算到昨天）。</div>`;
   return `<div class="svcard"><div class="svct">⏰ ${own ? '' : svMD(ds) + '（' + svWk(ds) + '）'}时段营业额${svModeBtns()}</div>`
