@@ -179,7 +179,7 @@ main{padding:12px 14px calc(30px + env(safe-area-inset-bottom));max-width:760px;
 </header>
 <main id="main"><div class="empty">读取中…</div></main>
 <script>
-const APPV = 'yunying-v26';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v27';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 在 空桌一览 里面（pj.html）还是独立 APP
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
 const LS = {
@@ -408,9 +408,10 @@ function tgSt(k, ev) { if (ev && ev.target.closest('a')) return; openSt.has(k) ?
 
 // ================= 👔 人事评价 =================
 function hrParse() {
-  const o = { hm: {}, hs: {}, he: {}, hy: [], ht: {} };
+  const o = { hm: {}, hs: {}, he: {}, hy: [], ht: {}, dk: {} };
   for (const r of (HR && HR.rows) || []) {
-    if (r.k === 'hm') o.hm[r['月']] = r;
+    if (r.k === 'dk') o.dk[r['日']] = r;   // 11/17 指纹打卡日报（每天 6:00 查前一天）
+    else if (r.k === 'hm') o.hm[r['月']] = r;
     else if (r.k === 'hs') (o.hs[r['月']] = o.hs[r['月']] || []).push(r);
     else if (r.k === 'he') (o.he[r['月']] = o.he[r['月']] || {})[r['店']] = r['人'];
     else if (r.k === 'hy') o.hy.push(r);
@@ -419,6 +420,28 @@ function hrParse() {
   return o;
 }
 const DCOL = r => r >= .8 ? 'var(--good)' : r >= .55 ? 'var(--warn)' : 'var(--bad)';
+// 11/17 用户「指纹打卡问题，每天 6 点把前一天跑好：哪几家没打好卡、没用到指纹」→ 人事页最上面（只给老板密码：有员工姓名）
+let dkDay = '';
+function renderDk(DK) {
+  const days = Object.keys(DK).sort();
+  if (!days.length) return '';
+  if (!dkDay || !DK[dkDay]) dkDay = days[days.length - 1];
+  const R = DK[dkDay], st = R['店'] || [], md = d => +d.slice(5, 7) + '/' + +d.slice(8);
+  const LC = ['var(--sub)', 'var(--faint)', 'var(--warn)', 'var(--bad)'], LI = ['ℹ', '⚪', '🟠', '🔴'];
+  const bad = st.filter(r => r['级'] >= 2), n3 = st.filter(r => r['级'] >= 3).length, ok = st.filter(r => !(r['问题'] || []).length);
+  let h = '<div class="sec"><h2>🖐 指纹打卡（' + md(dkDay) + '）<small>每天 6:00 查前一天（6:00〜次日 6:00）：哪家没打好卡、没用指纹</small></h2>';
+  if (days.length > 1) h += '<div class="seg">' + days.slice(-7).map(d => '<button class="' + (d === dkDay ? 'on' : '') + '" onclick="dkDay=\'' + d + '\';render()">' + md(d) + '</button>').join('') + '</div>';
+  if (R['读取出错']) h += '<p class="note wn">⚠ 这次没读到指纹打卡后台（' + esc(R['读取出错']) + '），下面用的是 ' + esc(R['后台读取']) + ' 读到的数据</p>';
+  h += '<div class="card" style="font-size:14px;margin-bottom:8px">' + st.length + ' 家店里 <b style="color:' + (bad.length ? 'var(--bad)' : 'var(--good)') + '">' + bad.length + ' 家有问题</b>' + (n3 ? '（其中 🔴 ' + n3 + ' 家：没用指纹或机子没连上）' : '') + '<div class="tyc" style="margin-top:2px">' + esc(R.at) + ' 查；开门＝RB 那天有到店的客人或收银台有营业额；平时＝前 4 个同一星期几打卡人数的中位数</div></div>';
+  h += st.filter(r => (r['问题'] || []).length).map(r => '<div class="card" style="border-left:4px solid ' + LC[r['级']] + ';margin-bottom:6px;font-size:13px">' +
+    '<div><b style="font-size:14px">' + LI[r['级']] + ' ' + esc(r['店']) + '</b>　<span class="tyc">打卡 ' + r['打卡'] + ' 人' + (r['平时'] != null ? '（平时 ' + r['平时'] + '）' : '') + '・RB 到店 ' + r['到店组'] + ' 组' + (r['登记'] ? '・后台登记 ' + r['登记'] + ' 人' + (r['没录指纹'] ? '（' + r['没录指纹'] + ' 人没录指纹）' : '') : '') + '</span></div>' +
+    '<div style="margin-top:2px;line-height:1.6">' + r['问题'].map(esc).join('<br>') + '</div>' +
+    ((r['缺卡'] || []).length ? '<div class="tyc" style="margin-top:2px">缺卡（只打了一次）：' + r['缺卡'].map(x => esc(x[0]) + ' ' + esc(x[1])).join('、') + '</div>' : '') +
+    ((r['时长'] || []).length ? '<div class="tyc">时长要核对：' + r['时长'].map(x => esc(x[0]) + ' ' + esc(x[1]) + '〜' + esc(x[2]) + '（' + x[3] + ' 小时）').join('、') + '</div>' : '') +
+    ((r['没录指纹打卡'] || []).length ? '<div class="tyc">没录指纹、用别的方式打的：' + r['没录指纹打卡'].map(esc).join('、') + '</div>' : '') + '</div>').join('');
+  if (ok.length) h += '<p class="note">没问题的 ' + ok.length + ' 家：' + ok.map(r => esc(r['店']) + (r['开门'] ? '' : '（没开门）')).join('、') + '</p>';
+  return h + '</div>';
+}
 function renderHr() {
   if (!HR) return hrErr ? '<div class="err">' + esc(hrErr) + '</div>' : '<div class="empty">读取中…</div>';
   const D = hrParse(), months = Object.keys(D.hm).sort();
@@ -428,6 +451,7 @@ function renderHr() {
   const prevM = months[months.indexOf(hrMonth) - 1], prev = {};
   (D.hs[prevM] || []).forEach(r => prev[r['店']] = r);
   let h = hrErr ? '<div class="err">' + esc(hrErr) + '</div>' : '';
+  h += renderDk(D.dk);
   h += '<div class="seg">' + months.map(m => '<button class="' + (m === hrMonth ? 'on' : '') + '" onclick="hrMonth=\'' + m + '\';render()">' + +m.slice(5) + ' 月' + (D.hm[m]['完整'] ? '' : '（进行中）') + '</button>').join('') + '</div>';
   // 总览
   const cnt = { S: 0, A: 0, B: 0, C: 0, D: 0 }; rows.forEach(r => r['等级'] && cnt[r['等级']]++);
