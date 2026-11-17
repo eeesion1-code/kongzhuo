@@ -179,7 +179,7 @@ main{padding:12px 14px calc(30px + env(safe-area-inset-bottom));max-width:760px;
 </header>
 <main id="main"><div class="empty">读取中…</div></main>
 <script>
-const APPV = 'yunying-v30';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v31';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 在 空桌一览 里面（pj.html）还是独立 APP
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
 const LS = {
@@ -576,11 +576,12 @@ function renderSy() {
           const cur = r['店'];
           x += '<div style="margin-top:10px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--soft)">' +
             '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><b style="font-size:14px">📈 年涨综合评分</b><span style="font-size:24px;font-weight:800;color:' + scCol(Z['综合']) + '">' + Z['综合'] + '</span></div>' +
-            '<div style="font-size:12px;color:var(--sub);margin:2px 0 6px">1〜10 月有分的 ' + Z['月数'] + ' 个月平均・全员 ' + Z['人数'] + ' 人中第 ' + Z['排名'] + ' 名・近 3 个月 ' + Z['近3月'] + '・最高 ' + Z['最高'] + '・最低 ' + Z['最低'] + '</div>' +
+            '<div style="font-size:12px;color:var(--sub);margin:2px 0 6px">右边＝下面每月综合分数的平均（有分的 ' + Z['月数'] + ' 个月）・全员 ' + Z['人数'] + ' 人中第 ' + Z['排名'] + ' 名・近 3 个月 ' + Z['近3月'] + '・最高 ' + Z['最高'] + '・最低 ' + Z['最低'] + '</div>' +
+            '<div style="font-size:12px;font-weight:700;margin-bottom:2px">每月综合分数（文档原数）</div>' +
             '<div>' + mm.map(m => { const e = (Z['月'] || {})[m]; const v = e ? Math.round(e.reduce((a, q) => a + q[2], 0) / e.length * 10) / 10 : null;
               const other = e && (e.length > 1 || e[0][0] !== cur) ? e.map(q => esc(q[0]) + (e.length > 1 ? ' ' + q[2] : '')).join('・') : '';
               return '<span class="mcell" title="' + (e ? e.map(q => esc(q[0] + ' ' + q[1] + ' ' + q[2])).join('、') : '没有分') + '">' + +m.slice(5) + '月<b style="color:' + scCol(v) + '">' + (v == null ? '—' : v) + '</b>' + (other ? '<small style="display:block;font-size:9.5px;color:var(--sub)">' + other + '</small>' : '') + '</span>'; }).join('') + '</div>' +
-            '<p class="note" style="margin:6px 0 0">来源：公司「全店铺员工评分」（' + esc(Z['文件'] || '') + '）每月店长・料理长的分数；一个月管两家店的取两家平均。7〜10 月和上面奖金表的评分逐个对过，一样。</p></div>';
+            '<p class="note" style="margin:6px 0 0">来源：公司「全店铺员工评分」（' + esc(Z['文件'] || '') + '）——表上每个月的分数就是那个月的综合分数，原样显示；一个月管两家店的，那个月取两家平均。7〜10 月和上面奖金表的评分逐个对过，一样。</p></div>';
         }
       }
       return x + '</div>';
