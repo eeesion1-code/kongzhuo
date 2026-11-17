@@ -179,7 +179,7 @@ main{padding:12px 14px calc(30px + env(safe-area-inset-bottom));max-width:760px;
 </header>
 <main id="main"><div class="empty">读取中…</div></main>
 <script>
-const APPV = 'yunying-v25';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v26';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 在 空桌一览 里面（pj.html）还是独立 APP
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
 const LS = {
@@ -902,7 +902,7 @@ const ycRow = () => ((PJ && PJ.rows) || []).find(r => r.k === 'yc');
 const ycBad = () => { const Y = ycRow(); return Y ? [...new Set((Y['订不了'] || []).filter(b => b['判断'] !== '满了' && !b['另一页']).map(b => b['链接']))] : []; };
 function renderYc() {
   const Y = ycRow();
-  if (!Y) return '<div class="empty">还没有检查结果（每天 10:30・12:00 自动查）</div>';
+  if (!Y) return '<div class="empty">还没有检查结果（每天 5:00・11:00・13:00・15:30・22:00 自动查）</div>';
   const md = ds => +ds.slice(5, 7) + '/' + +ds.slice(8), dl = Y['日'] || [];
   // 11/16 v2 压缩格式：页＝[平台, 店, 品牌, 链接, [每天的记号]]，rb＝{店: {日: [组, 人, 最大, 峰人, 峰组, 峰时]}}（rbk 是栏名）
   const OKM = { T: ['○', '△'], H: ['◎', '○', '△'] };
@@ -935,8 +935,8 @@ function renderYc() {
         (b['峰'] && b['座'] ? '<br><span class="tyc">　同一时间最多坐 ' + b['峰'][0] + ' 人／最多 ' + b['座'][1] + ' 人（' + Math.round(b['峰'][0] / Math.max(b['座'][1], 1) * 100) + '%）・' + b['峰'][1] + ' 组／' + b['座'][0] + ' 桌（' + esc(b['峰'][2]) + ' 左右）</span>' : '')).join('<br>') + '</div>' +
       (g['另一页'] ? '<div class="tyc">同品牌另一页还开着：' + esc(g['另一页'][0]) + ' <a href="' + esc(g['另一页'][1]) + '" target="_blank" rel="noopener">看 ↗</a>（客人从这一页进来还是订不了）</div>' : '<div class="tyc" style="color:var(--bad)">这个品牌在这个平台上没有别的页面能订</div>') +
       '<div style="margin-top:6px"><a href="' + esc(g['链接']) + '" target="_blank" rel="noopener" style="font-weight:700">打开这一页 ↗</a></div>' +
-      // 11/17 用户「订不了的证据要留好，做成 PDF 好追溯」→ 每次查到就存一份（检查结论＋网页截图＋整页原样打印＋原始数据）
-      (g['证据'] ? '<div class="tyc" style="margin-top:4px">📄 证据 PDF 已存：' + esc(g['证据']) + '（电脑「运营部\\各平台预约\\预约异常」里，含当时的网页截图和原始数据）</div>' : '<div class="tyc" style="margin-top:4px;color:var(--warn)">📄 证据 PDF 这次没存成</div>') + '</div>'; }).join('');
+      // 11/17 用户「订不了的证据要留好，做成 PDF 好追溯」「存在运营部的预约证据清单文件夹，只要前 2 页」→ 每次查到就存一份（检查结论＋网页截图＋原始数据）
+      (g['证据'] ? '<div class="tyc" style="margin-top:4px">📄 证据 PDF 已存：' + esc(String(g['证据']).split('/').pop()) + '（Google 云端和电脑的「运营部 → 预约证据清单」里，含当时的网页截图和原始数据）</div>' : '<div class="tyc" style="margin-top:4px;color:var(--warn)">📄 证据 PDF 这次没存成</div>') + '</div>'; }).join('');
   // 11/17 可能重复的预约：同一客人同一天同一家店 ≥2 组都还有效、时间重叠（往后 30 天；H 同一组两行、换账号的旧副本、AA 已先去掉）
   const DP = Y['重复'] || [], STX = { '来店待ち': '等客人来', '待确认': '待确认' };
   if (DP.length) h += '<h2 style="margin:14px 0 6px;font-size:16px">🔁 可能重复的预约（' + DP.length + ' 处，今天起 30 天）</h2><div class="tyc" style="margin-bottom:6px">同一位客人同一天在同一家店订了两组以上，都还有效、时间重叠——会白白占着座位。请店里联系客人确认，删掉多的那组。（已经先去掉、不在这里的：H 平台同一组在 RB 里的两行、11/5 换账号留下的旧账号副本、AA）</div>' +
@@ -964,7 +964,7 @@ function renderYc() {
         '</table></div></div>';
     }).join('') + '</div>';
   if ((Y['读不到'] || []).length) h += '<p class="note">这次没读到的页面：' + Y['读不到'].map(esc).join('；') + '</p>';
-  return h + '<p class="note">每天 10:30 和 12:00 自动查：先从 RB（预约系统）读今天起 7 天的预约，再查 T・H 每个网页的空席日历（只读公开网页、不登录）。满不满用「座位表格」（真实桌数・最多人数）和 RB 每组的时段，算同一时间最多坐几人・几组。G・R 要先找到每个品牌的店铺页网址，之后加。</p></div>';
+  return h + '<p class="note">每天 5:00・11:00・13:00・15:30・22:00 自动查（17 点以后查的那次不判断今天）：先从 RB（预约系统）读今天起 7 天的预约，再查 T・H 每个网页的空席日历（只读公开网页、不登录）。满不满用「座位表格」（真实桌数・最多人数）和 RB 每组的时段，算同一时间最多坐几人・几组。G・R 要先找到每个品牌的店铺页网址，之后加。</p></div>';
 }
 
 // ================= 🧹 卫生检查 =================
