@@ -514,7 +514,7 @@ button.svdlab{color:var(--ink);font-family:inherit;line-height:1.3}
 <script>
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v75';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v76';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -2099,7 +2099,7 @@ function svTabFc(today) {
     const yy = t.getFullYear(), mm = t.getMonth() + 1, f = svMonthFc(yy, mm), ss = FS ? svSameStore(yy, mm) : null, l = ss ? (ss.n && svMonDays(yy - 1, mm).pop() < today ? ss.ly : 0) : svMonAct(yy - 1, mm); ms.push({ mk, yy, mm, t: ss ? (ss.n ? ss.fc : 0) : f.t, l, a: f.actN }); }
   const mx = Math.max(...ms.map(o => Math.max(o.t, o.l)));
   h += `<div class="svcard"><div class="svct">到 ${maxMon.slice(0, 4)} 年 12 月每个月${SV.sk ? '' : `<span class="svseg2"><button class="${FS ? '' : 'on'}" onclick="svSetFcSame(false)">全部店</button><button class="${FS ? 'on' : ''}" onclick="svSetFcSame(true)">①同店</button></span>`}</div><div class="svfcm"><div class="hd"><span>月</span><span></span><span>${FS ? '①预测' : '预测'}</span><span>去年</span><span>增减</span></div>`
-    + ms.map((o, i) => (i && o.yy !== ms[i - 1].yy ? `<p>${o.yy} 年</p>` : '') + `<button class="${o.mk === svMon ? 'on' : ''}" onclick="svMon='${o.mk}';renderSales();document.getElementById('salesView').scrollTop=0"><span>${o.mm} 月${o.a ? '<small>含实际</small>' : ''}</span>`
+    + ms.map((o, i) => (i && o.yy !== ms[i - 1].yy ? `<p>${o.yy} 年</p>` : '') + `<button class="${o.mk === svMon ? 'on' : ''}" onclick="svMon='${o.mk}';renderSales();document.getElementById('salesView').scrollTop=0"><span>${o.mm} 月${o.a ? '<small>含实际</small>' : ms.filter(x => x.mm === o.mm).length > 1 ? '<small>' + o.yy + ' 年</small>' : ''}</span>`
       + `<i><u style="width:${(100 * o.t / mx).toFixed(1)}%"></u>${o.l ? `<s style="left:${(100 * o.l / mx).toFixed(1)}%"></s>` : ''}</i><b>${o.t ? svOku(o.t) : '—'}</b><em>${o.l ? svOku(o.l) : '—'}</em>${o.l && o.t ? svDl(o.t, o.l) : '<span class="dl">—</span>'}</button>`).join('')
     + `</div><div class="svlegend"><span><i class="f"></i>${FS ? '①同店预测' : '预测（全部店）'}</span><span><s></s>${FS ? '去年这些店' : '去年同月实际'}</span></div>${FS ? '<div class="svnote">①同店：每个月只算去年那个月也开着的店（已经关的店，比如品川 1 号店，两边都不算）；「去年」＝这些店去年同月的实际；去年同月还没过完的月份写「—」。</div>' : '<div class="svnote">「去年」＝去年同月全部店的实际（当时开着的店）。</div>'}`;
   // 年合计（整年每天都有实际或预测才算）
