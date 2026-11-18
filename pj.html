@@ -179,7 +179,7 @@ main{padding:12px 14px calc(30px + env(safe-area-inset-bottom));max-width:760px;
 </header>
 <main id="main"><div class="empty">读取中…</div></main>
 <script>
-const APPV = 'yunying-v36';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v37';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 在 空桌一览 里面（pj.html）还是独立 APP
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
 const LS = {
@@ -210,7 +210,7 @@ const pct = x => x == null ? '' : (x >= 0 ? '▲' : '▼') + Math.abs(x * 100).t
 const today = new Date(); const TD = today.toISOString().slice(0, 10);
 
 let PJ = null, HR = null, pjErr = '', hrErr = '', owner = false;
-const tabFromUrl = (location.hash.match(/^#(pj|hr|hy|sy|ty|yc)$/) || [])[1];   // 网址带 #hr 直接开人事评价、#hy 卫生、#pj 评价
+const tabFromUrl = (location.hash.match(/^#(pj|hr|hy|sy|ty|yc|qr)$/) || [])[1];   // 网址带 #hr 直接开人事评价、#hy 卫生、#pj 评价
 let syMonth = LS.get('syMonth', 'year'), syQ = '', sySort = LS.get('sySort', 'store'), syOpen = new Set();
 let tab = tabFromUrl || LS.get('pjTab', 'pj'), stSort = LS.get('pjSort', 'g'), rvPlat = '', openSt = new Set(), hrMonth = '', hrOpen = new Set(), hyOpen = new Set();
 
@@ -246,9 +246,10 @@ async function load() {
     else if (d && d.error === 'owner') { HR = null; owner = false; LS.del('pjc_hr'); }
     else if (owner || (d && !d.error)) hrErr = '读不到人事评价（后台还没部署新版本）';
   }
-  if (!owner && tab !== 'pj' && tab !== 'ty' && tab !== 'yc') tab = 'pj';
+  if (!owner && tab !== 'pj' && tab !== 'ty' && tab !== 'yc' && tab !== 'qr') tab = 'pj';
   LOADING = false;
   render();
+  if (tab === 'qr') loadQr();
 }
 let LOADING = false;
 function showKey(msg) {
@@ -258,14 +259,14 @@ function saveKey() { const v = $('kin').value.trim(); if (!v) return; K = v; LS.
 function changeKey() { showKey(''); }
 
 // ---------- 公共 ----------
-function setTab(t) { tab = t; LS.set('pjTab', t); render(); window.scrollTo(0, 0); }
+function setTab(t) { tab = t; LS.set('pjTab', t); render(); window.scrollTo(0, 0); if (t === 'qr') loadQr(); }
 function render() {
   const ycN = ycBad().length;   // 11/16 预约异常：有订不了的页面就在按钮上显示几处
-  const tabs = [['pj', '⭐ 评价'], ['ty', '📅 预约'], ['yc', '🚨 预约异常' + (ycN ? ' <b style="color:#fff;background:var(--bad);border-radius:9px;padding:0 6px;font-size:12px">' + ycN + '</b>' : '')], ...(owner ? [['hr', '👔 人事'], ['sy', '👤 社员'], ['hy', '🧹 卫生']] : [])];
+  const tabs = [['pj', '⭐ 评价'], ['qr', '📲 谷歌扫码'], ['ty', '📅 预约'], ['yc', '🚨 预约异常' + (ycN ? ' <b style="color:#fff;background:var(--bad);border-radius:9px;padding:0 6px;font-size:12px">' + ycN + '</b>' : '')], ...(owner ? [['hr', '👔 人事'], ['sy', '👤 社员'], ['hy', '🧹 卫生']] : [])];
   $('tabs').innerHTML = tabs.map(([k, n]) => '<button class="' + (tab === k ? 'on' : '') + '" onclick="setTab(\'' + k + '\')">' + n + '</button>').join('');
-  const at = tab === 'pj' || tab === 'ty' || tab === 'yc' ? (PJ && PJ.at) : (HR && HR.at);
-  $('at').textContent = (at ? at.slice(5).replace('-', '/') + ' 更新' : '') + (LOADING ? '・读取最新中…' : (pjErr && tab !== 'hr' && tab !== 'sy' && tab !== 'hy') ? '・⚠ 没读到最新（显示的是上次的）' : '');
-  $('main').innerHTML = (tab === 'hr' ? renderHr() : tab === 'sy' ? renderSy() : tab === 'hy' ? renderHy() : tab === 'ty' ? renderTy() : tab === 'yc' ? renderYc() : renderPj()) +
+  const at = tab === 'qr' ? (QRD && QRD.updated) : tab === 'pj' || tab === 'ty' || tab === 'yc' ? (PJ && PJ.at) : (HR && HR.at);
+  $('at').textContent = (at ? at.slice(5).replace('-', '/') + ' 更新' : '') + (tab === 'qr' ? (qrBusy ? '・读取最新中…' : '') : LOADING ? '・读取最新中…' : (pjErr && tab !== 'hr' && tab !== 'sy' && tab !== 'hy') ? '・⚠ 没读到最新（显示的是上次的）' : '');
+  $('main').innerHTML = (tab === 'hr' ? renderHr() : tab === 'sy' ? renderSy() : tab === 'hy' ? renderHy() : tab === 'ty' ? renderTy() : tab === 'yc' ? renderYc() : tab === 'qr' ? renderQr() : renderPj()) +
     '<div class="foot"><a onclick="changeKey()">🔑 换密码（老板 / 店长）</a>' + (IN_KZ ? '' : '　版本 ' + APPV.replace('yunying-v', '')) + '</div>';
 }
 const stars = s => s == null ? '' : '<span class="stars">' + '★'.repeat(Math.round(s)) + '<span style="opacity:.25">' + '★'.repeat(5 - Math.round(s)) + '</span></span>';
@@ -299,6 +300,84 @@ function trendCard(T) {
     '<div class="card kpi"><span class="plat" style="color:var(--g)"><span class="dot" style="background:var(--g)"></span>Google 评价数</span><br><b>' + fmt(z[2]) + '</b> <span class="up" style="font-size:13px">+' + fmt(z[2] - a[2]) + '</span>' + spark(T.map(x => x[2]), 200, 36, 'var(--g)', true) + '<div class="d">平均每月 +' + fmt(Math.round((z[2] - a[2]) / days * 30)) + ' 条</div></div>' +
     (ta && tz && tb.length > 1 ? '<div class="card kpi"><span class="plat" style="color:var(--t)"><span class="dot" style="background:var(--t)"></span>食べログ 口コミ数</span><br><b>' + fmt(tz[3]) + '</b> <span class="' + (tz[3] >= ta[3] ? 'up' : 'dn') + '" style="font-size:13px">' + (tz[3] >= ta[3] ? '+' : '−') + fmt(Math.abs(tz[3] - ta[3])) + '</span>' + spark(tb.map(x => x[3]), 200, 36, 'var(--t)', true) + '<div class="d">' + lab(ta) + ' 起；店铺分一直停在 3.09 左右</div></div>' : '') +
     '</div><p class="note">同一批店铺页相比（新开的页不算进去）。11/16 以前的数来自 Adali 每天记的表。</p></div>';
+}
+
+// ================= 📲 谷歌扫码 =================
+// 11/18 用户：桌上 QR 扫码写 Google 评价的统计（Google评价QR 系统）放进运营部。
+// 数据直接向那边的后台读（实时）；那边的网址・密钥由运营部后台（评价管理 的 k:'qr' 行，评价汇总.py 写）下发，不写在网页里。
+const QR_KAN = ['', '一', '二', '三', '四', '五', '六', '七', '八', '九', '十', '十一', '十二', '十三', '十四', '十五', '十六', '十七', '十八', '十九', '二十'];
+let QRD = cacheGet('qr'), qrBusy = false, qrErr = '', qrPer = LS.get('qrPer', 'today'), qrStore = LS.get('qrStore', '');
+function qrCfg() { return ((PJ && PJ.rows) || []).find(r => r.k === 'qr') || null; }
+async function loadQr() {
+  const c = qrCfg();
+  if (LOCAL && !c) { try { const r = await fetch('./_qr.json', { cache: 'no-store' }); QRD = await r.json(); } catch (e) {} if (tab === 'qr') render(); return; }
+  if (!c || qrBusy) return;
+  qrBusy = true; qrErr = ''; if (tab === 'qr') render();
+  try {
+    const r = await fetch(c.api + '?fmt=json&k=' + encodeURIComponent(c.key) + '&_=' + Date.now(), { cache: 'no-store' });
+    const d = await r.json();
+    if (!d || !d.ok) throw new Error((d && d.err) || '读取失败');
+    QRD = d; cachePut('qr', d);
+  } catch (e) { qrErr = '没读到最新的扫码数据（' + (e.message || '网络') + '），显示的是上次的'; }
+  qrBusy = false;
+  if (tab === 'qr') render();
+}
+function qrSetPer(p) { qrPer = p; LS.set('qrPer', p); render(); }
+function qrSetStore(v) { qrStore = v; LS.set('qrStore', v); render(); }
+function renderQr() {
+  const tk = t => /^\d+$/.test(t) && QR_KAN[+t] ? QR_KAN[+t] + '番' : esc(t);
+  const hm = ms => { const d = new Date(ms); return String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); };
+  const isToday = ms => new Date(ms).toDateString() === new Date().toDateString();
+  const rate = (a, b) => b ? Math.round(a / b * 100) + '%' : '–';
+  const av = (s, n) => n ? (s / n).toFixed(1) : '–';
+  const d = QRD;
+  if (!d) return (qrCfg() || LOCAL) ? '<div class="empty">' + (qrBusy ? '读取中…' : (qrErr ? esc(qrErr) : '还没有数据')) + '</div>'
+    : '<div class="empty">谷歌扫码的设置还没下发到 APP<br><span class="note">电脑每天 12:00・22:00 更新评价时会一起下发</span></div>';
+  const m = new Map(); (d.stores || []).forEach(s => m.set(s.code, s.name)); (d.groups || []).forEach(g => { if (!m.has(g.store)) m.set(g.store, g.store); });
+  const list = [...m].map(([code, name]) => ({ code, name }));
+  const cur = list.find(s => s.code === qrStore) ? qrStore : (list[0] ? list[0].code : '');
+  const S = (d.stores || []).find(s => s.code === cur);
+  const name = (list.find(s => s.code === cur) || {}).name || '';
+  const p = (S && S.p[qrPer]) || { grp: 0, qr: 0, star: 0, low: 0 };
+  const groups = (d.groups || []).filter(g => g.store === cur && isToday(g.t));
+  const reviews = (d.recent || []).filter(r => r.code ? r.code === cur : r.store === name);
+  const tables = S ? Object.keys(S.tables).sort((a, b) => (+a - +b) || a.localeCompare(b)) : [];
+  const days = S ? Object.keys(S.days).sort().reverse() : [];
+  const mx = Math.max(1, ...tables.map(t => S.tables[t].grp));
+  const PER = { today: '今天', d7: '7 天', d30: '30 天' };
+  return (qrErr ? '<div class="err">' + esc(qrErr) + '</div>' : '') +
+    '<div class="sec"><h2>📲 谷歌扫码 <small>' + esc(name) + '</small></h2>' +
+    (list.length > 1 ? '<select class="tysel" style="margin:0 0 8px" onchange="qrSetStore(this.value)">' + list.map(s => '<option value="' + esc(s.code) + '"' + (s.code === cur ? ' selected' : '') + '>' + esc(s.name) + '</option>').join('') + '</select>' : '') +
+    '<div class="seg">' + Object.keys(PER).map(k => '<button class="' + (k === qrPer ? 'on' : '') + '" onclick="qrSetPer(\'' + k + '\')">' + PER[k] + '</button>').join('') +
+    '<button style="margin-left:auto" onclick="loadQr()">' + (qrBusy ? '读取中…' : '↻ 刷新') + '</button></div>' +
+    '<div class="grid">' +
+      '<div class="card kpi"><small>扫码组数</small><b>' + p.grp + '</b><span class="u">组</span></div>' +
+      '<div class="card kpi"><small>QR 评价</small><b>' + p.qr + '</b><span class="u">条</span></div>' +
+      '<div class="card kpi"><small>转化率（评价÷扫码组）</small><b>' + rate(p.qr, p.grp) + '</b></div>' +
+      '<div class="card kpi"><small>平均星级</small><b>' + av(p.star, p.qr) + '</b><span class="u">／5</span></div>' +
+    '</div>' +
+    (p.low ? '<div class="err" style="margin-top:8px">' + PER[qrPer] + '有 ' + p.low + ' 条 3 星以下的 QR 评价，请看下面的内容</div>' : '') +
+    '<p class="note">Google 评价上次读取 ' + esc((d.lastRead || '还没读过').slice(5)) + '（每天 0:00・11:00 读）</p></div>' +
+
+    '<div class="sec"><h2>今天扫码 <small>实时・同桌 30 分钟内算一组</small></h2><div class="card">' +
+    (groups.length ? groups.map(g => '<div class="issue"><b>' + hm(g.t) + '</b><span>' + tk(g.table) + '卓' + (g.n > 1 ? '　<span style="color:var(--sub);font-size:12px">扫了 ' + g.n + ' 次</span>' : '') +
+      '　' + (g.star != null ? '<span class="pill ' + (g.star <= 3 ? 'p-bad' : 'p-good') + '">已写评价 ' + '★'.repeat(g.star) + '</span>' : '<span class="pill p-soft">等评价</span>') + '</span></div>').join('')
+      : '<div class="empty" style="padding:16px">今天还没有客人扫码</div>') + '</div></div>' +
+
+    '<div class="sec"><h2>最新 QR 评价 <small>扫码后写的 Google 评价</small></h2><div class="card">' +
+    (reviews.length ? reviews.map(r => '<div class="rv"><div class="rvh">' + stars(r.star) + (r.star && r.star <= 3 ? ' <span class="pill p-bad">差评</span>' : '') +
+      ' <span class="who">' + esc(r.who) + ' · ' + esc(r.time) + ' · ' + tk(r.table) + '卓 · 扫码后 ' + esc(r.mins) + ' 分</span></div>' +
+      (r.text ? '<div class="rvt">' + esc(r.text) + '</div>' : '<div class="rvt" style="color:var(--faint)">（只打了分，没写内容）</div>') + '</div>').join('')
+      : '<div class="empty" style="padding:16px">还没有 QR 评价<br><span class="note">Google 评价每天 0:00・11:00 读取，读到后和扫码配对</span></div>') + '</div></div>' +
+
+    '<div class="sec"><h2>按桌 <small>30 天</small></h2><div class="card" style="overflow-x:auto"><table class="tbl"><tr><th>桌</th><th>扫码组</th><th>评价</th><th>转化率</th><th>平均星</th></tr>' +
+    (tables.length ? tables.map(t => { const o = S.tables[t]; return '<tr><td>' + tk(t) + ' <span style="display:inline-block;vertical-align:middle;height:6px;border-radius:3px;background:var(--g);width:' + Math.round(o.grp / mx * 48) + 'px"></span></td><td>' + o.grp + '</td><td>' + o.qr + '</td><td>' + rate(o.qr, o.grp) + '</td><td>' + av(o.star, o.qr) + '</td></tr>'; }).join('')
+      : '<tr><td colspan="5" class="empty">还没有数据</td></tr>') + '</table></div></div>' +
+
+    '<div class="sec"><h2>每天 <small>30 天</small></h2><div class="card" style="overflow-x:auto"><table class="tbl"><tr><th>日期</th><th>扫码组</th><th>评价</th><th>转化率</th></tr>' +
+    (days.length ? days.map(k => { const o = S.days[k]; return '<tr><td>' + esc(k.slice(5).replace('-', '/')) + '</td><td>' + o.grp + '</td><td>' + o.qr + '</td><td>' + rate(o.qr, o.grp) + '</td></tr>'; }).join('')
+      : '<tr><td colspan="4" class="empty">还没有数据</td></tr>') + '</table></div>' +
+    '<p class="note">只统计扫了桌上 QR 的客人；扫码后 2 小时内写的 Google 评价算 QR 评价。</p></div>';
 }
 
 // ================= ⭐ 评价 =================
@@ -1114,6 +1193,7 @@ async function checkUpdate() {
   } catch (e) {}
 }
 document.addEventListener('visibilitychange', () => { if (!document.hidden) { checkUpdate(); if (K) load(); } });
+setInterval(() => { if (!document.hidden && K && tab === 'qr') loadQr(); }, 120000);   // 11/18 谷歌扫码页开着时每 2 分钟读一次
 checkUpdate();
 load();
 </script>
