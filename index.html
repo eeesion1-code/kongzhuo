@@ -585,7 +585,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
 })();
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v79';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v80';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -698,7 +698,7 @@ function seat(t) {
 }
 const fmtMin = m => m == null ? '' : m < 60 ? m + '分' : Math.floor(m / 60) + '时' + String(m % 60).padStart(2, '0');
 
-function setTab(t) { const pv = tab; if (pv !== t) navPush('tab', () => setTab(pv)); tab = t; LS.set('tab', t); window.scrollTo(0, 0); render(); if (t === 'pw') loadPw(); }
+function setTab(t) { progScroll(); const pv = tab; if (pv !== t) navPush('tab', () => setTab(pv)); tab = t; LS.set('tab', t); window.scrollTo(0, 0); render(); if (t === 'pw') loadPw(); }
 function toggleSort() { sortBy = sortBy === 'free' ? 'area' : 'free'; LS.set('sort2', sortBy); render(); }
 function toggleFav(ev, label) {
   ev.stopPropagation();
@@ -716,6 +716,7 @@ function setTileF(label, f) { tileF[label] = f; render(); }
 function toggleTile(ev) { ev.currentTarget.classList.toggle('open'); }
 
 function render() {
+  progScroll();   // v80：重画后页面变短时浏览器自己调的滚动不算「人在滑」
   if (!D) return;
   // 更新时间
   // 11/18 用户：实时每 8 分钟一轮（当天曾试 35 分钟）→ 超过 25 分钟没新数据报「程序可能停了」，15 分钟变黄
@@ -833,8 +834,14 @@ function morphKids(a, b, depth) {
   }
 }
 // 自动刷新（每 30 秒、每分钟新数据）碰上手指正在滑或刚滑完：等停下来 1.2 秒再画，不打断滑动；点按钮这些马上画
-let lastTouch = 0, rsT = null;
-['touchstart', 'touchmove', 'scroll', 'wheel'].forEach(ev => addEventListener(ev, () => { lastTouch = Date.now(); }, { passive: true, capture: true }));
+// v80（11/19）：「在滑」只算手指真的移动（超过 10px）、滚轮、人滚出来的滚动（含松手后的惯性）；点一下（例：点 ↻ 刷新）不算，程序自己滚（切标签回到最上面、重画后页面变短）也不算
+//   ——以前这些都算：点 ↻ 后数据 1.2 秒内回来时，转圈停了画面还要再等才换（运营部 APP v56 同样的修法）。
+let lastTouch = 0, rsT = null, progScrollAt = 0, tsX = 0, tsY = 0;
+const progScroll = () => { progScrollAt = Date.now(); };
+addEventListener('touchstart', e => { const t = e.touches[0]; if (t) { tsX = t.clientX; tsY = t.clientY; } }, { passive: true, capture: true });
+addEventListener('touchmove', e => { const t = e.touches[0]; if (t && (Math.abs(t.clientX - tsX) > 10 || Math.abs(t.clientY - tsY) > 10)) lastTouch = Date.now(); }, { passive: true, capture: true });
+addEventListener('wheel', () => { lastTouch = Date.now(); }, { passive: true, capture: true });
+addEventListener('scroll', () => { if (Date.now() - progScrollAt > 300) lastTouch = Date.now(); }, { passive: true, capture: true });
 function renderSoon(fn) {
   fn = fn || render;
   const w = 1200 - (Date.now() - lastTouch);
