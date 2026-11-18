@@ -267,7 +267,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
   addEventListener('touchcancel', () => { on = false; hide(); }, { passive: true });
 })();
 
-const APPV = 'yunying-v55';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v56';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 在 空桌一览 里面（pj.html）还是独立 APP
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
 const LS = {
@@ -356,8 +356,9 @@ function saveKey() { const v = $('kin').value.trim(); if (!v) return; K = v; LS.
 function changeKey() { showKey(''); }
 
 // ---------- 公共 ----------
-function setTab(t) { const pv = tab; if (pv !== t) navPush('tab', () => setTab(pv)); tab = t; LS.set('pjTab', t); render(); window.scrollTo(0, 0); if (t === 'qr') loadQr(); if (t === 'rk') loadRk(); loadYcd(); }
+function setTab(t) { progScroll(); const pv = tab; if (pv !== t) navPush('tab', () => setTab(pv)); tab = t; LS.set('pjTab', t); render(); window.scrollTo(0, 0); if (t === 'qr') loadQr(); if (t === 'rk') loadRk(); loadYcd(); }
 function render() {
+  progScroll();   // v56：重画后页面变短时浏览器自己调的滚动不算「人在滑」
   SGK = []; NQK = []; SGC = [];   // 签名栏・待确认的编号表，每次重画重来
   if (BLOCKED) return;
   const ycN = ycBad().length;   // 11/16 预约异常：有订不了的页面就在按钮上显示几处
@@ -1334,7 +1335,7 @@ function prBlock(R, sel, range) {
 //   レストランボード 那天已订几组几人一起写；座位数定了以后再分「满了（正常）」和「没满却订不了（异常）」
 // 11/18 用户：「需要添加选择店铺的功能」→ 上面一条「🏪 店铺」选择（记在这台手机），⭐ 评价・🚨 预约异常・📝 处理记录 都只看这家；选「全部店」恢复
 let SEL = LS.get('selSt', '');
-function selSet(v) { SEL = v; LS.set('selSt', v); openSt = new Set(v ? [v] : []); window.scrollTo(0, 0); render(); }
+function selSet(v) { progScroll(); SEL = v; LS.set('selSt', v); openSt = new Set(v ? [v] : []); window.scrollTo(0, 0); render(); }
 const selOk = st => !SEL || st === SEL;
 function selBar() {
   const D = PJ ? pjParse() : null, Y = ycRow(), by = {};
@@ -1351,8 +1352,14 @@ function selBar() {
 //   ① 后台读到新数据（打开・切回来・签名记录・回头客・谷歌扫码）时：手指正在滑或刚滑完就等停下 1.2 秒再画；正在打字也先不画。
 //   ② 画的时候只换有变化的块（和空桌一览同一套 morph），没变的不动——不闪、不跳、输入框里写的字也不丢。
 //   ③ 切标签不再每次都向后台要签名记录（30 秒内要过就不要）；切回 APP 1 分钟内不重读。
-let lastTouch = 0, rsT = null;
-['touchstart', 'touchmove', 'scroll', 'wheel'].forEach(ev => addEventListener(ev, () => { lastTouch = Date.now(); }, { passive: true, capture: true }));
+//   v56：「在滑」只算手指真的移动（超过 10px）、滚轮、人滚出来的滚动（含松手后的惯性）；点一下不算，程序自己滚（切标签・换店回到最上面、重画后页面变短）也不算
+//   ——以前这些都算，读到的数据要白等 1.2 秒才显示（先往下滑过再点「回头客」：数据 0.23 秒到、画面 1.27 秒才出来）。
+let lastTouch = 0, rsT = null, progScrollAt = 0, tsX = 0, tsY = 0;
+const progScroll = () => { progScrollAt = Date.now(); };
+addEventListener('touchstart', e => { const t = e.touches[0]; if (t) { tsX = t.clientX; tsY = t.clientY; } }, { passive: true, capture: true });
+addEventListener('touchmove', e => { const t = e.touches[0]; if (t && (Math.abs(t.clientX - tsX) > 10 || Math.abs(t.clientY - tsY) > 10)) lastTouch = Date.now(); }, { passive: true, capture: true });
+addEventListener('wheel', () => { lastTouch = Date.now(); }, { passive: true, capture: true });
+addEventListener('scroll', () => { if (Date.now() - progScrollAt > 300) lastTouch = Date.now(); }, { passive: true, capture: true });
 function renderSoon() {
   clearTimeout(rsT);
   const w = 1200 - (Date.now() - lastTouch);
