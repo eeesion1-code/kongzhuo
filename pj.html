@@ -264,7 +264,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
   addEventListener('touchcancel', () => { on = false; hide(); }, { passive: true });
 })();
 
-const APPV = 'yunying-v49';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v50';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 在 空桌一览 里面（pj.html）还是独立 APP
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
 const LS = {
@@ -1355,7 +1355,7 @@ async function loadYcd() {
   if (ycdBusy || BLOCKED || LOCAL) return;
   ycdBusy = true;
   // 11/18 v45：评价页的「谁已处理」「算不算差评」、预约异常按钮上的数都看这份记录→ 哪一页都要重画（以前只重画预约异常页，打开 APP 先看到的评价页一直是旧的）；正在写名字时不重画，免得字被清掉
-  try { const d = await api('ycd'); if (d && d.m) { const ch = JSON.stringify(d.m) !== JSON.stringify(YCD.m || {}); YCD = d; cachePut('ycd', d); const ae = document.activeElement; if (ch && !(ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName))) render(); } else if (d && d.error === 'device') blockDevice(d); } catch (e) {}
+  try { const d = await api('ycd'); if (d && d.m) { const ch = JSON.stringify([d.m, d.h || []]) !== JSON.stringify([YCD.m || {}, YCD.h || []]);   // v50：处理记录 h 变了也重画 YCD = d; cachePut('ycd', d); const ae = document.activeElement; if (ch && !(ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName))) render(); } else if (d && d.error === 'device') blockDevice(d); } catch (e) {}
   ycdBusy = false;
 }
 // 11/18 用户：「以后有异常的，签名是都要有的」→ 签名栏做成通用的 sgBox(编号们, 提示)：异常项（订不了・重复预约・差评・自检没过・补读没跑成…）都加。
