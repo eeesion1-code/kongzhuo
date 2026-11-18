@@ -514,7 +514,7 @@ button.svdlab{color:var(--ink);font-family:inherit;line-height:1.3}
 <script>
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v67';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v68';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -2235,6 +2235,7 @@ const AC_INFO = {
 let acTab = LS.get('acTab', 'cash');
 function openAc() { if (!D || !D.owner) return; document.getElementById('acView').style.display = 'block'; document.body.style.overflow = 'hidden'; renderAc(); }
 function closeAc() { const v = document.getElementById('acView'); if (v) v.style.display = 'none'; document.body.style.overflow = ''; }
+function acOpenKj() { window.open('https://eeesion1-code.github.io/kuaiji/#k=' + encodeURIComponent(K), '_blank'); }
 function acGo(t) { acTab = t; LS.set('acTab', t); renderAc(); }
 function renderAc() {
   if (!AC_INFO[acTab]) acTab = 'cash';
@@ -2242,6 +2243,8 @@ function renderAc() {
   document.getElementById('acBody').innerHTML = '<div class="svtabs">' + AC_TABS.map(([k, n]) => `<button class="${acTab === k ? 'on' : ''}" onclick="acGo('${k}')">${n}</button>`).join('') + '</div>'
     + `<div class="svmiss">🧾 ${nm}：<b>数据源无</b>——还没接上数据（11/18：先有这些键，数据先不跑）。</div>`
     + `<div class="svcard"><div class="svct">接上以后这里显示</div><div class="svnote">${what}</div><div class="svct" style="margin-top:10px">数据从哪里来</div><div class="svnote">${src}</div></div>`
+    + '<div class="svcard"><div class="svct">💬 会计部 APP</div><div class="svnote">给会计部用的单独 APP（会计部密码登录），内容和这里一样，还有「想更新什么」意见箱：会计部写的意见会发邮件给你，也能在那边看全部。网址和密码在 G 盘「会计部／公司情报信息／APP・后台网址和密码」。</div>'
+    + '<div class="svlinks"><button onclick="acOpenKj()">打开会计部 APP（用老板密码）›</button></div></div>'
     + '<div class="foot">会计只有老板密码看得到。</div>';
 }
 function closeRelogin() { clearInterval(rlTimer); document.getElementById('rlView').style.display = 'none'; }
