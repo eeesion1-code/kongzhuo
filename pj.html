@@ -79,9 +79,9 @@ main{padding:12px 14px calc(30px + env(safe-area-inset-bottom));max-width:760px;
 .ycchk input{flex:1;min-width:0;border:1px solid var(--line);border-radius:8px;padding:5px 8px;font-size:14px;background:var(--card);color:var(--ink)}
 .ycchk button{border:0;border-radius:8px;padding:5px 10px;background:var(--good);color:#fff;font-weight:700;white-space:nowrap}
 .ycchk a{color:var(--brand);cursor:pointer}
-.selbar{display:flex;align-items:center;gap:8px;margin:0 0 10px;padding:8px 10px;border:1px solid var(--line);border-radius:12px;background:var(--card);font-size:14px}
-.selbar span{font-weight:700;white-space:nowrap}.selbar select{flex:1;min-width:0;border:1px solid var(--line);border-radius:8px;padding:6px;background:var(--card);color:var(--ink);font-size:15px}
-.selbar button{border:0;border-radius:8px;padding:6px 10px;background:var(--soft);color:var(--ink);white-space:nowrap}
+.selbar{display:flex;align-items:center;gap:6px;margin:0;padding:6px 0 8px;font-size:14px}   /* v55：在顶上固定栏里，紧凑一行 */
+.selbar span{font-weight:700;white-space:nowrap}.selbar select{flex:1;min-width:0;border:1px solid var(--line);border-radius:10px;padding:6px 8px;background:var(--card);color:var(--ink);font-size:16px;font-weight:700}
+.selbar button{border:0;border-radius:10px;padding:7px 10px;background:var(--soft);color:var(--ink);white-space:nowrap;font-size:13px}
 .ycchk textarea{display:block;width:100%;box-sizing:border-box;margin-top:4px;border:1px solid var(--line);border-radius:8px;padding:5px 8px;font-size:14px;background:var(--card);color:var(--ink);resize:vertical;font-family:inherit}
 .sgq{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}.sgq button{background:var(--soft) !important;color:var(--ink) !important;font-weight:400 !important;font-size:12px;padding:3px 8px !important}
 .sgprev{font-size:12px;margin-top:4px;padding:4px 6px;border-radius:6px;background:var(--soft);color:var(--ink)}
@@ -194,6 +194,7 @@ button:active,.seg button:active,.tabs button:active,a:active{opacity:.6}
     <span class="at" id="at"></span>
   </div>
   <div class="tabs" id="tabs"></div>
+  <div id="selh"></div>
  </div>
 </header>
 <main id="main"><div class="empty">读取中…</div></main>
@@ -266,7 +267,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
   addEventListener('touchcancel', () => { on = false; hide(); }, { passive: true });
 })();
 
-const APPV = 'yunying-v54';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v55';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 在 空桌一览 里面（pj.html）还是独立 APP
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
 const LS = {
@@ -364,7 +365,8 @@ function render() {
   $('tabs').innerHTML = tabs.map(([k, n]) => '<button class="' + (tab === k ? 'on' : '') + '" onclick="setTab(\'' + k + '\')">' + n + '</button>').join('');
   const at = tab === 'rk' ? (RK && RK.at) : tab === 'qr' ? (QRD && QRD.updated) : tab === 'pj' || tab === 'ty' || tab === 'yc' ? (PJ && PJ.at) : (HR && HR.at);
   $('at').textContent = (at ? at.slice(5).replace('-', '/') + ' 更新' : '') + (tab === 'rk' ? (rkBusy ? '・读取最新中…' : '') : tab === 'qr' ? (qrBusy ? '・读取最新中…' : '') : LOADING ? '・读取最新中…' : (pjErr && tab !== 'hr' && tab !== 'sy' && tab !== 'hy') ? '・⚠ 没读到最新（显示的是上次的）' : '');
-  patchMain((tab !== 'hr' && tab !== 'sy' && tab !== 'hy' ? selBar() : '') + (tab === 'hr' ? renderHr() : tab === 'sy' ? renderSy() : tab === 'hy' ? renderHy() : tab === 'ty' ? renderTy() : tab === 'yc' ? renderYc() : tab === 'qr' ? renderQr() : tab === 'rk' ? renderRk() : tab === 'cl' ? renderCl() : renderPj()) +
+  { const sb = tab !== 'hr' && tab !== 'sy' && tab !== 'hy' ? selBar() : '', sh = $('selh'); if (sh && sh.innerHTML !== sb && !(document.activeElement && sh.contains(document.activeElement))) sh.innerHTML = sb; }   // v55：店铺选择放进顶上固定栏，往下滑也一直在
+  patchMain((tab === 'hr' ? renderHr() : tab === 'sy' ? renderSy() : tab === 'hy' ? renderHy() : tab === 'ty' ? renderTy() : tab === 'yc' ? renderYc() : tab === 'qr' ? renderQr() : tab === 'rk' ? renderRk() : tab === 'cl' ? renderCl() : renderPj()) +
     '<div class="foot"><a onclick="changeKey()">🔑 换密码（老板 / 店长）</a>' + (IN_KZ ? '' : '　版本 ' + APPV.replace('yunying-v', '')) + '</div>');
 }
 const stars = s => s == null ? '' : '<span class="stars">' + '★'.repeat(Math.round(s)) + '<span style="opacity:.25">' + '★'.repeat(5 - Math.round(s)) + '</span></span>';
