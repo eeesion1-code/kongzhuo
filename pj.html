@@ -264,7 +264,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
   addEventListener('touchcancel', () => { on = false; hide(); }, { passive: true });
 })();
 
-const APPV = 'yunying-v50';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v51';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 在 空桌一览 里面（pj.html）还是独立 APP
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
 const LS = {
@@ -1369,6 +1369,7 @@ const SG_CAT = id => /^rv\|/.test(id) ? '差评' : /^dup\|/.test(id) ? '重复�
 const SG_QUICK = { '差评': ['已在平台回复', '店内开会讲了', '联系上客人道歉', '改了做法：'], '预约订不了': ['重新打开网页预约', '调了席数・时间', '本来就要关（包场等）', '联系平台处理'],
   '重复预约': ['打电话确认了', '取消了重复的那组', '客人说两组都要'], '自检没过': ['告诉 Claude 了'], '补读没跑成': ['重新登录了', '告诉 Claude 了'] };
 let SGC = [];
+const SGD = {};   // v51：「怎么处理的」写到一半的草稿（按编号存），页面重画也不丢；保存成功才清掉
 function sgPrev(ctx) {   // 上次同类怎么处理的：这家店优先，没有就别的店
   const H = YCD.h || [], same = ctx.店 ? H.find(r => r[2] === ctx.类 && r[3] === ctx.店) : null, any = same || H.find(r => r[2] === ctx.类);
   return any ? (same ? '这家店上次' : '别的店上次（' + (any[3] || '') + '）') + ' ' + String(any[0]).slice(5, 10) + ' ' + any[1] + '：' + any[5] : '';
@@ -1381,10 +1382,10 @@ function sgBox(ids, tip, ctx) {
   const pv = sgPrev(ctx);
   return '<div class="ycchk"><div class="tyc">' + esc(tip || '处理了吗？写上怎么处理的和名字') + '</div>' + (pv ? '<div class="sgprev">📒 ' + esc(pv) + '</div>' : '') +
     '<div class="sgq">' + (SG_QUICK[ctx.类] || []).map(q => '<button onclick="sgQuick(' + n + ',this)">' + esc(q) + '</button>').join('') + '</div>' +
-    '<textarea id="sgh' + n + '" rows="2" maxlength="200" placeholder="怎么处理的（必填，可点上面的常用做法）"></textarea>' +
+    '<textarea id="sgh' + n + '" rows="2" maxlength="200" placeholder="怎么处理的（必填，可点上面的常用做法）" oninput="SGD[SGK[' + n + '][0]]=this.value">' + esc(SGD[ids[0]] || '') + '</textarea>' +
     '<div style="display:flex;gap:6px;margin-top:4px"><input id="sgi' + n + '" placeholder="名字" maxlength="20" value="' + esc(LS.get('ycWho', '')) + '"><button id="sgb' + n + '" onclick="sgSend(' + n + ',\'done\')">✅ 已处理</button></div></div>';
 }
-function sgQuick(n, b) { const t = $('sgh' + n); if (!t) return; const q = b.textContent; t.value = t.value.trim() ? t.value.trim() + '；' + q : q; t.focus(); }
+function sgQuick(n, b) { const t = $('sgh' + n); if (!t) return; const q = b.textContent; t.value = t.value.trim() ? t.value.trim() + '；' + q : q; SGD[SGK[n][0]] = t.value; t.focus(); }
 const sgWrap = (inner, box) => box ? '<div class="ycw"><div class="ycm">' + inner + '</div>' + box + '</div>' : inner;
 const sgHash = t => { let h = 5381; for (const c of String(t)) h = (h * 33 + c.codePointAt(0)) >>> 0; return h.toString(36); };
 async function sgSend(n, act) {
@@ -1403,7 +1404,7 @@ async function sgSend(n, act) {
     const d = await r.json();
     if (d && d.error === 'device') return blockDevice(d);
     if (!d || !d.m) throw new Error((d && d.error) || '没存上');
-    YCD = d; cachePut('ycd', d);
+    YCD = d; cachePut('ycd', d); delete SGD[ids[0]];
   } catch (e) { alert('没保存成功：' + (e.message || '网络不通') + '，请再按一次'); }
   render();
 }
