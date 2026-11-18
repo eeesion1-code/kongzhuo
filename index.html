@@ -270,6 +270,8 @@ h3{font-size:13px;margin:14px 2px 6px;color:var(--sub);font-weight:600}
 
 /* 底部导航 */
 nav{position:fixed;left:0;right:0;bottom:0;z-index:10;display:flex;background:var(--card);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom)}
+.navhint{position:fixed;top:45%;z-index:9999;padding:8px 14px;border-radius:999px;background:rgba(0,0,0,.72);color:#fff;font-size:15px;font-weight:700;pointer-events:none;opacity:0;transition:opacity .12s}
+.navhint.go{background:var(--brand,#3b82f6)}
 nav button{flex:1;border:0;background:none;padding:8px 0 6px;font-size:11px;color:var(--sub)}
 nav button span{display:block;font-size:20px;line-height:1.2}
 nav button.on{color:var(--brand)}
@@ -512,9 +514,76 @@ button.svdlab{color:var(--ink);font-family:inherit;line-height:1.3}
   <button id="acBtn" onclick="openAc()" style="display:none"><span>🧾</span>会计</button>
 </nav>
 <script>
+function navTop() { return null; }   // 空桌一览最上层：没有再往前的页
+
+// ===== 11/18 用户：「苹果手机中间或中下部分向左滑或右滑可以退回前一页」=====
+//   放到主屏幕的 APP 没有浏览器的返回 → 自己记「返回要做的事」（开了哪个页、切了哪个标签），同时写进浏览器历史，
+//   所以 Safari 自带的边缘右滑、安卓的返回键也一样能退。手势：从屏幕高度 30% 以下开始，横着滑够远（左右都行）就退一步。
+//   不抢：输入框里、能横着滚的地方（标签条・宽表格）、图表上开始的不算；Safari 里（不是主屏幕 APP）贴边开始的留给 Safari 自己。
+const NAVS = [];
+let navSilent = false, navSkip = 0;
+function navPush(tag, undo) {
+  if (navSilent) return;
+  NAVS.push({ tag, undo });
+  if (NAVS.length > 40) NAVS.shift();
+  try { history.pushState({ nav: NAVS.length }, ''); } catch (e) {}
+}
+function navDone(tag) {   // 用按钮关掉的：返回记录里对应那一步一起拿掉
+  if (navSilent) return;
+  const i = NAVS.map(x => x.tag).lastIndexOf(tag);
+  if (i < 0) return;
+  const n = NAVS.length - i; NAVS.length = i; navSkip++;
+  try { history.go(-n); } catch (e) { navSkip--; }
+}
+addEventListener('popstate', () => {
+  if (navSkip) { navSkip--; return; }
+  const f = NAVS.pop();
+  if (!f) return;
+  navSilent = true;
+  try { f.undo(); } catch (e) {} finally { navSilent = false; }
+});
+const navCan = () => NAVS.length > 0 || !!navTop();
+function navBack() { if (NAVS.length) history.back(); else { const f = navTop(); if (f) f(); } }
+(() => {
+  const SA = !!(navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches));
+  let on = false, sx = 0, sy = 0, st = 0, hint = null;
+  const show = dx => {
+    if (!hint) { hint = document.createElement('div'); hint.className = 'navhint'; hint.textContent = '‹ 返回'; document.body.appendChild(hint); }
+    const k = Math.min(1, Math.abs(dx) / Math.min(110, innerWidth * 0.28));
+    hint.style.opacity = String(0.25 + 0.75 * k);
+    hint.style.left = dx > 0 ? '10px' : ''; hint.style.right = dx > 0 ? '' : '10px';
+    hint.classList.toggle('go', k >= 1);
+  };
+  const hide = () => { if (hint) hint.style.opacity = '0'; };
+  const hScroll = el => { for (; el && el !== document.body && el !== document.documentElement; el = el.parentElement) {
+    if (el.scrollWidth > el.clientWidth + 2) { const o = getComputedStyle(el).overflowX; if (o === 'auto' || o === 'scroll') return true; } } return false; };
+  addEventListener('touchstart', e => {
+    on = false;
+    if (e.touches.length !== 1 || !navCan()) return;
+    const t = e.touches[0];
+    if (t.clientY < innerHeight * 0.3) return;
+    if (!SA && (t.clientX < 28 || t.clientX > innerWidth - 28)) return;
+    const el = e.target instanceof Element ? e.target : null;
+    if (el && (el.closest('input,textarea,select,svg,canvas,[data-noswipe]') || hScroll(el))) return;
+    on = true; sx = t.clientX; sy = t.clientY; st = Date.now();
+  }, { passive: true });
+  addEventListener('touchmove', e => {
+    if (!on) return;
+    const t = e.touches[0], dx = t.clientX - sx, dy = t.clientY - sy;
+    if (Math.abs(dy) > 40 && Math.abs(dy) > Math.abs(dx)) { on = false; hide(); return; }
+    if (Math.abs(dx) > 24) show(dx);
+  }, { passive: true });
+  addEventListener('touchend', e => {
+    if (!on) return;
+    on = false; hide();
+    const t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy;
+    if (Math.abs(dx) >= Math.min(110, innerWidth * 0.28) && Math.abs(dx) > 2 * Math.abs(dy) && Date.now() - st < 900) navBack();
+  }, { passive: true });
+  addEventListener('touchcancel', () => { on = false; hide(); }, { passive: true });
+})();
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v77';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v78';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -627,7 +696,7 @@ function seat(t) {
 }
 const fmtMin = m => m == null ? '' : m < 60 ? m + '分' : Math.floor(m / 60) + '时' + String(m % 60).padStart(2, '0');
 
-function setTab(t) { tab = t; LS.set('tab', t); window.scrollTo(0, 0); render(); if (t === 'pw') loadPw(); }
+function setTab(t) { const pv = tab; if (pv !== t) navPush('tab', () => setTab(pv)); tab = t; LS.set('tab', t); window.scrollTo(0, 0); render(); if (t === 'pw') loadPw(); }
 function toggleSort() { sortBy = sortBy === 'free' ? 'area' : 'free'; LS.set('sort2', sortBy); render(); }
 function toggleFav(ev, label) {
   ev.stopPropagation();
@@ -935,6 +1004,7 @@ function svPrefetch() {
   });
 }
 function openSales(ds) {
+  navPush('sales', closeSales);
   if (!D || !(D.owner || D.sk)) return;
   document.getElementById('salesView').style.display = 'block';
   document.body.style.overflow = 'hidden';
@@ -945,7 +1015,7 @@ function openSales(ds) {
   renderSales();
   svPrefetch();
 }
-function closeSales() { document.getElementById('salesView').style.display = 'none'; document.body.style.overflow = ''; if (D) render(); }
+function closeSales() { navDone('sales'); document.getElementById('salesView').style.display = 'none'; document.body.style.overflow = ''; if (D) render(); }
 // 某天的数据：今天用实时（D.sales、各店 s.sales），以前用日报
 // 11/14 用户：「昨天的营业额哪里看」——上午（今天的实时还没开始读）实时数据其实是昨天的最终读数，以前却当成「今天」显示。
 // 实时数据属于它最后一次读数的营业日（6 点前算前一天：5:20 是通宵店收尾）；那天日报还没出来时就用它（fin＝那天已经结束）
@@ -1244,7 +1314,7 @@ function svMonAct(y, m) {
 // 全页一个「对比」开关（svCmpM：去年同期／上个月同期／上周同日），所有增减都跟着它
 let svTab = LS.get('svTab', 'ov'), svStSort = LS.get('svStSort', 'amt');
 const SV_TABS = [['ov', '总览'], ['day', '每日'], ['hr', '时段'], ['st', '各店'], ['fc', '预测'], ['lab', '人工'], ['so', '品切れ']];   // so＝三幸園才有（11/16）
-function svGo(tab, ds) { if (ds) { svDay = ds; svMon = ds.slice(0, 7); svRg = null; svRgCal = null; } svTab = tab; LS.set('svTab', tab); renderSales(); const v = document.getElementById('salesView'); if (v) v.scrollTop = 0; }
+function svGo(tab, ds) { { const pt = svTab, pd = svDay, pm = svMon; if (pt !== tab || ds) navPush('sv', () => { svDay = pd; svMon = pm; svTab = pt; LS.set('svTab', pt); renderSales(); }); } if (ds) { svDay = ds; svMon = ds.slice(0, 7); svRg = null; svRgCal = null; } svTab = tab; LS.set('svTab', tab); renderSales(); const v = document.getElementById('salesView'); if (v) v.scrollTop = 0; }
 function svStep(n) { const d = svAdd(svDay, n); if (d <= svToday()) svPick(d); }
 function svSetSort(s) { svStSort = s; LS.set('svStSort', s); renderSales(); }
 const svWk = ds => '日一二三四五六'[svDate(ds).getDay()];
@@ -2123,6 +2193,7 @@ function rlStatus(st) {
     + (st.done && st.result ? `<div class="rlres"><b>结果（${rlHm(st.done)}）</b><br>${esc(st.result).replace(/\n/g, '<br>')}</div>` : '');
 }
 function openRelogin() {
+  if (D && D.owner) navPush('rl', closeRelogin);
   if (!D || !D.owner) return;
   document.getElementById('rlView').style.display = 'flex';
   rlShow('读取中…');
@@ -2207,8 +2278,8 @@ function rlWait(req) {
 // ---- 11/18 老板：登录手机名单（用户：「17 个人用，只能在这 17 台手机登录，其他手机不能登录；有被登录的时候显示异常，单独用邮件发给我」）----
 const DV_ROLE = { owner: '老板密码', staff: '店长密码', sk: '三幸園店长密码', ac: '会计部密码' };
 let DVL = null;
-function openDev() { if (!D || !D.owner) return; document.getElementById('dvView').style.display = 'flex'; devShow('<div class="rlst">读取中…</div>'); devDo(''); }
-function closeDev() { document.getElementById('dvView').style.display = 'none'; }
+function openDev() { if (!D || !D.owner) return; navPush('dv', closeDev); document.getElementById('dvView').style.display = 'flex'; devShow('<div class="rlst">读取中…</div>'); devDo(''); }
+function closeDev() { navDone('dv'); document.getElementById('dvView').style.display = 'none'; }
 function devShow(h) { document.getElementById('dvBody').innerHTML = h; }
 function devDo(q, ask) {
   if (ask && !confirm(ask)) return;
@@ -2242,8 +2313,8 @@ const AC_INFO = {
   pl: ['每家店每个月：营业额 − 工资 − 食材酒水 − 房租等，看赚多少。', '营业额＝收银台日报；工资＝工资表；食材酒水・房租等＝freee 记账。'],
 };
 let acTab = LS.get('acTab', 'cash');
-function openAc() { if (!D || !D.owner) return; document.getElementById('acView').style.display = 'block'; document.body.style.overflow = 'hidden'; renderAc(); }
-function closeAc() { const v = document.getElementById('acView'); if (v) v.style.display = 'none'; document.body.style.overflow = ''; }
+function openAc() { if (!D || !D.owner) return; navPush('ac', closeAc); document.getElementById('acView').style.display = 'block'; document.body.style.overflow = 'hidden'; renderAc(); }
+function closeAc() { navDone('ac'); const v = document.getElementById('acView'); if (v) v.style.display = 'none'; document.body.style.overflow = ''; }
 function acOpenKj() { window.open('https://eeesion1-code.github.io/kuaiji/#k=' + encodeURIComponent(K), '_blank'); }
 function acGo(t) { acTab = t; LS.set('acTab', t); renderAc(); }
 function renderAc() {
@@ -2256,7 +2327,7 @@ function renderAc() {
     + '<div class="svlinks"><button onclick="acOpenKj()">打开会计部 APP（用老板密码）›</button></div></div>'
     + '<div class="foot">会计只有老板密码看得到。</div>';
 }
-function closeRelogin() { clearInterval(rlTimer); document.getElementById('rlView').style.display = 'none'; }
+function closeRelogin() { navDone('rl'); clearInterval(rlTimer); document.getElementById('rlView').style.display = 'none'; }
 function card(s) {
   const isOpen = isOpenS(s.label), fav = favs.includes(s.label);
   const pct = s.n ? s.free / s.n : 0, cls = pct >= 0.5 ? 'g' : pct >= 0.2 ? 'm' : 'rr';

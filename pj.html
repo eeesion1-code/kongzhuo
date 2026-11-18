@@ -171,6 +171,8 @@ u.ng{text-decoration:underline;text-decoration-color:var(--bad);text-decoration-
 .keybox{max-width:360px;margin:40px auto;text-align:center}
 .keybox input{width:100%;font:inherit;font-size:16px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);margin:10px 0}
 .keybox button{width:100%;border:0;background:var(--brand);color:#fff;border-radius:10px;padding:10px;font-weight:700}
+.navhint{position:fixed;top:45%;z-index:9999;padding:8px 14px;border-radius:999px;background:rgba(0,0,0,.72);color:#fff;font-size:15px;font-weight:700;pointer-events:none;opacity:0;transition:opacity .12s}
+.navhint.go{background:var(--brand,#3b82f6)}
 </style>
 </head>
 <body>
@@ -187,7 +189,75 @@ u.ng{text-decoration:underline;text-decoration-color:var(--bad);text-decoration-
 </header>
 <main id="main"><div class="empty">读取中…</div></main>
 <script>
-const APPV = 'yunying-v46';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+// 空桌一览里的 pj.html：最上层再滑就回空桌一览（IN_KZ 在下面定义，用的时候才读）
+function navTop() { return IN_KZ ? () => { location.href = './'; } : null; }
+// ===== 11/18 用户：「苹果手机中间或中下部分向左滑或右滑可以退回前一页」=====
+//   放到主屏幕的 APP 没有浏览器的返回 → 自己记「返回要做的事」（开了哪个页、切了哪个标签），同时写进浏览器历史，
+//   所以 Safari 自带的边缘右滑、安卓的返回键也一样能退。手势：从屏幕高度 30% 以下开始，横着滑够远（左右都行）就退一步。
+//   不抢：输入框里、能横着滚的地方（标签条・宽表格）、图表上开始的不算；Safari 里（不是主屏幕 APP）贴边开始的留给 Safari 自己。
+const NAVS = [];
+let navSilent = false, navSkip = 0;
+function navPush(tag, undo) {
+  if (navSilent) return;
+  NAVS.push({ tag, undo });
+  if (NAVS.length > 40) NAVS.shift();
+  try { history.pushState({ nav: NAVS.length }, ''); } catch (e) {}
+}
+function navDone(tag) {   // 用按钮关掉的：返回记录里对应那一步一起拿掉
+  if (navSilent) return;
+  const i = NAVS.map(x => x.tag).lastIndexOf(tag);
+  if (i < 0) return;
+  const n = NAVS.length - i; NAVS.length = i; navSkip++;
+  try { history.go(-n); } catch (e) { navSkip--; }
+}
+addEventListener('popstate', () => {
+  if (navSkip) { navSkip--; return; }
+  const f = NAVS.pop();
+  if (!f) return;
+  navSilent = true;
+  try { f.undo(); } catch (e) {} finally { navSilent = false; }
+});
+const navCan = () => NAVS.length > 0 || !!navTop();
+function navBack() { if (NAVS.length) history.back(); else { const f = navTop(); if (f) f(); } }
+(() => {
+  const SA = !!(navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches));
+  let on = false, sx = 0, sy = 0, st = 0, hint = null;
+  const show = dx => {
+    if (!hint) { hint = document.createElement('div'); hint.className = 'navhint'; hint.textContent = '‹ 返回'; document.body.appendChild(hint); }
+    const k = Math.min(1, Math.abs(dx) / Math.min(110, innerWidth * 0.28));
+    hint.style.opacity = String(0.25 + 0.75 * k);
+    hint.style.left = dx > 0 ? '10px' : ''; hint.style.right = dx > 0 ? '' : '10px';
+    hint.classList.toggle('go', k >= 1);
+  };
+  const hide = () => { if (hint) hint.style.opacity = '0'; };
+  const hScroll = el => { for (; el && el !== document.body && el !== document.documentElement; el = el.parentElement) {
+    if (el.scrollWidth > el.clientWidth + 2) { const o = getComputedStyle(el).overflowX; if (o === 'auto' || o === 'scroll') return true; } } return false; };
+  addEventListener('touchstart', e => {
+    on = false;
+    if (e.touches.length !== 1 || !navCan()) return;
+    const t = e.touches[0];
+    if (t.clientY < innerHeight * 0.3) return;
+    if (!SA && (t.clientX < 28 || t.clientX > innerWidth - 28)) return;
+    const el = e.target instanceof Element ? e.target : null;
+    if (el && (el.closest('input,textarea,select,svg,canvas,[data-noswipe]') || hScroll(el))) return;
+    on = true; sx = t.clientX; sy = t.clientY; st = Date.now();
+  }, { passive: true });
+  addEventListener('touchmove', e => {
+    if (!on) return;
+    const t = e.touches[0], dx = t.clientX - sx, dy = t.clientY - sy;
+    if (Math.abs(dy) > 40 && Math.abs(dy) > Math.abs(dx)) { on = false; hide(); return; }
+    if (Math.abs(dx) > 24) show(dx);
+  }, { passive: true });
+  addEventListener('touchend', e => {
+    if (!on) return;
+    on = false; hide();
+    const t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy;
+    if (Math.abs(dx) >= Math.min(110, innerWidth * 0.28) && Math.abs(dx) > 2 * Math.abs(dy) && Date.now() - st < 900) navBack();
+  }, { passive: true });
+  addEventListener('touchcancel', () => { on = false; hide(); }, { passive: true });
+})();
+
+const APPV = 'yunying-v47';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 在 空桌一览 里面（pj.html）还是独立 APP
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
 const LS = {
@@ -275,7 +345,7 @@ function saveKey() { const v = $('kin').value.trim(); if (!v) return; K = v; LS.
 function changeKey() { showKey(''); }
 
 // ---------- 公共 ----------
-function setTab(t) { tab = t; LS.set('pjTab', t); render(); window.scrollTo(0, 0); if (t === 'qr') loadQr(); if (t === 'rk') loadRk(); loadYcd(); }
+function setTab(t) { const pv = tab; if (pv !== t) navPush('tab', () => setTab(pv)); tab = t; LS.set('pjTab', t); render(); window.scrollTo(0, 0); if (t === 'qr') loadQr(); if (t === 'rk') loadRk(); loadYcd(); }
 function render() {
   SGK = []; NQK = [];   // 签名栏・待确认的编号表，每次重画重来
   if (BLOCKED) return;
