@@ -180,6 +180,8 @@ u.ng{text-decoration:underline;text-decoration-color:var(--bad);text-decoration-
 .keybox button{width:100%;border:0;background:var(--brand);color:#fff;border-radius:10px;padding:10px;font-weight:700}
 .navhint{position:fixed;top:45%;z-index:9999;padding:8px 14px;border-radius:999px;background:rgba(0,0,0,.72);color:#fff;font-size:15px;font-weight:700;pointer-events:none;opacity:0;transition:opacity .12s}
 .navhint.go{background:var(--brand,#3b82f6)}
+html{touch-action:manipulation;-webkit-tap-highlight-color:transparent}
+button:active,.seg button:active,.tabs button:active,a:active{opacity:.6}
 </style>
 </head>
 <body>
@@ -264,7 +266,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
   addEventListener('touchcancel', () => { on = false; hide(); }, { passive: true });
 })();
 
-const APPV = 'yunying-v53';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v54';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 在 空桌一览 里面（pj.html）还是独立 APP
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
 const LS = {
@@ -308,6 +310,7 @@ async function api(what) {
 function cacheGet(what) { try { return JSON.parse(LS.get('pjc_' + what, 'null')); } catch (e) { return null; } }
 function cachePut(what, d) { try { localStorage.setItem('pjc_' + what, JSON.stringify(d)); } catch (e) {} }
 
+let lastLoad = 0;
 async function load() {
   if (!K && !LOCAL) return showKey();
   PJ = cacheGet('pj'); HR = cacheGet('hr'); owner = !!HR;
@@ -318,7 +321,7 @@ async function load() {
     const d = a.value;
     if (d && d.error === 'key') { LS.del('k'); K = ''; return showKey('密码不对'); }
     if (d && d.error === 'device') return blockDevice(d);   // 11/18：没登记的手机
-    if (d && Array.isArray(d.rows)) { PJ = d; pjErr = ''; cachePut('pj', d); }
+    if (d && Array.isArray(d.rows)) { const same = PJ && PJ.at === d.at && (PJ.rows || []).length === d.rows.length; PJ = d; pjErr = ''; if (!same) setTimeout(() => cachePut('pj', d), 400); }   // v54：1MB 多的缓存晚一点写、没变就不写（写的时候手机会顿一下）
     else pjErr = '读不到评价数据（后台还没部署新版本）';
   } else pjErr = '网络不通，显示的是上次的数据';
   if (b.status === 'fulfilled') {
@@ -328,8 +331,8 @@ async function load() {
     else if (owner || (d && !d.error)) hrErr = '读不到人事评价（后台还没部署新版本）';
   }
   if (!owner && tab !== 'pj' && tab !== 'ty' && tab !== 'yc' && tab !== 'qr' && tab !== 'rk' && tab !== 'cl') tab = 'pj';
-  LOADING = false;
-  render();
+  LOADING = false; lastLoad = Date.now();
+  renderSoon();
   if (tab === 'qr') loadQr();
   if (tab === 'rk') loadRk();
   loadYcd();
@@ -361,8 +364,8 @@ function render() {
   $('tabs').innerHTML = tabs.map(([k, n]) => '<button class="' + (tab === k ? 'on' : '') + '" onclick="setTab(\'' + k + '\')">' + n + '</button>').join('');
   const at = tab === 'rk' ? (RK && RK.at) : tab === 'qr' ? (QRD && QRD.updated) : tab === 'pj' || tab === 'ty' || tab === 'yc' ? (PJ && PJ.at) : (HR && HR.at);
   $('at').textContent = (at ? at.slice(5).replace('-', '/') + ' 更新' : '') + (tab === 'rk' ? (rkBusy ? '・读取最新中…' : '') : tab === 'qr' ? (qrBusy ? '・读取最新中…' : '') : LOADING ? '・读取最新中…' : (pjErr && tab !== 'hr' && tab !== 'sy' && tab !== 'hy') ? '・⚠ 没读到最新（显示的是上次的）' : '');
-  $('main').innerHTML = (tab !== 'hr' && tab !== 'sy' && tab !== 'hy' ? selBar() : '') + (tab === 'hr' ? renderHr() : tab === 'sy' ? renderSy() : tab === 'hy' ? renderHy() : tab === 'ty' ? renderTy() : tab === 'yc' ? renderYc() : tab === 'qr' ? renderQr() : tab === 'rk' ? renderRk() : tab === 'cl' ? renderCl() : renderPj()) +
-    '<div class="foot"><a onclick="changeKey()">🔑 换密码（老板 / 店长）</a>' + (IN_KZ ? '' : '　版本 ' + APPV.replace('yunying-v', '')) + '</div>';
+  patchMain((tab !== 'hr' && tab !== 'sy' && tab !== 'hy' ? selBar() : '') + (tab === 'hr' ? renderHr() : tab === 'sy' ? renderSy() : tab === 'hy' ? renderHy() : tab === 'ty' ? renderTy() : tab === 'yc' ? renderYc() : tab === 'qr' ? renderQr() : tab === 'rk' ? renderRk() : tab === 'cl' ? renderCl() : renderPj()) +
+    '<div class="foot"><a onclick="changeKey()">🔑 换密码（老板 / 店长）</a>' + (IN_KZ ? '' : '　版本 ' + APPV.replace('yunying-v', '')) + '</div>');
 }
 const stars = s => s == null ? '' : '<span class="stars">' + '★'.repeat(Math.round(s)) + '<span style="opacity:.25">' + '★'.repeat(5 - Math.round(s)) + '</span></span>';
 function brandShort(n) {
@@ -412,7 +415,7 @@ async function loadRk() {
     else rkErr = '读不到回头客数据（后台还没部署新版本）';
   } catch (e) { rkErr = '网络不通，显示的是上次的数据'; }
   rkBusy = false;
-  if (tab === 'rk') render();
+  if (tab === 'rk') renderSoon();
 }
 function rkSet(m) { rkMonth = m; LS.set('rkMonth', m); render(); }
 // 11/18 用户：「同比同月份可以放在一起对比，和选择时间区间的对比」→ 三种看法：按月・同比（同月份去年今年并排）・区间对比（自己选两段）
@@ -539,9 +542,9 @@ let QRD = cacheGet('qr'), qrBusy = false, qrErr = '', qrPer = LS.get('qrPer', 't
 function qrCfg() { return ((PJ && PJ.rows) || []).find(r => r.k === 'qr') || null; }
 async function loadQr() {
   const c = qrCfg();
-  if (LOCAL && !c) { try { const r = await fetch('./_qr.json', { cache: 'no-store' }); QRD = await r.json(); } catch (e) {} if (tab === 'qr') render(); return; }
+  if (LOCAL && !c) { try { const r = await fetch('./_qr.json', { cache: 'no-store' }); QRD = await r.json(); } catch (e) {} if (tab === 'qr') renderSoon(); return; }
   if (!c || qrBusy || BLOCKED) return;
-  qrBusy = true; qrErr = ''; if (tab === 'qr') render();
+  qrBusy = true; qrErr = ''; if (tab === 'qr') renderSoon();
   try {
     const r = await fetch(c.api + '?fmt=json&k=' + encodeURIComponent(c.key) + '&_=' + Date.now(), { cache: 'no-store' });
     const d = await r.json();
@@ -549,7 +552,7 @@ async function loadQr() {
     QRD = d; cachePut('qr', d);
   } catch (e) { qrErr = '没读到最新的扫码数据（' + (e.message || '网络') + '），显示的是上次的'; }
   qrBusy = false;
-  if (tab === 'qr') render();
+  if (tab === 'qr') renderSoon();
 }
 function qrSetPer(p) { qrPer = p; LS.set('qrPer', p); render(); }
 function qrSetStore(v) { qrStore = v; LS.set('qrStore', v); render(); }
@@ -1341,6 +1344,38 @@ function selBar() {
     gs.map(([g, ks]) => '<optgroup label="' + esc(g) + '">' + [...ks].map(k => '<option value="' + esc(k) + '"' + (k === SEL ? ' selected' : '') + '>' + esc(k) + '</option>').join('') + '</optgroup>').join('') +
     '</select>' + (SEL ? '<button onclick="selSet(\'\')">看全部店</button>' : '') + '</div>';
 }
+
+// ===== 11/19 用户：「APP 有的地方还是卡顿，优化画面卡顿，要人性化」=====
+//   ① 后台读到新数据（打开・切回来・签名记录・回头客・谷歌扫码）时：手指正在滑或刚滑完就等停下 1.2 秒再画；正在打字也先不画。
+//   ② 画的时候只换有变化的块（和空桌一览同一套 morph），没变的不动——不闪、不跳、输入框里写的字也不丢。
+//   ③ 切标签不再每次都向后台要签名记录（30 秒内要过就不要）；切回 APP 1 分钟内不重读。
+let lastTouch = 0, rsT = null;
+['touchstart', 'touchmove', 'scroll', 'wheel'].forEach(ev => addEventListener(ev, () => { lastTouch = Date.now(); }, { passive: true, capture: true }));
+function renderSoon() {
+  clearTimeout(rsT);
+  const w = 1200 - (Date.now() - lastTouch);
+  if (w > 0) { rsT = setTimeout(renderSoon, w); return; }
+  const ae = document.activeElement;
+  if (ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName) && $('main') && $('main').contains(ae)) { rsT = setTimeout(renderSoon, 1500); return; }
+  render();
+}
+function morphKids(a, b, depth) {
+  const nb = [...b.children], na = a.children;
+  if (na.length !== nb.length || depth > 3) { a.replaceChildren(...nb); return; }
+  for (let i = 0; i < nb.length; i++) {
+    const x = na[i], y = nb[i];
+    if (x.isEqualNode(y)) continue;
+    if (x.tagName === y.tagName && x.className === y.className && x.id === y.id && x.children.length && !/^(TEXTAREA|SELECT|INPUT|BUTTON|TABLE|SVG)$/i.test(x.tagName)
+        && [...x.attributes].every(at => y.getAttribute(at.name) === at.value) && x.attributes.length === y.attributes.length
+        && (x.childNodes.length === x.children.length || x.textContent === y.textContent)) morphKids(x, y, depth + 1);
+    else a.replaceChild(y, x);
+  }
+}
+function patchMain(html) {
+  const el = $('main'), tpl = document.createElement('template'); tpl.innerHTML = html;
+  if (!el.children.length) { el.replaceChildren(...tpl.content.children); return; }
+  morphKids(el, tpl.content, 0);
+}
 const ycRowAll = () => ((PJ && PJ.rows) || []).find(r => r.k === 'yc');
 function ycRow() {   // 选了店：订不了・重复・各页都只留这家
   const Y = ycRowAll();
@@ -1355,12 +1390,13 @@ const ycBad = () => { const Y = ycRow(); return Y ? [...new Set((Y['订不了'] 
 let YCD = cacheGet('ycd') || { m: {} }, ycdBusy = false;
 const ycId = b => b['链接'] + '|' + b['日'];
 const ycDoneOf = b => (YCD.m || {})[ycId(b)];
+let ycdAt = 0;
 async function loadYcd() {
-  if (ycdBusy || BLOCKED || LOCAL) return;
-  ycdBusy = true;
+  if (ycdBusy || BLOCKED || LOCAL || Date.now() - ycdAt < 30000) return;
+  ycdBusy = true; ycdAt = Date.now();
   // 11/18 v45：评价页的「谁已处理」「算不算差评」、预约异常按钮上的数都看这份记录→ 哪一页都要重画（以前只重画预约异常页，打开 APP 先看到的评价页一直是旧的）；正在写名字时不重画，免得字被清掉
   // v50：处理记录 h 变了也重画（v52：这句注释原来插在下一行中间，把后面的代码都注释掉了，整页脚本跑不起来）
-  try { const d = await api('ycd'); if (d && d.m) { const ch = JSON.stringify([d.m, d.h || []]) !== JSON.stringify([YCD.m || {}, YCD.h || []]); YCD = d; cachePut('ycd', d); const ae = document.activeElement; if (ch && !(ae && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName))) render(); } else if (d && d.error === 'device') blockDevice(d); } catch (e) {}
+  try { const d = await api('ycd'); if (d && d.m) { const ch = JSON.stringify([d.m, d.h || []]) !== JSON.stringify([YCD.m || {}, YCD.h || []]); YCD = d; cachePut('ycd', d); const ae = document.activeElement; if (ch) renderSoon(); } else if (d && d.error === 'device') blockDevice(d); } catch (e) {}
   ycdBusy = false;
 }
 // 11/18 用户：「以后有异常的，签名是都要有的」→ 签名栏做成通用的 sgBox(编号们, 提示)：异常项（订不了・重复预约・差评・自检没过・补读没跑成…）都加。
@@ -1551,7 +1587,7 @@ async function checkUpdate() {
     if (v && v !== APPV && LS.get('reloadedFor', '') !== v) { LS.set('reloadedFor', v); location.reload(); }
   } catch (e) {}
 }
-document.addEventListener('visibilitychange', () => { if (!document.hidden) { checkUpdate(); if (K) load(); } });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { checkUpdate(); if (K && Date.now() - lastLoad > 60000) load(); } });   // v54：1 分钟内切回来不重读
 setInterval(() => { if (!document.hidden && K && tab === 'qr') loadQr(); }, 120000);   // 11/18 谷歌扫码页开着时每 2 分钟读一次
 checkUpdate();
 load();
