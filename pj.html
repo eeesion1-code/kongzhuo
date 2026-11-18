@@ -179,7 +179,7 @@ main{padding:12px 14px calc(30px + env(safe-area-inset-bottom));max-width:760px;
 </header>
 <main id="main"><div class="empty">读取中…</div></main>
 <script>
-const APPV = 'yunying-v33';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v36';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 在 空桌一览 里面（pj.html）还是独立 APP
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
 const LS = {
@@ -190,12 +190,13 @@ const LS = {
 const LOCAL = /[?&]local=1/.test(location.search);   // 本机测试：读 ./_pj.json ./_hr.json
 let K = LS.get('k', '');
 // 11/18：只有登记过的手机能用 → 和主页（index.html）同一个手机编号 dv（同一个网站，手机里共用）
+//   iPhone：放到主屏幕的 APP 各有各的存储（和 Safari 也分开）→ 独立运营部 APP 会是另一个编号，说明后面加「・运营部APP」，名单里分得清
 const DV = (() => { let v = LS.get('dv', ''); if (!/^[0-9a-f]{32}$/.test(v)) { const a = new Uint8Array(16); crypto.getRandomValues(a); v = Array.from(a, b => b.toString(16).padStart(2, '0')).join(''); LS.set('dv', v); } return v; })();
-const DVUA = (() => { const u = navigator.userAgent, st = (navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) ? '主屏幕APP' : '浏览器'; let m;
-  if ((m = u.match(/iPhone OS ([\d_]+)/))) return `iPhone iOS ${m[1].replace(/_/g, '.')}・${st}`;
-  if ((m = u.match(/iPad.*? OS ([\d_]+)/))) return `iPad iOS ${m[1].replace(/_/g, '.')}・${st}`;
-  if ((m = u.match(/Android ([\d.]+); ([^;)]+)/))) return `Android ${m[1]} ${m[2].trim()}・${st}`;
-  return `${(u.match(/Windows NT|Macintosh|Android|Linux/) || ['其他'])[0]}・${st}`; })();
+const DVUA = (() => { const u = navigator.userAgent, st = (navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) ? '主屏幕APP' : '浏览器', tg = IN_KZ ? '' : '・运营部APP'; let m;
+  if ((m = u.match(/iPhone OS ([\d_]+)/))) return `iPhone iOS ${m[1].replace(/_/g, '.')}・${st}${tg}`;
+  if ((m = u.match(/iPad.*? OS ([\d_]+)/))) return `iPad iOS ${m[1].replace(/_/g, '.')}・${st}${tg}`;
+  if ((m = u.match(/Android ([\d.]+); ([^;)]+)/))) return `Android ${m[1]} ${m[2].trim()}・${st}${tg}`;
+  return `${(u.match(/Windows NT|Macintosh|Android|Linux/) || ['其他'])[0]}・${st}${tg}`; })();
 const fromUrl = (location.hash.match(/k=([^&]+)/) || [])[1];
 if (fromUrl) { K = decodeURIComponent(fromUrl); LS.set('k', K); history.replaceState(null, '', location.pathname + location.search); }
 
@@ -216,7 +217,7 @@ let tab = tabFromUrl || LS.get('pjTab', 'pj'), stSort = LS.get('pjSort', 'g'), r
 // ---------- 读数据 ----------
 async function api(what) {
   if (LOCAL) { const r = await fetch('./_' + what + '.json', { cache: 'no-store' }); return r.json(); }
-  const r = await fetch(API + '?fmt=json&what=' + what + '&k=' + encodeURIComponent(K) + '&dv=' + DV + '&ua=' + encodeURIComponent(DVUA), { cache: 'no-store' });
+  const r = await fetch(API + '?fmt=json&what=' + what + '&k=' + encodeURIComponent(K) + '&dv=' + DV + '&ua=' + encodeURIComponent(DVUA), { cache: 'no-store' });   // 11/18：以后新加的请求也要带 dv・ua，不然被后台挡
   return r.json();
 }
 function cacheGet(what) { try { return JSON.parse(LS.get('pjc_' + what, 'null')); } catch (e) { return null; } }
@@ -1008,21 +1009,36 @@ function renderYc() {
   // 11/16 用户：座位数用「座位表格」（真实桌数・最多人数）→ 同一时间坐着的人 ≥ 最多人数的 8 成或组数 ≥ 桌数＝满了（正常）；否则＝没满却订不了（异常）
   const RANK = { '没满': 0, '待确认': 1, '满了': 2, '副页': 3 }, JC = { '没满': 'var(--bad)', '待确认': 'var(--warn)', '满了': 'var(--faint)', '副页': 'var(--faint)' };
   const JT = { '没满': '🔴 没满却订不了', '待确认': '🟠 订不了（RB 还没读到，满不满先确认）', '满了': '⚪ 订不了（店里已经满了，正常）', '副页': '⚪ 副页停了（同品牌另一页能订，客人订得到）' };
-  const worstJ = g => g['另一页'] ? '副页' : g.ds.map(b => b['判断'] || '待确认').sort((a, b) => RANK[a] - RANK[b])[0];
-  const L = Object.values(G).sort((a, b) => RANK[worstJ(a)] - RANK[worstJ(b)]);
+  const jOf = b => b['另一页'] ? '副页' : (b['判断'] || '待确认');
+  const worstJ = g => g.ds.map(jOf).sort((a, b) => RANK[a] - RANK[b])[0];
+  const L = Object.values(G);
   const nBad = L.filter(g => worstJ(g) === '没满' || worstJ(g) === '待确认').length;
   if (!L.length) h += '<div class="card" style="font-size:14px;margin-bottom:10px">✅ 这 ' + dl.length + ' 天所有页面都能网上预约</div>';
-  else h += '<div class="tyc" style="margin-bottom:6px">' + L.length + ' 个页面网上订不了' + (nBad ? '，其中 <b style="color:var(--bad)">' + nBad + ' 个要马上确认</b>' : '，<b>都不用担心</b>（店里满了，或同品牌另一页还能订）') + '。满不满＝同一时间坐着的人 ≥ 最多人数的 8 成，或组数 ≥ 桌数（座位表格：' + esc(Y['座位表'] || '没找到') + '）</div>' +
-    L.map(g => { const j = worstJ(g); return '<div class="card" style="border-left:4px solid ' + JC[j] + ';margin-bottom:8px">' +
-      '<div style="font-size:12px;font-weight:700;color:' + JC[j] + '">' + JT[j] + '</div>' +
-      '<div style="font-weight:700;font-size:15px">' + esc(g['店']) + '・' + g['平台'] + ' 平台「' + esc(g['品牌']) + '」网上订不了</div>' +
-      '<div style="font-size:13px;margin:4px 0;line-height:1.6">' + g.ds.map(b => md(b['日']) + '：' + (b['记号'] === '停止' ? '<b style="color:var(--bad)">网上预约停了</b>（页面写着「目前不接受普通预约」）' : '<b style="color:var(--bad)">' + esc(b['记号']) + '</b>（' + (b['记号'] === '×' ? (b['平台'] === 'R' ? '那天订不了' : '满席') : b['记号'] === 'TEL' ? '要打电话' : b['记号'] === '－' ? '那天网上订不了' : b['记号'] === '无网约' ? '这页没有网上预约' : '没有可订的') + '）') +
-        '；RB 已订 ' + (b['已订'] ? b['已订'][0] + ' 组 ' + b['已订'][1] + ' 人（最大一组 ' + b['已订'][2] + ' 人）' : '<span class="tyc">还没读到</span>') +
-        (b['峰'] && b['座'] ? '<br><span class="tyc">　同一时间最多坐 ' + b['峰'][0] + ' 人／最多 ' + b['座'][1] + ' 人（' + Math.round(b['峰'][0] / Math.max(b['座'][1], 1) * 100) + '%）・' + b['峰'][1] + ' 组／' + b['座'][0] + ' 桌（' + esc(b['峰'][2]) + ' 左右）</span>' : '')).join('<br>') + '</div>' +
-      (g['另一页'] ? '<div class="tyc">同品牌另一页还开着：' + esc(g['另一页'][0]) + ' <a href="' + esc(g['另一页'][1]) + '" target="_blank" rel="noopener">看 ↗</a>（客人从这一页进来还是订不了）</div>' : '<div class="tyc" style="color:var(--bad)">这个品牌在这个平台上没有别的页面能订</div>') +
-      '<div style="margin-top:6px"><a href="' + esc(g['链接']) + '" target="_blank" rel="noopener" style="font-weight:700">打开这一页 ↗</a></div>' +
-      // 11/17 用户「订不了的证据要留好，做成 PDF 好追溯」「存在运营部的预约证据清单文件夹，只要前 2 页」→ 每次查到就存一份（检查结论＋网页截图＋原始数据）
-      (g['证据'] ? '<div class="tyc" style="margin-top:4px">📄 证据 PDF 已存：' + esc(String(g['证据']).split('/').pop()) + '（Google 云端和电脑的「运营部 → 预约证据清单」里，含当时的网页截图和原始数据）</div>' : '<div class="tyc" style="margin-top:4px;color:var(--warn)">📄 证据 PDF 这次没存成</div>') + '</div>'; }).join('');
+  else {
+    // 11/17 用户「这种异常报警很难看：今天的异常店铺放一块，然后 11/18 到 23 日每天一块，这样好确认」（v35）
+    //   以前是一个网页一张卡、卡里列它订不了的几天；现在按天分块——今天一块、之后每天一块，块里按严重程度排（没满 → 待确认 → 满了 → 副页），一天没问题就写一行 ✅
+    const WDY = '日月火水木金土';
+    const dayLb = (d, i) => { const t = new Date(d + 'T00:00:00'); return md(d) + '（' + WDY[t.getDay()] + '）' + (i === 0 ? ' 今天' : i === 1 ? ' 明天' : ''); };
+    const byDay = {};
+    (Y['订不了'] || []).forEach(b => (byDay[b['日']] = byDay[b['日']] || []).push(b));
+    const mkT = b => b['记号'] === '停止' ? '<b style="color:var(--bad)">网上预约停了</b>（页面写着「目前不接受普通预约」）' : '<b style="color:var(--bad)">' + esc(b['记号']) + '</b>（' + (b['记号'] === '×' ? (b['平台'] === 'R' ? '那天订不了' : '满席') : b['记号'] === 'TEL' ? '要打电话' : b['记号'] === '－' ? '那天网上订不了' : b['记号'] === '无网约' ? '这页没有网上预约' : '没有可订的') + '）';
+    h += '<div class="tyc" style="margin-bottom:6px">' + L.length + ' 个页面网上订不了' + (nBad ? '，其中 <b style="color:var(--bad)">' + nBad + ' 个要马上确认</b>' : '，<b>都不用担心</b>（店里满了，或同品牌另一页还能订）') + '。下面按天分块，今天在最上面；同一个网页几天都订不了就在几天里都出现。满不满＝同一时间坐着的人 ≥ 最多人数的 8 成，或组数 ≥ 桌数（座位表格：' + esc(Y['座位表'] || '没找到') + '）</div>';
+    h += dl.map((d, i) => {
+      const items = (byDay[d] || []).slice().sort((a, b) => (RANK[jOf(a)] - RANK[jOf(b)]) || String(a['店']).localeCompare(String(b['店'])) || String(a['平台']).localeCompare(String(b['平台'])));
+      if (!items.length) return '<div class="card" style="margin-bottom:8px;padding:8px 12px;font-size:14px;border-left:4px solid var(--good)">✅ <b>' + dayLb(d, i) + '</b>　所有页面都能网上预约</div>';
+      const nb = items.filter(b => jOf(b) === '没满' || jOf(b) === '待确认').length;
+      return '<div style="margin:14px 0 6px;display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap"><h2 style="margin:0;font-size:16px">' + dayLb(d, i) + '</h2><span style="font-size:13px">' + items.length + ' 个页面订不了' + (nb ? '，<b style="color:var(--bad)">' + nb + ' 个要马上确认</b>' : '，<b>都不用担心</b>') + '</span></div>' +
+        items.map(b => { const j = jOf(b); return '<div class="card" style="border-left:4px solid ' + JC[j] + ';margin-bottom:6px;padding:8px 12px">' +
+          '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap"><b style="font-size:15px">' + esc(b['店']) + '・<span style="color:' + PCOL[b['平台']] + '">' + b['平台'] + '</span>「' + esc(b['品牌']) + '」</b><span style="font-size:12px;font-weight:700;color:' + JC[j] + '">' + JT[j] + '</span></div>' +
+          '<div style="font-size:13px;margin:3px 0;line-height:1.6">' + mkT(b) + '；RB 已订 ' + (b['已订'] ? b['已订'][0] + ' 组 ' + b['已订'][1] + ' 人（最大一组 ' + b['已订'][2] + ' 人）' : '<span class="tyc">还没读到</span>') +
+          (b['峰'] && b['座'] ? '<br><span class="tyc">同一时间最多坐 ' + b['峰'][0] + ' 人／最多 ' + b['座'][1] + ' 人（' + Math.round(b['峰'][0] / Math.max(b['座'][1], 1) * 100) + '%）・' + b['峰'][1] + ' 组／' + b['座'][0] + ' 桌（' + esc(b['峰'][2]) + ' 左右）</span>' : '') + '</div>' +
+          '<div class="tyc" style="line-height:1.7">' + (b['另一页'] ? '同品牌另一页还开着：' + esc(b['另一页'][0]) + ' <a href="' + esc(b['另一页'][1]) + '" target="_blank" rel="noopener">看 ↗</a>' : '<span style="color:var(--bad)">这个品牌在这个平台上没有别的页面能订</span>') +
+          '　<a href="' + esc(b['链接']) + '" target="_blank" rel="noopener" style="font-weight:700">打开这一页 ↗</a>' +
+          // 11/17 用户「订不了的证据要留好，做成 PDF 好追溯」→ 每次查到就存一份（检查结论＋网页截图＋原始数据），放「运营部 → 预约证据清单」
+          ((b['证据'] || G[b['链接']]['证据']) ? '　📄 ' + esc(String(b['证据'] || G[b['链接']]['证据']).split('/').pop()) : '　<span style="color:var(--warn)">📄 证据 PDF 这次没存成</span>') + '</div></div>'; }).join('');
+    }).join('');
+    h += '<p class="note" style="margin-top:4px">📄 后面的文件名＝那次检查存下的证据 PDF，在 Google 云端和电脑的「运营部 → 预约证据清单」里，含当时的网页截图和原始数据。</p>';
+  }
   // 11/17 可能重复的预约：同一客人同一天同一家店 ≥2 组都还有效、时间重叠（往后 30 天；H 同一组两行、换账号的旧副本、AA 已先去掉）
   const DP = Y['重复'] || [], STX = { '来店待ち': '等客人来', '待确认': '待确认' };
   if (DP.length) h += '<h2 style="margin:14px 0 6px;font-size:16px">🔁 可能重复的预约（' + DP.length + ' 处，今天起 30 天）</h2><div class="tyc" style="margin-bottom:6px">同一位客人同一天在同一家店订了两组以上，都还有效、时间重叠——会白白占着座位。请店里联系客人确认，删掉多的那组。（已经先去掉、不在这里的：H 平台同一组在 RB 里的两行、11/5 换账号留下的旧账号副本、AA）</div>' +
