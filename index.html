@@ -514,7 +514,7 @@ button.svdlab{color:var(--ink);font-family:inherit;line-height:1.3}
 <script>
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v70';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v71';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -2219,12 +2219,12 @@ function devPcwMax() { const v = prompt('电脑最多几台（现在 ' + DVL.pcw
 function devMax() { const v = prompt('最多几台手机（现在 ' + DVL.max + ' 台）', DVL.max); if (v != null && +v > 0) devDo('&act=max&v=' + (+v)); }
 function devRender() {
   const d = DVL, n = d.list.filter(x => x.m).length, acN = d.list.filter(x => x.ac).length, pcwN = d.list.filter(x => x.pcw).length;   // 11/18 电脑浏览器合计 4 台   // 11/18：m＝空桌一览名额；会计部（ac）单独 5 台；电脑程序不占名额
-  let h = `<div class="dvsum"><b>空桌一览 ${n}/${d.max} 台</b> <button class="svmore" onclick="devMax()">改名额</button>　<b>会计部 ${acN}/${d.acMax} 台</b> <button class="svmore" onclick="devAcMax()">改</button>　<b>电脑 ${pcwN}/${d.pcwMax} 台</b> <button class="svmore" onclick="devPcwMax()">改</button><br><small>会计部 APP 的手机单独算；电脑（Windows・Mac 用浏览器打开，哪个 APP 都算）合计算。这两种满了以后别的打不开（删掉一台才能进新的）。</small><br>${d.open ? `🟢 开放登记中（到 ${d.open}；进来一台就自动关）` : d.lock ? '🔒 已锁定：没登记的手机打不开，有人试就发邮件给你' : `🟡 自动登记中：用对密码打开的手机自动登记（每台发邮件给你），满 ${d.max} 台自动锁定`}</div>`;
-  h += `<div class="dvbtns">${d.lock && !d.open ? `<button onclick="devDo('&act=open')">➕ 开放登记 30 分钟</button>` : ''}${d.lock ? `<button class="sub" onclick="devDo('&act=unlock','解锁后，任何用对密码的手机都会自动登记，直到满 ${d.max} 台。确定吗？')">解锁</button>` : `<button onclick="devDo('&act=lock')">🔒 现在锁定</button>`}</div>`;
+  let h = `<div class="dvsum"><b>空桌一览 ${n}/${d.max} 台</b> <button class="svmore" onclick="devMax()">改名额</button>　<b>会计部 ${acN}/${d.acMax} 台</b> <button class="svmore" onclick="devAcMax()">改</button>　<b>电脑 ${pcwN}/${d.pcwMax} 台</b> <button class="svmore" onclick="devPcwMax()">改</button><br><small>会计部 APP 的手机单独算；电脑（Windows・Mac 用浏览器打开，哪个 APP 都算）合计算。</small><br>${d.open ? `🟢 开放登记中（到 ${d.open}；进来一台就自动关）` : d.lock ? '🔒 已锁定：只有下面这几台手机・电脑能用（空桌一览・会计部・电脑都不能再加）；别的设备密码对也打不开，有人试就发邮件给你' : `🟡 自动登记中：用对密码打开的手机・电脑会自动登记（每台发邮件给你）。<b>大家都登记好以后，请按「🔒 现在锁定」</b>，之后就只有这几台能用（空桌一览满 ${d.max} 台也会自动锁定）`}</div>`;
+  h += `<div class="dvbtns">${d.lock && !d.open ? `<button onclick="devDo('&act=open')">➕ 开放登记 30 分钟</button>` : ''}${d.lock ? `<button class="sub" onclick="devDo('&act=unlock','解锁后，任何用对密码的手机都会自动登记，直到满 ${d.max} 台。确定吗？')">解锁</button>` : `<button onclick="devDo('&act=lock','锁定后只有名单里这几台手机・电脑能用，别的设备一律打不开。确定吗？')">🔒 现在锁定（只留这几台）</button>`}</div>`;
   h += d.list.map((x, i) => `<div class="dvrow"><div><b>${i + 1}. ${esc(x.n || '（还没起名）')}</b>${x.me ? ' <span class="dvme">这台</span>' : ''}${x.pc ? ' <span class="dvme">电脑・不占名额</span>' : ''}${x.ac ? ' <span class="dvme" style="background:#6d28d9">会计部</span>' : ''}${x.pcw ? ' <span class="dvme" style="background:#0f766e">电脑</span>' : ''}<small>${esc(DV_ROLE[x.r] || x.r)}・${esc(x.ua)}<br>登记 ${esc(x.a)}　最后用 ${esc(x.t)}</small></div>`
     + `<span><button onclick="devName(${i})">改名</button>${x.me ? '' : `<button class="del" onclick="devDel(${i})">删</button>`}</span></div>`).join('') || '<div class="rlnote">还没有登记的手机</div>';
   if (d.bad.length) h += '<div class="svsub2" style="margin-top:12px">⚠ 最近被挡住的手机</div>' + d.bad.map(x => `<div class="dvbad">${esc(x.t)}　${esc(DV_ROLE[x.r] || x.r)}・${esc(x.ua)}　编号 ${esc(x.id || '—')}<br>${esc(x.why)}</div>`).join('');
-  h += '<p class="rlnote">手机编号存在这台手机的 APP 里。删掉 APP、清除浏览器数据、或换个浏览器打开，都会变成「新手机」，要重新登记——请大家都用「加到主屏幕」的 APP。<br>被挡住的手机、1 小时内连续输错 3 次密码，都会发邮件到你的 Gmail。名单只有老板密码看得到。</p>';
+  h += '<p class="rlnote">编号还绑定设备种类（iPhone・Android・Windows・Mac）：就算有人把登记过的编号抄到别的设备上，种类不对也会被挡、发邮件给你。<br>手机编号存在这台手机的 APP 里。删掉 APP、清除浏览器数据、或换个浏览器打开，都会变成「新手机」，要重新登记——请大家都用「加到主屏幕」的 APP。<br>被挡住的手机、1 小时内连续输错 3 次密码，都会发邮件到你的 Gmail。名单只有老板密码看得到。</p>';
   devShow(h);
 }
 // ---- 11/18 用户：「APP 里面加入一个会计的键」；内容选了 资金余额・要付的钱・月度损益——「先有这些键，数据先不跑」----
