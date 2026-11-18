@@ -89,6 +89,7 @@ main{padding:12px 14px calc(30px + env(safe-area-inset-bottom));max-width:760px;
 .rvh{display:flex;flex-wrap:wrap;align-items:center;gap:6px;font-size:13px}
 .rvh .who{color:var(--sub);font-size:12px}
 .rvt{font-size:14px;margin:4px 0 0;white-space:pre-line;word-break:break-word}
+u.ng{text-decoration:underline;text-decoration-color:var(--bad);text-decoration-thickness:2px;text-underline-offset:3px}
 .rvf{display:flex;gap:8px;align-items:center;margin-top:6px;font-size:12px;color:var(--sub)}
 .stars{color:#f59e0b;letter-spacing:-1px;font-size:13px}
 .seg{display:flex;gap:6px;margin:0 0 8px;flex-wrap:wrap}
@@ -186,7 +187,7 @@ main{padding:12px 14px calc(30px + env(safe-area-inset-bottom));max-width:760px;
 </header>
 <main id="main"><div class="empty">读取中…</div></main>
 <script>
-const APPV = 'yunying-v43';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v44';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 在 空桌一览 里面（pj.html）还是独立 APP
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
 const LS = {
@@ -276,7 +277,7 @@ function changeKey() { showKey(''); }
 // ---------- 公共 ----------
 function setTab(t) { tab = t; LS.set('pjTab', t); render(); window.scrollTo(0, 0); if (t === 'qr') loadQr(); if (t === 'rk') loadRk(); loadYcd(); }
 function render() {
-  SGK = [];   // 签名栏的编号表，每次重画重来
+  SGK = []; NQK = [];   // 签名栏・待确认的编号表，每次重画重来
   if (BLOCKED) return;
   const ycN = ycBad().length;   // 11/16 预约异常：有订不了的页面就在按钮上显示几处
   const tabs = [['pj', '⭐ 评价'], ['qr', '📲 谷歌扫码'], ['ty', '📅 预约'], ['rk', '🔁 回头客'], ['yc', '🚨 预约异常' + (ycN ? ' <b style="color:#fff;background:var(--bad);border-radius:9px;padding:0 6px;font-size:12px">' + ycN + '</b>' : '')], ...(owner ? [['hr', '👔 人事'], ['sy', '👤 社员'], ['hy', '🧹 卫生']] : [])];
@@ -521,15 +522,47 @@ function pjParse() {
   }
   return o;
 }
+// 11/18 用户：差评标准统一成 KA广告部 那套——三个平台 3 分及以下＋内容不满（4〜5 星但写了不满，KA 每天从新口コミ里挑候选）。
+//   候选（r.疑）在 APP 里由人按「算差评／不算」：记在后台「预约异常处理」表（和签名栏同一套 ycd/ycdo），编号 nqy|评价id ＝算、nqn|评价id ＝不算，后按的算数。
+//   r.顶＝店铺页上排第一条（KA 读的 HPG・食べログ 置顶），客人一进去就看到，排最前面。r.句＝含不满词的句子，卡片里画红线。
+let NQK = [];
+const nqRec = r => { const a = sgDone('nqy|' + r.id), b = sgDone('nqn|' + r.id); return a && (!b || String(a[1]) > String(b[1])) ? ['y', a] : b ? ['n', b] : null; };
+const rvBad = r => !!(r['差'] || (r['疑'] && (nqRec(r) || [])[0] === 'y'));
+const rvAsk = r => !!(r['疑'] && !nqRec(r));
+function rvNg(r) {
+  let t = esc(r['内容']); const miss = [];
+  (r['句'] || []).forEach(x => { const e = esc(String(x).slice(0, 60)); if (!e) return; if (t.includes(e)) t = t.split(e).join('<u class="ng">' + e + '</u>'); else miss.push(e); });
+  return t + (miss.length ? '<div class="tyc" style="margin-top:2px">不满的句子：' + miss.map(e => '<u class="ng">' + e + '</u>').join(' ／ ') + '</div>' : '');
+}
+function nqBox(r) {
+  const n = NQK.push(r.id) - 1, d = nqRec(r);
+  if (d) return '<div class="ycchk ok">' + (d[0] === 'y' ? '⚠ 算差评' : '✅ 不算差评') + '・<b>' + esc(d[1][0]) + '</b><div class="tyc">' + esc(String(d[1][1]).slice(5)) + '　<a onclick="nqSend(' + n + ',\'undo\')">撤销</a></div></div>';
+  return '<div class="ycchk"><div class="tyc">内容里有不满，算不算差评？写上名字</div><input id="nqi' + n + '" placeholder="名字" maxlength="20" value="' + esc(LS.get('ycWho', '')) + '" style="width:100%;margin-top:4px;box-sizing:border-box"><div style="display:flex;gap:6px;margin-top:4px"><button onclick="nqSend(' + n + ',\'y\')" style="flex:1;background:var(--bad)">算差评</button><button onclick="nqSend(' + n + ',\'n\')" style="flex:1">不算</button></div></div>';
+}
+async function nqSend(n, v) {
+  const id = NQK[n]; if (!id) return;
+  let who = '';
+  if (v !== 'undo') { const el = $('nqi' + n); who = ((el && el.value) || '').trim(); if (!who) { alert('请先写上名字'); if (el) el.focus(); return; } LS.set('ycWho', who); }
+  else if (!confirm('撤销这条「算不算差评」的判断？')) return;
+  const ids = v === 'undo' ? ['nqy|' + id, 'nqn|' + id] : ['nq' + v + '|' + id];
+  try {
+    const r = await fetch(API + '?fmt=json&what=ycdo&act=' + (v === 'undo' ? 'undo' : 'done') + '&ids=' + encodeURIComponent(JSON.stringify(ids)) + '&who=' + encodeURIComponent(who) + '&k=' + encodeURIComponent(K) + '&dv=' + DV + '&ua=' + encodeURIComponent(DVUA), { cache: 'no-store' });
+    const d = await r.json();
+    if (d && d.error === 'device') return blockDevice(d);
+    if (!d || !d.m) throw new Error((d && d.error) || '没存上');
+    YCD = d; cachePut('ycd', d);
+  } catch (e) { alert('没保存成功：' + (e.message || '网络不通') + '，请再按一次'); }
+  render();
+}
 function rvCard(r, showStore) {
   const date = r['日'] ? ago(r['日'], r['约']) : r['首'] ? ago(r['首']) + '读到' : (r['来店'] ? r['来店'].replace('-', '/') + ' 来店' : '');
-  const reply = r['回复'] === true ? '<span class="pill p-good">已回复</span>' : r['回复'] === false ? '<span class="pill ' + (r['差'] ? 'p-bad' : 'p-soft') + '">还没回复</span>' : '';
+  const reply = r['回复'] === true ? '<span class="pill p-good">已回复</span>' : r['回复'] === false ? '<span class="pill ' + (rvBad(r) ? 'p-bad' : 'p-soft') + '">还没回复</span>' : '';
   const sc = r['平台'] === '食べログ' && r['星'] != null ? '<b style="color:var(--t)">' + Number(r['星']).toFixed(1) + '</b>' : stars(r['星']);
   return '<div class="rv"><div class="rvh"><span class="plat" style="color:' + PC[r['平台']] + '"><span class="dot" style="background:' + PC[r['平台']] + '"></span>' + PS[r['平台']] + '</span>' + sc +
-    (r['差'] ? ' <span class="pill p-bad">差评</span>' : '') +
+    (rvBad(r) ? ' <span class="pill p-bad">差评</span>' : '') + (r['顶'] ? ' <span class="pill p-warn">📌 置顶</span>' : '') + (rvAsk(r) ? ' <span class="pill p-warn">待确认</span>' : '') +
     (showStore ? ' <b>' + esc(r['店']) + '</b>' : '') + ' <span class="who">' + esc(brandShort(r['品牌页'])) + ' · ' + esc(date) + '</span></div>' +
     (r['标题'] ? '<div class="rvt"><b>' + esc(r['标题']) + '</b></div>' : '') +
-    (r['内容'] ? '<div class="rvt">' + esc(r['内容']) + '</div>' : '<div class="rvt" style="color:var(--faint)">（只打了分，没写内容）</div>') +
+    (r['内容'] ? '<div class="rvt">' + rvNg(r) + '</div>' : '<div class="rvt" style="color:var(--faint)">（只打了分，没写内容）</div>') +
     '<div class="rvf">' + reply + '<span>' + esc(r['作者'] || '') + '</span>' + (r['链'] ? '<a class="lk" href="' + esc(r['链']) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">打开这条评价 ↗</a>' : r['网址'] ? '<a class="lk" href="' + esc(r['网址']) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">' + (r['平台'] === 'Google' ? '打开 Google 店铺页（在「クチコミ」里找）↗' : '打开店铺页 ↗') + '</a>' : '') + '</div></div>';
 }
 function platKpi(name, g) {
@@ -568,8 +601,8 @@ function renderPj() {
   h += trendCard(M['走势']);
   // ② 要处理的差评
   const d30 = new Date(today - 30 * 864e5).toISOString().slice(0, 10);
-  const bad = D.rv.filter(r => r['差'] && ((r['日'] || r['首'] || '') >= d30 || (r['平台'] === '食べログ' && !r['日'] && !r['首'])))
-    .sort((a, b) => (b['回复'] === false) - (a['回复'] === false) || String(b['日'] || b['首'] || b['来店']).localeCompare(String(a['日'] || a['首'] || a['来店'])));
+  const bad = D.rv.filter(r => rvBad(r) && ((r['日'] || r['首'] || '') >= d30 || r['顶'] || (r['平台'] === '食べログ' && !r['日'] && !r['首'])))
+    .sort((a, b) => (!!b['顶'] - !!a['顶']) || (b['回复'] === false) - (a['回复'] === false) || String(b['日'] || b['首'] || b['来店']).localeCompare(String(a['日'] || a['首'] || a['来店'])));
   const unrep = bad.filter(r => r['回复'] === false).length;
   const bc = p => bad.filter(r => r['平台'] === p).length;
   const badF = rvPlat ? bad.filter(r => r['平台'] === rvPlat) : bad;
@@ -577,9 +610,12 @@ function renderPj() {
   h += '<div class="seg">' + [['', '全部 ' + bad.length], ['Google', 'Google ' + bc('Google')], ['ホットペッパー', 'HPG ' + bc('ホットペッパー')], ['食べログ', '食べログ ' + bc('食べログ')]].map(([k, n]) => '<button class="' + (rvPlat === k ? 'on' : '') + '" onclick="rvPlat=\'' + k + '\';render()">' + n + '</button>').join('') + '</div>';
   // 差评的签名键：优先评价库的固定 id；没有就用每条评价自己的链接（食べログ・HPG 都有、不重复）；Google 没有链接→平台|品牌页|作者|第一次读到的日子（不用文字・分数，它们会被改）
   const rvId = r => 'rv|' + (r.id || r['链'] || sgHash([r['平台'], r['品牌页'], r['作者'] || '', r['首'] || r['日'] || ''].join('|')));
+  const ask = D.rv.filter(r => rvAsk(r) && (!rvPlat || r['平台'] === rvPlat));
+  if (ask.length) h += '<div class="card" style="border-left:4px solid var(--warn);margin-bottom:10px"><b>🤔 待确认：内容里有不满 ' + ask.length + ' 条</b><div class="tyc">4〜5 星但写了不满（红线是程序按词挑的，以原文为准）。按「算差评」就进下面的差评；「不算」就不再列。</div>' +
+    ask.map(r => sgWrap(rvCard(r, true), nqBox(r))).join('') + '</div>';
   h += badF.length ? '<div class="card">' + badF.slice(0, 20).map(r => sgWrap(rvCard(r, true), sgBox([rvId(r)], r['平台'] === 'Google' ? '回复了吗？写上名字' : '处理了吗？写上名字'))).join('') + '</div>' + (badF.length > 20 ? '<p class="note">只列最新 20 条，还有 ' + (badF.length - 20) + ' 条在下面各店里看。</p>' : '')
     : '<div class="card empty" style="padding:16px">近 30 天没有差评 👍</div>';
-  h += '<p class="note">差评：Google・ホットペッパー 2 星以下，食べログ 3.0 以下。Google 差评店长 24 小时内回复。HPG 只有订过位的客人能写，最真实；HPG・食べログ 页面没有回复功能/看不到回复。</p></div>';
+  h += '<p class="note">差评（11/18 起和 KA广告部 发微信群的同一套标准）：三个平台都是 3 分及以下（食べログ 只打分没写内容的不算），加上 4〜5 星但内容里有不满、经人确认「算差评」的。📌 置顶＝店铺页上排第一条，客人一进去就看到，排在最前面。Google 差评店长 24 小时内回复。HPG 只有订过位的客人能写，最真实；HPG・食べログ 页面没有回复功能/看不到回复。</p></div>';
   // ③ 各店
   const pgBy = {}; D.pg.forEach(p => (pgBy[p['店']] = pgBy[p['店']] || []).push(p));
   const rvBy = {}; D.rv.forEach(r => (rvBy[r['店']] = rvBy[r['店']] || []).push(r));
@@ -587,7 +623,7 @@ function renderPj() {
     const g = s['Google'] || {}, t = s['食べログ'] || {};
     if (k === 'g') return g['评分'] != null ? -g['评分'] : 9;
     if (k === 't') return t['近90天均分'] != null ? -t['近90天均分'] : 9;
-    if (k === 'bad') return -(((g['近30天差评'] || 0) + (t['来店月'] ? (rvBy[s['店']] || []).filter(r => r['差'] && r['平台'] === '食べログ').length : 0)));
+    if (k === 'bad') return -(((g['近30天差评'] || 0) + (t['来店月'] ? (rvBy[s['店']] || []).filter(r => rvBad(r) && r['平台'] === '食べログ').length : 0)));
     return 0;
   };
   const sts = D.st.slice();
@@ -602,7 +638,7 @@ function stRow(s, pgs, rvs) {
   const k = s['店'], open = openSt.has(k), g = s['Google'], t = s['食べログ'], hp = s['ホットペッパー'];
   const brands = [...new Set(pgs.filter(p => p['平台'] === '食べログ').map(p => brandShort(p['品牌页'])))].join('・');
   let big = g && g['评分'] != null ? '<span style="color:var(--g)">' + f2(g['评分']) + '</span>' : t && t['近90天均分'] != null ? '<span style="color:var(--t)">' + f2(t['近90天均分']) + '</span>' : '—';
-  const nbad = (g ? (g['新增差评'] || 0) : 0) + rvs.filter(r => r['差'] && r['平台'] !== 'Google').length;
+  const nbad = (g ? (g['新增差评'] || 0) : 0) + rvs.filter(r => rvBad(r) && r['平台'] !== 'Google').length;
   let h = '<div class="r' + (open ? ' open' : '') + '" onclick="tgSt(\'' + esc(k) + '\',event)"><div class="nm">' + esc(k) + '<small>' + esc(brands) + '</small></div><div class="big">' + big + '</div><div class="meta">' +
     (g ? '<span><span class="dot" style="background:var(--g)"></span> Google <b>' + f2(g['评分']) + '</b>（' + fmt(g['件数']) + (g['30天件数增'] ? '，30 天 +' + g['30天件数增'] : '') + '）' + (g['新增差评'] ? ' <span class="dn">新 1〜2 星 ' + g['新增差评'] + '</span>' : '') + (g['差评未回复'] ? ' <span class="dn">没回 ' + g['差评未回复'] + '</span>' : '') + '</span>' : '') +
     (t ? '<span><span class="dot" style="background:var(--t)"></span> 食べログ 近期 <b>' + f2(t['近90天均分']) + '</b>（' + fmt(t['件数']) + '）</span>' : '') +
