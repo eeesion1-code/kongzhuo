@@ -186,7 +186,7 @@ main{padding:12px 14px calc(30px + env(safe-area-inset-bottom));max-width:760px;
 </header>
 <main id="main"><div class="empty">读取中…</div></main>
 <script>
-const APPV = 'yunying-v42';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v43';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 在 空桌一览 里面（pj.html）还是独立 APP
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
 const LS = {
@@ -337,41 +337,102 @@ async function loadRk() {
   if (tab === 'rk') render();
 }
 function rkSet(m) { rkMonth = m; LS.set('rkMonth', m); render(); }
+// 11/18 用户：「同比同月份可以放在一起对比，和选择时间区间的对比」→ 三种看法：按月・同比（同月份去年今年并排）・区间对比（自己选两段）
+let rkMode = LS.get('rkMode', 'm'), rkR = (() => { try { return JSON.parse(LS.get('rkR', '{}')) || {}; } catch (e) { return {}; } })();
+function rkSetMode(m) { rkMode = m; LS.set('rkMode', m); render(); }
+function rkSetR(k, v) { rkR[k] = v; LS.set('rkR', JSON.stringify(rkR)); render(); }
 function renderRk() {
   const rows = ((RK && RK.rows) || []).filter(r => r.k === 'rk'), meta = ((RK && RK.rows) || []).find(r => r.k === 'rkm') || {};
   if (!rows.length) return '<div class="sec"><p class="note">' + (rkErr || (rkBusy ? '读取中…' : '还没有回头客数据')) + '</p></div>';
-  const months = [...new Set(rows.map(r => r.m))].sort(), stores = [...new Set(rows.map(r => r.s))];
+  const months = [...new Set(rows.filter(r => +r.p > 0).map(r => r.m))].sort(), stores = [...new Set(rows.map(r => r.s))];
   const cur = (meta.upto || TD).slice(0, 7), full = months.filter(m => m < cur);
+  const get = (mm, st) => rows.find(r => r.m === mm && r.s === st && +r.p > 0);
+  const agg = (ms, st) => { const o = { p: 0, c: 0, r: 0, n: 0 }; ms.forEach(mm => rows.filter(r => r.m === mm && (!st || r.s === st) && +r.p > 0).forEach(r => { o.p += +r.p; o.c += +r.c; o.r += +r.r; o.n++; })); return o; };
+  const rate = (r, c) => c ? r / c : null;
+  // 同店比较：去年同期有的店还没用 ダイニー → 合计只算两段都有数据的店（不然店数不同，合计会多出几倍）
+  const both = (MA, MB) => stores.filter(st => agg(MA, st).n && agg(MB, st).n);
+  const aggS = (ms, list) => list.reduce((o, st) => { const x = agg(ms, st); o.p += x.p; o.c += x.c; o.r += x.r; o.n += x.n; return o; }, { p: 0, c: 0, r: 0, n: 0 });
+  const sameNote = (L) => L.length < stores.length ? '<p class="note">上面 3 个合计只算两段都有数据的 ' + L.length + ' 家店（' + L.map(esc).join('・') + '），另外 ' + (stores.length - L.length) + ' 家那段时间还没用 ダイニー，看下面各店。</p>' : '';
+  const P = x => x == null ? '—' : (x * 100).toFixed(1) + '%';
+  const pp = (a, b) => a == null || b == null ? '<span class="tyc">—</span>' : '<span class="' + (a >= b ? 'up' : 'dn') + '" style="font-weight:700">' + (a >= b ? '▲' : '▼') + Math.abs((a - b) * 100).toFixed(1) + ' 点</span>';
+  const pn = (a, b) => !b ? '<span class="tyc">—</span>' : '<span class="' + (a >= b ? 'up' : 'dn') + '">' + (a >= b ? '+' : '−') + Math.round(Math.abs(a / b - 1) * 100) + '%</span>';
+  const mLab = mm => mm.slice(2, 4) + '年' + +mm.slice(5) + '月';
+  const partial = mm => mm >= cur;
+  const mRange = (x, y) => months.filter(mm => mm >= x && mm <= y);
+  let h = '<div class="seg">' + [['m', '📅 按月'], ['y', '🔁 同比（同月份）'], ['r', '↔ 区间对比']].map(([k, n]) => '<button class="' + (rkMode === k ? 'on' : '') + '" onclick="rkSetMode(\'' + k + '\')">' + n + '</button>').join('') + '</div>';
+  if (rkErr) h += '<p class="note wn">⚠ ' + esc(rkErr) + '</p>';
+  const note = '<div class="sec"><p class="note">📌 怎么看：<br>・<b>回头率</b>＝回头客 ÷ 扫码登录的客人。只有扫码登录 ダイニー 的客人才认得出是不是来过，所以用登录的人当分母，各店才比得了（ダイニー 页面上的「リピーター比率」是除以全部客数，数字会小很多）。<br>・<b>登录率</b>＝扫码登录的客人 ÷ 客数，大约一半。登录率越高，回头客认得越全。<br>・ダイニー 最早 2025 年 4 月起有数据，各店陆续上线（那之前的月份写「—」）。回头率往上走有一部分是因为 ダイニー 记住的客人越来越多，<b>同比</b>要考虑这一点，各店之间比更公平。<br>・只有用 ダイニー 收银的 5 家店；三幸園的客人不扫码登录，没有数据。ダイニー 的「再来店意欲」分数忽高忽低，不显示。<br>・每天 12:15 更新，来源：' + esc(meta.src || 'ダイニー') + '。</p></div>';
+  const storeTable = (A, B, la, lb) => {
+    const L = stores.map(st => { const a = A(st), b = B(st); return { st, a, b, ra: rate(a.r, a.c), rb: rate(b.r, b.c) }; }).sort((x, y) => (y.ra || 0) - (x.ra || 0));
+    return '<table class="tbl card"><tr><th>店</th><th>回头率<br><small>' + la + '</small></th><th>回头率<br><small>' + lb + '</small></th><th>差</th><th>回头客<br><small>' + la + ' / ' + lb + '</small></th><th>登录率<br><small>' + la + ' / ' + lb + '</small></th><th>客数<br><small>' + la + ' / ' + lb + '</small></th></tr>' +
+      L.map(o => '<tr><td><b>' + esc(o.st) + '</b></td><td><b>' + P(o.ra) + '</b></td><td>' + (o.b.n ? P(o.rb) : '<span class="tyc">还没用 ダイニー</span>') + '</td><td>' + pp(o.ra, o.b.n ? o.rb : null) + '</td><td>' + fmt(o.a.r) + ' / ' + (o.b.n ? fmt(o.b.r) : '—') + '</td><td>' + P(rate(o.a.c, o.a.p)) + ' / ' + (o.b.n ? P(rate(o.b.c, o.b.p)) : '—') + '</td><td>' + fmt(o.a.p) + ' / ' + (o.b.n ? fmt(o.b.p) : '—') + '</td></tr>').join('') + '</table>';
+  };
+  const kpi3 = (A, B, la, lb) => '<div class="grid g3">' +
+    '<div class="card kpi"><span class="plat">登录客里的回头率</span><br><b>' + P(rate(A.r, A.c)) + '</b> <span class="tyc">' + la + '</span><div class="d">' + lb + ' ' + P(rate(B.r, B.c)) + '　' + pp(rate(A.r, A.c), B.n ? rate(B.r, B.c) : null) + '</div></div>' +
+    '<div class="card kpi"><span class="plat">回头客</span><br><b>' + fmt(A.r) + '</b> 人 <span class="tyc">' + la + '</span><div class="d">' + lb + ' ' + (B.n ? fmt(B.r) + ' 人　' + pn(A.r, B.r) : '—') + '</div></div>' +
+    '<div class="card kpi"><span class="plat">扫码登录率</span><br><b>' + P(rate(A.c, A.p)) + '</b> <span class="tyc">' + la + '</span><div class="d">' + lb + ' ' + (B.n ? P(rate(B.c, B.p)) + '　' + pp(rate(A.c, A.p), rate(B.c, B.p)) : '—') + '</div></div></div>';
+
+  if (rkMode === 'y') {   // ---------- 同比：同一个月份，今年和去年放在一起 ----------
+    const cand = months.filter(mm => months.includes((+mm.slice(0, 4) - 1) + mm.slice(4)));
+    const m = cand.includes(rkMonth) ? rkMonth : (cand.filter(x => x < cur).pop() || cand[cand.length - 1]);
+    if (!m) return h + '<div class="sec"><p class="note">还没有能同比的月份（要去年同月也有数据）。</p></div>' + note;
+    const ly = (+m.slice(0, 4) - 1) + m.slice(4);
+    h += '<div class="seg">' + cand.map(mm => '<button class="' + (mm === m ? 'on' : '') + '" onclick="rkSet(\'' + mm + '\')">' + +mm.slice(5) + '月' + (partial(mm) ? '（进行中）' : '') + '</button>').join('') + '</div>';
+    const SL = both([m], [ly]), A = aggS([m], SL), B = aggS([ly], SL);
+    h += '<div class="sec"><h2>🔁 ' + +m.slice(5) + '月 同比<small>' + mLab(m) + (partial(m) ? '（截至 ' + esc((meta.upto || '').slice(5).replace('-', '/')) + '，还没过完）' : '') + ' 对比 ' + mLab(ly) + '</small></h2>' + kpi3(A, B, mLab(m), mLab(ly)) + sameNote(SL) + '</div>';
+    h += '<div class="sec"><h2>🏪 各店同比</h2>' + storeTable(st => agg([m], st), st => agg([ly], st), mLab(m), mLab(ly)) + '</div>';
+    // 所有月份：一行一个月份，各年并排
+    const yrs = [...new Set(months.map(x => x.slice(0, 4)))].sort();
+    h += '<div class="sec"><h2>📅 每个月份并排<small>当时用 ダイニー 的店合计的回头率</small></h2><table class="tbl card"><tr><th>月份</th>' + yrs.map(y => '<th>' + y + '</th>').join('') + (yrs.length > 1 ? '<th>同比</th>' : '') + '</tr>' +
+      Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0')).filter(mo => yrs.some(y => months.includes(y + '-' + mo))).map(mo => {
+        const v = yrs.map(y => { const x = agg(months.includes(y + '-' + mo) ? [y + '-' + mo] : []); return x.n ? rate(x.r, x.c) : null; });
+        return '<tr' + (mo === m.slice(5) ? ' style="background:var(--soft,rgba(0,0,0,.04))"' : '') + '><td><b>' + +mo + '月</b></td>' + v.map((x, i) => '<td>' + P(x) + (partial(yrs[i] + '-' + mo) && x != null ? '<small class="tyc">（进行中）</small>' : '') + '</td>').join('') + (yrs.length > 1 ? '<td>' + pp(v[v.length - 1], v[v.length - 2]) + '</td>' : '') + '</tr>';
+      }).join('') + '</table><p class="note">2025 年 4〜10 月有的店还没用 ダイニー（4 月 1 家、5 月 1 家、6 月 2 家、7〜9 月 3 家、10 月 4 家），合计的同比要连这个一起看；各店同比更准。</p></div>';
+    return h + note;
+  }
+
+  if (rkMode === 'r') {   // ---------- 区间对比：自己选两段 ----------
+    const lastF = full[full.length - 1] || months[months.length - 1], i3 = Math.max(0, full.length - 3);
+    const dflt = { a0: full[i3] || months[0], a1: lastF };
+    dflt.b0 = (+dflt.a0.slice(0, 4) - 1) + dflt.a0.slice(4); dflt.b1 = (+dflt.a1.slice(0, 4) - 1) + dflt.a1.slice(4);
+    if (!months.includes(dflt.b0)) dflt.b0 = months[0];
+    if (!months.includes(dflt.b1)) dflt.b1 = months[Math.min(months.length - 1, 2)];
+    const R = {}; ['a0', 'a1', 'b0', 'b1'].forEach(k => R[k] = months.includes(rkR[k]) ? rkR[k] : dflt[k]);
+    if (R.a0 > R.a1) [R.a0, R.a1] = [R.a1, R.a0];
+    if (R.b0 > R.b1) [R.b0, R.b1] = [R.b1, R.b0];
+    const sel = k => '<select onchange="rkSetR(\'' + k + '\', this.value)" style="padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font-size:14px">' + months.map(mm => '<option value="' + mm + '"' + (mm === R[k] ? ' selected' : '') + '>' + mLab(mm) + (partial(mm) ? '（进行中）' : '') + '</option>').join('') + '</select>';
+    const qk = (a0, a1, b0, b1) => '<button onclick="rkR={a0:\'' + a0 + '\',a1:\'' + a1 + '\',b0:\'' + b0 + '\',b1:\'' + b1 + '\'};LS.set(\'rkR\',JSON.stringify(rkR));render()">';
+    const yb = x => (+x.slice(0, 4) - 1) + x.slice(4), pm = (x, n) => { const d = new Date(+x.slice(0, 4), +x.slice(5) - 1 + n, 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
+    h += '<div class="card" style="margin-bottom:10px;font-size:14px;line-height:2.2"><b style="color:var(--brand)">A 段</b> ' + sel('a0') + ' 〜 ' + sel('a1') + '<br><b style="color:var(--sub)">B 段</b> ' + sel('b0') + ' 〜 ' + sel('b1') +
+      '<div class="seg" style="margin:6px 0 0">' + qk(full[i3], lastF, yb(full[i3] || lastF), yb(lastF)) + '近 3 个月 对 去年同期</button>' + qk(lastF, lastF, pm(lastF, -1), pm(lastF, -1)) + '上个月 对 再上个月</button>' + qk(pm(lastF, -2), lastF, pm(lastF, -5), pm(lastF, -3)) + '近 3 个月 对 再前 3 个月</button></div></div>';
+    const MA = mRange(R.a0, R.a1), MB = mRange(R.b0, R.b1);
+    const la = 'A ' + (R.a0 === R.a1 ? mLab(R.a0) : mLab(R.a0) + '〜' + +R.a1.slice(5) + '月'), lb = 'B ' + (R.b0 === R.b1 ? mLab(R.b0) : mLab(R.b0) + '〜' + +R.b1.slice(5) + '月');
+    h += '<div class="sec"><h2>↔ 区间对比<small>' + esc(la) + '（' + MA.length + ' 个月）对比 ' + esc(lb) + '（' + MB.length + ' 个月）' + (MA.concat(MB).some(partial) ? '・含进行中的月份' : '') + '</small></h2>' + (() => { const SL = both(MA, MB); return kpi3(aggS(MA, SL), aggS(MB, SL), la, lb) + sameNote(SL); })() + '</div>';
+    h += '<div class="sec"><h2>🏪 各店</h2>' + storeTable(st => agg(MA, st), st => agg(MB, st), 'A', 'B') + '<p class="note">回头客・客数是这段时间加起来的；回头率・登录率＝加起来再除。两段月数不一样时，看回头率・登录率（比例）更公平。</p></div>';
+    return h + note;
+  }
+
+  // ---------- 按月（原来的） ----------
   const m = months.includes(rkMonth) ? rkMonth : (full[full.length - 1] || months[months.length - 1]);
   const prevM = months[months.indexOf(m) - 1], lyM = (+m.slice(0, 4) - 1) + m.slice(4);
-  const get = (mm, st) => rows.find(r => r.m === mm && r.s === st);
-  const sum = (mm, f) => rows.filter(r => r.m === mm).reduce((a, r) => a + (+r[f] || 0), 0);
-  const rate = (r, c) => c ? r / c : null;
-  const g = mm => ({ p: sum(mm, 'p'), c: sum(mm, 'c'), r: sum(mm, 'r') });
+  const g = mm => agg([mm]);
   const G = g(m), GP = prevM ? g(prevM) : null, GL = months.includes(lyM) ? g(lyM) : null;
-  const pp = (a, b) => a == null || b == null ? '' : '<span class="' + (a >= b ? 'up' : 'dn') + '" style="font-size:13px">' + (a >= b ? '▲' : '▼') + Math.abs((a - b) * 100).toFixed(1) + ' 点</span>';
-  const pn = (a, b) => b == null ? '' : '<span class="' + (a >= b ? 'up' : 'dn') + '" style="font-size:13px">' + (a >= b ? '▲' : '▼') + fmt(Math.abs(a - b)) + '</span>';
-  const P = x => x == null ? '—' : (x * 100).toFixed(1) + '%';
-  const mLab = mm => (mm.slice(0, 4) !== TD.slice(0, 4) ? mm.slice(2, 4) + '年' : '') + +mm.slice(5) + '月';
-  const partial = mm => mm >= cur;
-  let h = '<div class="seg">' + months.slice(-13).map(mm => '<button class="' + (mm === m ? 'on' : '') + '" onclick="rkSet(\'' + mm + '\')">' + mLab(mm) + (partial(mm) ? '（进行中）' : '') + '</button>').join('') + '</div>';
-  if (rkErr) h += '<p class="note wn">⚠ ' + esc(rkErr) + '</p>';
+  h += '<div class="seg">' + months.map(mm => '<button class="' + (mm === m ? 'on' : '') + '" onclick="rkSet(\'' + mm + '\')">' + mLab(mm) + (partial(mm) ? '（进行中）' : '') + '</button>').join('') + '</div>';
   const gr = rate(G.r, G.c), trend = months.map(mm => { const x = g(mm); return rate(x.r, x.c); });
   h += '<div class="sec"><h2>🔁 ' + mLab(m) + ' 回头客<small>ダイニー 5 家店' + (partial(m) ? '・截至 ' + esc((meta.upto || '').slice(5).replace('-', '/')) : '') + '</small></h2><div class="grid g3">' +
-    '<div class="card kpi"><span class="plat">登录客里的回头率</span><br><b>' + P(gr) + '</b> ' + (GP ? '比上月 ' + pp(gr, rate(GP.r, GP.c)) : '') + (GL ? '　比去年 ' + pp(gr, rate(GL.r, GL.c)) : '') + spark(trend, 200, 34, 'var(--good)', true) + '</div>' +
-    '<div class="card kpi"><span class="plat">回头客</span><br><b>' + fmt(G.r) + '</b> 人 ' + (GP && !partial(m) ? '比上月 ' + pn(G.r, GP.r) : '') + (GL && !partial(m) ? '　比去年 ' + pn(G.r, GL.r) : '') + spark(months.map(mm => g(mm).r), 200, 34, 'var(--ink)', true) + '</div>' +
+    '<div class="card kpi"><span class="plat">登录客里的回头率</span><br><b>' + P(gr) + '</b> ' + (GP ? '比上月 ' + pp(gr, rate(GP.r, GP.c)) : '') + (GL ? '　同比 ' + pp(gr, rate(GL.r, GL.c)) : '') + spark(trend, 200, 34, 'var(--good)', true) + '</div>' +
+    '<div class="card kpi"><span class="plat">回头客</span><br><b>' + fmt(G.r) + '</b> 人 ' + (GP && !partial(m) ? '比上月 ' + pn(G.r, GP.r) : '') + (GL && !partial(m) ? '　同比 ' + pn(G.r, GL.r) : '') + spark(months.map(mm => g(mm).r), 200, 34, 'var(--ink)', true) + '</div>' +
     '<div class="card kpi"><span class="plat">扫码登录率</span><br><b>' + P(rate(G.c, G.p)) + '</b> ' + (GP ? '比上月 ' + pp(rate(G.c, G.p), rate(GP.c, GP.p)) : '') + '<br><span class="note">客数 ' + fmt(G.p) + ' 人，登录 ' + fmt(G.c) + ' 人</span></div>' +
     '</div></div>';
   const list = stores.map(st => { const x = get(m, st) || { p: 0, c: 0, r: 0 }, y = prevM && get(prevM, st);
-    return { st, x, rr: rate(x.r, x.c), pr: y ? rate(y.r, y.c) : null, ci: rate(x.c, x.p), tr: months.map(mm => { const z = get(mm, st); return z ? rate(z.r, z.c) : null; }) }; })
+    return { st, x, has: !!get(m, st), rr: rate(+x.r, +x.c), pr: y ? rate(+y.r, +y.c) : null, ci: rate(+x.c, +x.p), tr: months.map(mm => { const z = get(mm, st); return z ? rate(+z.r, +z.c) : null; }) }; })
     .sort((a, b) => (b.rr || 0) - (a.rr || 0));
-  const best = list[0], worst = list[list.length - 1];
+  const on = list.filter(o => o.has), best = on[0], worst = on[on.length - 1];
   h += '<div class="sec"><h2>🏪 各店<small>按回头率排</small></h2><table class="tbl card"><tr><th>店</th><th>回头率</th><th>比上月</th><th>回头客</th><th>登录率</th><th>客数</th><th style="width:22%">走势</th></tr>' +
-    list.map(o => '<tr><td><b>' + esc(o.st) + '</b></td><td><b class="' + (o === best ? 'up' : o === worst ? 'dn' : '') + '">' + P(o.rr) + '</b></td><td>' + pp(o.rr, o.pr) + '</td><td>' + fmt(o.x.r) + '</td><td' + (o.ci != null && o.ci < 0.45 ? ' class="wn"' : '') + '>' + P(o.ci) + '</td><td>' + fmt(o.x.p) + '</td><td>' + spark(o.tr, 120, 26, 'var(--good)', false) + '</td></tr>').join('') + '</table>';
+    list.map(o => !o.has ? '<tr><td><b>' + esc(o.st) + '</b></td><td colspan="6" class="tyc">这个月还没用 ダイニー</td></tr>' : '<tr><td><b>' + esc(o.st) + '</b></td><td><b class="' + (o === best ? 'up' : o === worst ? 'dn' : '') + '">' + P(o.rr) + '</b></td><td>' + pp(o.rr, o.pr) + '</td><td>' + fmt(o.x.r) + '</td><td' + (o.ci != null && o.ci < 0.45 ? ' class="wn"' : '') + '>' + P(o.ci) + '</td><td>' + fmt(o.x.p) + '</td><td>' + spark(o.tr, 120, 26, 'var(--good)', false) + '</td></tr>').join('') + '</table>';
   if (best && worst && best !== worst) h += '<p class="note">' + mLab(m) + '：<b>' + esc(best.st) + '</b> 回头率最高（' + P(best.rr) + '），<b>' + esc(worst.st) + '</b> 最低（' + P(worst.rr) + '）。登录率低于 45% 标黄——登录的人少，认得出的回头客也少。</p>';
   h += '</div>';
-  h += '<div class="sec"><p class="note">📌 怎么看：<br>・<b>回头率</b>＝回头客 ÷ 扫码登录的客人。只有扫码登录 ダイニー 的客人才认得出是不是来过，所以用登录的人当分母，各店才比得了（ダイニー 页面上的「リピーター比率」是除以全部客数，数字会小很多）。<br>・<b>登录率</b>＝扫码登录的客人 ÷ 客数，大约一半。登录率越高，回头客认得越全——店里多引导客人扫码，数字才准。<br>・一年来回头率往上走，有一部分是因为 ダイニー 记住的客人越来越多（第一次来的记下了，以后才认得出），主要看<b>各店之间比</b>、和<b>同一家店最近几个月的变化</b>。<br>・只有用 ダイニー 收银的 5 家店；PE regi・Airレジ 的店没有这种数据，三幸園的客人不扫码登录也没有。<br>・ダイニー 的「再来店意欲」分数每月忽高忽低（同一家店 0 分→90 分），不显示。<br>・每天 12:15 更新，来源：' + esc(meta.src || 'ダイニー') + '。</p></div>';
-  return h;
+  return h + note;
 }
 
 // ================= 📲 谷歌扫码 =================
