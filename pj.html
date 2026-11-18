@@ -264,7 +264,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
   addEventListener('touchcancel', () => { on = false; hide(); }, { passive: true });
 })();
 
-const APPV = 'yunying-v52';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v53';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 在 空桌一览 里面（pj.html）还是独立 APP
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
 const LS = {
@@ -361,7 +361,7 @@ function render() {
   $('tabs').innerHTML = tabs.map(([k, n]) => '<button class="' + (tab === k ? 'on' : '') + '" onclick="setTab(\'' + k + '\')">' + n + '</button>').join('');
   const at = tab === 'rk' ? (RK && RK.at) : tab === 'qr' ? (QRD && QRD.updated) : tab === 'pj' || tab === 'ty' || tab === 'yc' ? (PJ && PJ.at) : (HR && HR.at);
   $('at').textContent = (at ? at.slice(5).replace('-', '/') + ' 更新' : '') + (tab === 'rk' ? (rkBusy ? '・读取最新中…' : '') : tab === 'qr' ? (qrBusy ? '・读取最新中…' : '') : LOADING ? '・读取最新中…' : (pjErr && tab !== 'hr' && tab !== 'sy' && tab !== 'hy') ? '・⚠ 没读到最新（显示的是上次的）' : '');
-  $('main').innerHTML = (tab === 'pj' || tab === 'yc' || tab === 'cl' ? selBar() : '') + (tab === 'hr' ? renderHr() : tab === 'sy' ? renderSy() : tab === 'hy' ? renderHy() : tab === 'ty' ? renderTy() : tab === 'yc' ? renderYc() : tab === 'qr' ? renderQr() : tab === 'rk' ? renderRk() : tab === 'cl' ? renderCl() : renderPj()) +
+  $('main').innerHTML = (tab !== 'hr' && tab !== 'sy' && tab !== 'hy' ? selBar() : '') + (tab === 'hr' ? renderHr() : tab === 'sy' ? renderSy() : tab === 'hy' ? renderHy() : tab === 'ty' ? renderTy() : tab === 'yc' ? renderYc() : tab === 'qr' ? renderQr() : tab === 'rk' ? renderRk() : tab === 'cl' ? renderCl() : renderPj()) +
     '<div class="foot"><a onclick="changeKey()">🔑 换密码（老板 / 店长）</a>' + (IN_KZ ? '' : '　版本 ' + APPV.replace('yunying-v', '')) + '</div>';
 }
 const stars = s => s == null ? '' : '<span class="stars">' + '★'.repeat(Math.round(s)) + '<span style="opacity:.25">' + '★'.repeat(5 - Math.round(s)) + '</span></span>';
@@ -435,8 +435,10 @@ function clList() {
   return '<div class="card">' + L.slice(0, 200).map(r => '<div class="rv"><div class="rvh"><span class="pill p-soft">' + esc(r[2] || '其他') + '</span> <b>' + esc(r[3] || '') + '</b> <span class="who">' + esc(String(r[0]).slice(5, 16)) + ' · ' + esc(r[1]) + '</span></div>' +
     (r[4] ? '<div class="tyc" style="margin-top:2px">' + esc(r[4]) + '</div>' : '') + '<div class="rvt">✅ ' + esc(r[5]) + '</div></div>').join('') + '</div>';
 }
+const RK_ST = { 'もてなし屋上野': '御徒町', '川越': '川越', '品川2号(０１)': '品川2', '本厚木': '本厚木', '船橋弥吉': '船橋' };   // 11/18 选择店铺用
 function renderRk() {
-  const rows = ((RK && RK.rows) || []).filter(r => r.k === 'rk'), meta = ((RK && RK.rows) || []).find(r => r.k === 'rkm') || {};
+  const rows0 = ((RK && RK.rows) || []).filter(r => r.k === 'rk'), rows = rows0.filter(r => selOk(RK_ST[r.s] || r.s)), meta = ((RK && RK.rows) || []).find(r => r.k === 'rkm') || {};
+  if (SEL && rows0.length && !rows.length) return '<div class="sec"><p class="note">🏪 ' + esc(SEL) + ' 没用 ダイニー，没有回头客数据。现在有的店：' + [...new Set(rows0.map(r => RK_ST[r.s] || r.s))].map(esc).join('・') + '。点上面「看全部店」看全部。</p></div>';
   if (!rows.length) return '<div class="sec"><p class="note">' + (rkErr || (rkBusy ? '读取中…' : '还没有回头客数据')) + '</p></div>';
   const months = [...new Set(rows.filter(r => +r.p > 0).map(r => r.m))].sort(), stores = [...new Set(rows.map(r => r.s))];
   const cur = (meta.upto || TD).slice(0, 7), full = months.filter(m => m < cur);
@@ -513,7 +515,7 @@ function renderRk() {
   const G = g(m), GP = prevM ? g(prevM) : null, GL = months.includes(lyM) ? g(lyM) : null;
   h += '<div class="seg">' + months.map(mm => '<button class="' + (mm === m ? 'on' : '') + '" onclick="rkSet(\'' + mm + '\')">' + mLab(mm) + (partial(mm) ? '（进行中）' : '') + '</button>').join('') + '</div>';
   const gr = rate(G.r, G.c), trend = months.map(mm => { const x = g(mm); return rate(x.r, x.c); });
-  h += '<div class="sec"><h2>🔁 ' + mLab(m) + ' 回头客<small>ダイニー 5 家店' + (partial(m) ? '・截至 ' + esc((meta.upto || '').slice(5).replace('-', '/')) : '') + '</small></h2><div class="grid g3">' +
+  h += '<div class="sec"><h2>🔁 ' + mLab(m) + ' 回头客<small>' + (SEL ? esc(SEL) : 'ダイニー 5 家店') + (partial(m) ? '・截至 ' + esc((meta.upto || '').slice(5).replace('-', '/')) : '') + '</small></h2><div class="grid g3">' +
     '<div class="card kpi"><span class="plat">登录客里的回头率</span><br><b>' + P(gr) + '</b> ' + (GP ? '比上月 ' + pp(gr, rate(GP.r, GP.c)) : '') + (GL ? '　同比 ' + pp(gr, rate(GL.r, GL.c)) : '') + spark(trend, 200, 34, 'var(--good)', true) + '</div>' +
     '<div class="card kpi"><span class="plat">回头客</span><br><b>' + fmt(G.r) + '</b> 人 ' + (GP && !partial(m) ? '比上月 ' + pn(G.r, GP.r) : '') + (GL && !partial(m) ? '　同比 ' + pn(G.r, GL.r) : '') + spark(months.map(mm => g(mm).r), 200, 34, 'var(--ink)', true) + '</div>' +
     '<div class="card kpi"><span class="plat">扫码登录率</span><br><b>' + P(rate(G.c, G.p)) + '</b> ' + (GP ? '比上月 ' + pp(rate(G.c, G.p), rate(GP.c, GP.p)) : '') + '<br><span class="note">客数 ' + fmt(G.p) + ' 人，登录 ' + fmt(G.c) + ' 人</span></div>' +
@@ -562,17 +564,19 @@ function renderQr() {
     : '<div class="empty">谷歌扫码的设置还没下发到 APP<br><span class="note">电脑每天 12:00・22:00 更新评价时会一起下发</span></div>';
   const m = new Map(); (d.stores || []).forEach(s => m.set(s.code, s.name)); (d.groups || []).forEach(g => { if (!m.has(g.store)) m.set(g.store, g.store); });
   const list = [...m].map(([code, name]) => ({ code, name }));
-  const cur = list.find(s => s.code === qrStore) ? qrStore : (list[0] ? list[0].code : '');
+  const selQ = SEL ? list.find(s => String(s.name).includes(SEL) || String(s.code).includes(SEL)) : null;
+  const cur = selQ ? selQ.code : list.find(s => s.code === qrStore) ? qrStore : (list[0] ? list[0].code : '');
   const S = (d.stores || []).find(s => s.code === cur);
   const name = (list.find(s => s.code === cur) || {}).name || '';
   const p = (S && S.p[qrPer]) || { grp: 0, qr: 0, star: 0, low: 0 };
   const groups = (d.groups || []).filter(g => g.store === cur && isToday(g.t));
   const reviews = (d.recent || []).filter(r => r.code ? r.code === cur : r.store === name);
+  const qrSelNote = SEL && !selQ ? '<p class="note">🏪 ' + esc(SEL) + ' 还没有放谷歌扫码 QR，下面是已经放了的店。</p>' : '';
   const tables = S ? Object.keys(S.tables).sort((a, b) => (+a - +b) || a.localeCompare(b)) : [];
   const days = S ? Object.keys(S.days).sort().reverse() : [];
   const mx = Math.max(1, ...tables.map(t => S.tables[t].grp));
   const PER = { today: '今天', d7: '7 天', d30: '30 天' };
-  return (qrErr ? '<div class="err">' + esc(qrErr) + '</div>' : '') +
+  return qrSelNote + (qrErr ? '<div class="err">' + esc(qrErr) + '</div>' : '') +
     '<div class="sec"><h2>📲 谷歌扫码 <small>' + esc(name) + '</small></h2>' +
     (list.length > 1 ? '<select class="tysel" style="margin:0 0 8px" onchange="qrSetStore(this.value)">' + list.map(s => '<option value="' + esc(s.code) + '"' + (s.code === cur ? ' selected' : '') + '>' + esc(s.name) + '</option>').join('') + '</select>' : '') +
     '<div class="seg">' + Object.keys(PER).map(k => '<button class="' + (k === qrPer ? 'on' : '') + '" onclick="qrSetPer(\'' + k + '\')">' + PER[k] + '</button>').join('') +
@@ -1061,7 +1065,7 @@ function renderTy() {
     return '<span class="tyc">' + (short ? '上月 ' : esc(refLab) + ' ') + fmt(was) + ' <span class="' + (d >= 0 ? 'up' : 'dn') + '">' + (d >= 0 ? '▲' : '▼') + fmt(Math.abs(d)) + (p != null && !short ? '（' + (d >= 0 ? '+' : '−') + Math.abs(p) + '%）' : '') + '</span></span>';
   };
   // ① 单日 / 期间
-  let h = '<div class="seg">' + [['day', '单日'], ['range', '📅 期间（自己选）']].map(([k, n]) => '<button class="' + (tyMode === k ? 'on' : '') + '" onclick="tySet(\'mode\',\'' + k + '\')">' + n + '</button>').join('') + '</div>';
+  let h = (SEL ? '<p class="note" style="margin-top:0">🏪 ' + esc(SEL) + '：下面「各店」只列这家，时段默认看这家；最上面的合计还是全部店。</p>' : '') + '<div class="seg">' + [['day', '单日'], ['range', '📅 期间（自己选）']].map(([k, n]) => '<button class="' + (tyMode === k ? 'on' : '') + '" onclick="tySet(\'mode\',\'' + k + '\')">' + n + '</button>').join('') + '</div>';
   if (!range) {
     h += '<div class="seg" style="flex-wrap:nowrap;overflow-x:auto">' + ALL.slice().reverse().map(d => '<button class="' + (d === tyDay ? 'on' : '') + '" onclick="tySet(\'day\',\'' + d + '\')">' + mdw(d) + (DM[d] && DM[d]['标'] && DM[d]['标'].includes('截至') ? ' 进行中' : '') + '</button>').join('') + '</div>';
   } else {
@@ -1121,7 +1125,7 @@ function renderTy() {
   const PRD = {}; R.forEach(r => { if (r.k === 'pr') PRD[r['日']] = r; });
   // 时间段的店下拉：受付时间模式用レストランボード 里那段时间有预约的店（10 月没有食べログ页面数据时也能选）
   const rbSt = (() => { const t = {}; sel.forEach(ds => Object.entries((PRD[ds] || {}).hs || {}).forEach(([key, m]) => { const [pp, k] = key.split('|'); if (tyHrPl !== 'all' && pp !== tyHrPl) return; t[k] = (t[k] || 0) + Object.values(m).reduce((a, n) => a + n, 0); })); return Object.keys(t).sort((a, b) => t[b] - t[a]); })();
-  const hrList = tyHrSrc === 'rb' ? rbSt : stores, hrSt = hrList.includes(tyHrSt) ? tyHrSt : '';
+  const hrList = tyHrSrc === 'rb' ? rbSt : stores, hrSt = hrList.includes(tyHrSt) ? tyHrSt : (SEL && hrList.includes(SEL) ? SEL : '');
   const rbHours = (list, onlyStore, pl) => {
     const a = Array(24).fill(0), c = Array(24).fill(0), bz = Array(24).fill(0); let days = 0, inc = 0;   // a＝下单人数，c＝其中后来取消的（hc / hsc），bz＝其中 AA（hb / hsb，都在取消里，最后从 a、c 减掉）
     const addSt = (src, arr) => Object.entries(src || {}).forEach(([key, m]) => { const [pp, k] = key.split('|'); if (k !== onlyStore || (pl !== 'all' && pp !== pl)) return; Object.entries(m).forEach(([hh, n]) => arr[+hh] += n); });
@@ -1188,7 +1192,7 @@ function renderTy() {
     '<div class="tyc" style="margin-bottom:6px">' + (tyHrSrc === 'rb' && tyHrPl === 'T' ? '那' + (range ? '段时间' : '天') + '进的 T（食べログ）网上预约，订的是哪个时段（按来店开始时间分 6 段：0〜11 点・昼 11〜14・14〜17・夕方 17〜19・夜 19〜22・22 点以后）。<b style="color:var(--t)">深色＝现在还留着的</b>，<span style="color:var(--faint)">灰色＝后来取消的</span>' : tyHrSrc === 'rb' ? '那' + (range ? '段时间每天' : '天') + '几点有人在网上下了预约（レストランボード 的受付时间，只算网上预约' + (range ? '，加起来' : '') + '）。<b style="color:var(--t)">深色＝现在还留着的</b>，<span style="color:var(--faint)">灰色＝后来取消的</span>（数字＝留着的人，「消」＝取消的人）' : '食べログ页面「本日 N 人」每小时增加多少，按下单（点保存）的时间分 6 段：0〜11 点・昼 11〜14・14〜17・夕方 17〜19・夜 19〜22・22〜23:55') + '</div>' +
     slot(hrSt) + '</div>';
   // ⑤ 各店：预约・保存并排，下面灰字上月同期
-  let L = Object.entries(cur.st);
+  let L = Object.entries(cur.st).filter(([k]) => selOk(k));
   L.sort(tySort === 'r' ? (a, b) => (b[1].r ?? -1) - (a[1].r ?? -1) : (a, b) => (b[1].s ?? -1) - (a[1].s ?? -1));
   if (L.length) h += '<div class="sec"><div class="tyhd"><h2 style="margin:0">各店</h2><div class="seg" style="margin:0">' + [['r', '按预约'], ['s', '按保存']].map(([k, n]) => '<button class="' + (tySort === k ? 'on' : '') + '" onclick="tySet(\'sort\',\'' + k + '\')">' + n + '</button>').join('') + '</div><span class="tyc" style="margin-left:auto">点店看品牌页和时间段</span></div><div class="card rows">' +
     L.map(([k, x], i) => {
@@ -1292,7 +1296,7 @@ function prBlock(R, sel, range) {
   const realN = (o, k) => Object.values((o.s || {})[k] || {}).reduce((a, x) => a + x[1] - (x[4] || 0), 0);
   const uni = new Set(); ds.concat(base).forEach(d => Object.keys(PR[d].s).forEach(k => uni.add(k)));
   const Z = { T: 0, H: 0, G: 0, R: 0, c: 0, n: 0, b: 0 };
-  const SR = [...uni].filter(k => !(CLOSED[k] && ds[ds.length - 1] >= CLOSED[k])).map(k => {   // 选的日子里有闭店以后的天就不列（不然闭店会被当成「进得差」）
+  const SR = [...uni].filter(k => selOk(k) && !(CLOSED[k] && ds[ds.length - 1] >= CLOSED[k])).map(k => {   // 选的日子里有闭店以后的天就不列（不然闭店会被当成「进得差」）
     const x = cur.st[k] || Z, kept = PK.reduce((a, p) => a + x[p], 0);
     const bAvg = base.length >= 14 ? base.reduce((a, d) => a + realN(PR[d], k), 0) / base.length : null;
     const cAvg = x.n / ds.length, nN = (cN.st[k] || Z).n, nP = (cP.st[k] || Z).n;
