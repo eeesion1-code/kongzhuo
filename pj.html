@@ -189,6 +189,13 @@ const LS = {
 };
 const LOCAL = /[?&]local=1/.test(location.search);   // 本机测试：读 ./_pj.json ./_hr.json
 let K = LS.get('k', '');
+// 11/18：只有登记过的手机能用 → 和主页（index.html）同一个手机编号 dv（同一个网站，手机里共用）
+const DV = (() => { let v = LS.get('dv', ''); if (!/^[0-9a-f]{32}$/.test(v)) { const a = new Uint8Array(16); crypto.getRandomValues(a); v = Array.from(a, b => b.toString(16).padStart(2, '0')).join(''); LS.set('dv', v); } return v; })();
+const DVUA = (() => { const u = navigator.userAgent, st = (navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) ? '主屏幕APP' : '浏览器'; let m;
+  if ((m = u.match(/iPhone OS ([\d_]+)/))) return `iPhone iOS ${m[1].replace(/_/g, '.')}・${st}`;
+  if ((m = u.match(/iPad.*? OS ([\d_]+)/))) return `iPad iOS ${m[1].replace(/_/g, '.')}・${st}`;
+  if ((m = u.match(/Android ([\d.]+); ([^;)]+)/))) return `Android ${m[1]} ${m[2].trim()}・${st}`;
+  return `${(u.match(/Windows NT|Macintosh|Android|Linux/) || ['其他'])[0]}・${st}`; })();
 const fromUrl = (location.hash.match(/k=([^&]+)/) || [])[1];
 if (fromUrl) { K = decodeURIComponent(fromUrl); LS.set('k', K); history.replaceState(null, '', location.pathname + location.search); }
 
@@ -209,7 +216,7 @@ let tab = tabFromUrl || LS.get('pjTab', 'pj'), stSort = LS.get('pjSort', 'g'), r
 // ---------- 读数据 ----------
 async function api(what) {
   if (LOCAL) { const r = await fetch('./_' + what + '.json', { cache: 'no-store' }); return r.json(); }
-  const r = await fetch(API + '?fmt=json&what=' + what + '&k=' + encodeURIComponent(K), { cache: 'no-store' });
+  const r = await fetch(API + '?fmt=json&what=' + what + '&k=' + encodeURIComponent(K) + '&dv=' + DV + '&ua=' + encodeURIComponent(DVUA), { cache: 'no-store' });
   return r.json();
 }
 function cacheGet(what) { try { return JSON.parse(LS.get('pjc_' + what, 'null')); } catch (e) { return null; } }
@@ -224,6 +231,11 @@ async function load() {
   if (a.status === 'fulfilled') {
     const d = a.value;
     if (d && d.error === 'key') { LS.del('k'); K = ''; return showKey('密码不对'); }
+    if (d && d.error === 'device') {   // 11/18：没登记的手机——手机里存的也删掉
+      LS.del('pjc_pj'); LS.del('pjc_hr'); PJ = HR = null; owner = false; LOADING = false;
+      $('main').innerHTML = `<div class="keybox"><p>🔒 这台手机还没登记，不能使用。<br>已经通知负责人。手机编号：<b>${esc(d.id || '—')}</b><br><span class="note">是自己人换了手机：请负责人在空桌一览「📱 登录手机 → 开放登记」，然后重新打开。</span></p></div>`;
+      return;
+    }
     if (d && Array.isArray(d.rows)) { PJ = d; pjErr = ''; cachePut('pj', d); }
     else pjErr = '读不到评价数据（后台还没部署新版本）';
   } else pjErr = '网络不通，显示的是上次的数据';
