@@ -179,7 +179,7 @@ main{padding:12px 14px calc(30px + env(safe-area-inset-bottom));max-width:760px;
 </header>
 <main id="main"><div class="empty">读取中…</div></main>
 <script>
-const APPV = 'yunying-v37';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v38';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 在 空桌一览 里面（pj.html）还是独立 APP
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
 const LS = {
@@ -210,7 +210,7 @@ const pct = x => x == null ? '' : (x >= 0 ? '▲' : '▼') + Math.abs(x * 100).t
 const today = new Date(); const TD = today.toISOString().slice(0, 10);
 
 let PJ = null, HR = null, pjErr = '', hrErr = '', owner = false;
-const tabFromUrl = (location.hash.match(/^#(pj|hr|hy|sy|ty|yc|qr)$/) || [])[1];   // 网址带 #hr 直接开人事评价、#hy 卫生、#pj 评价
+const tabFromUrl = (location.hash.match(/^#(pj|hr|hy|sy|ty|yc|qr|rk)$/) || [])[1];   // 网址带 #hr 直接开人事评价、#hy 卫生、#pj 评价
 let syMonth = LS.get('syMonth', 'year'), syQ = '', sySort = LS.get('sySort', 'store'), syOpen = new Set();
 let tab = tabFromUrl || LS.get('pjTab', 'pj'), stSort = LS.get('pjSort', 'g'), rvPlat = '', openSt = new Set(), hrMonth = '', hrOpen = new Set(), hyOpen = new Set();
 
@@ -246,10 +246,11 @@ async function load() {
     else if (d && d.error === 'owner') { HR = null; owner = false; LS.del('pjc_hr'); }
     else if (owner || (d && !d.error)) hrErr = '读不到人事评价（后台还没部署新版本）';
   }
-  if (!owner && tab !== 'pj' && tab !== 'ty' && tab !== 'yc' && tab !== 'qr') tab = 'pj';
+  if (!owner && tab !== 'pj' && tab !== 'ty' && tab !== 'yc' && tab !== 'qr' && tab !== 'rk') tab = 'pj';
   LOADING = false;
   render();
   if (tab === 'qr') loadQr();
+  if (tab === 'rk') loadRk();
 }
 let LOADING = false;
 function showKey(msg) {
@@ -259,14 +260,14 @@ function saveKey() { const v = $('kin').value.trim(); if (!v) return; K = v; LS.
 function changeKey() { showKey(''); }
 
 // ---------- 公共 ----------
-function setTab(t) { tab = t; LS.set('pjTab', t); render(); window.scrollTo(0, 0); if (t === 'qr') loadQr(); }
+function setTab(t) { tab = t; LS.set('pjTab', t); render(); window.scrollTo(0, 0); if (t === 'qr') loadQr(); if (t === 'rk') loadRk(); }
 function render() {
   const ycN = ycBad().length;   // 11/16 预约异常：有订不了的页面就在按钮上显示几处
-  const tabs = [['pj', '⭐ 评价'], ['qr', '📲 谷歌扫码'], ['ty', '📅 预约'], ['yc', '🚨 预约异常' + (ycN ? ' <b style="color:#fff;background:var(--bad);border-radius:9px;padding:0 6px;font-size:12px">' + ycN + '</b>' : '')], ...(owner ? [['hr', '👔 人事'], ['sy', '👤 社员'], ['hy', '🧹 卫生']] : [])];
+  const tabs = [['pj', '⭐ 评价'], ['qr', '📲 谷歌扫码'], ['ty', '📅 预约'], ['rk', '🔁 回头客'], ['yc', '🚨 预约异常' + (ycN ? ' <b style="color:#fff;background:var(--bad);border-radius:9px;padding:0 6px;font-size:12px">' + ycN + '</b>' : '')], ...(owner ? [['hr', '👔 人事'], ['sy', '👤 社员'], ['hy', '🧹 卫生']] : [])];
   $('tabs').innerHTML = tabs.map(([k, n]) => '<button class="' + (tab === k ? 'on' : '') + '" onclick="setTab(\'' + k + '\')">' + n + '</button>').join('');
-  const at = tab === 'qr' ? (QRD && QRD.updated) : tab === 'pj' || tab === 'ty' || tab === 'yc' ? (PJ && PJ.at) : (HR && HR.at);
-  $('at').textContent = (at ? at.slice(5).replace('-', '/') + ' 更新' : '') + (tab === 'qr' ? (qrBusy ? '・读取最新中…' : '') : LOADING ? '・读取最新中…' : (pjErr && tab !== 'hr' && tab !== 'sy' && tab !== 'hy') ? '・⚠ 没读到最新（显示的是上次的）' : '');
-  $('main').innerHTML = (tab === 'hr' ? renderHr() : tab === 'sy' ? renderSy() : tab === 'hy' ? renderHy() : tab === 'ty' ? renderTy() : tab === 'yc' ? renderYc() : tab === 'qr' ? renderQr() : renderPj()) +
+  const at = tab === 'rk' ? (RK && RK.at) : tab === 'qr' ? (QRD && QRD.updated) : tab === 'pj' || tab === 'ty' || tab === 'yc' ? (PJ && PJ.at) : (HR && HR.at);
+  $('at').textContent = (at ? at.slice(5).replace('-', '/') + ' 更新' : '') + (tab === 'rk' ? (rkBusy ? '・读取最新中…' : '') : tab === 'qr' ? (qrBusy ? '・读取最新中…' : '') : LOADING ? '・读取最新中…' : (pjErr && tab !== 'hr' && tab !== 'sy' && tab !== 'hy') ? '・⚠ 没读到最新（显示的是上次的）' : '');
+  $('main').innerHTML = (tab === 'hr' ? renderHr() : tab === 'sy' ? renderSy() : tab === 'hy' ? renderHy() : tab === 'ty' ? renderTy() : tab === 'yc' ? renderYc() : tab === 'qr' ? renderQr() : tab === 'rk' ? renderRk() : renderPj()) +
     '<div class="foot"><a onclick="changeKey()">🔑 换密码（老板 / 店长）</a>' + (IN_KZ ? '' : '　版本 ' + APPV.replace('yunying-v', '')) + '</div>';
 }
 const stars = s => s == null ? '' : '<span class="stars">' + '★'.repeat(Math.round(s)) + '<span style="opacity:.25">' + '★'.repeat(5 - Math.round(s)) + '</span></span>';
@@ -300,6 +301,61 @@ function trendCard(T) {
     '<div class="card kpi"><span class="plat" style="color:var(--g)"><span class="dot" style="background:var(--g)"></span>Google 评价数</span><br><b>' + fmt(z[2]) + '</b> <span class="up" style="font-size:13px">+' + fmt(z[2] - a[2]) + '</span>' + spark(T.map(x => x[2]), 200, 36, 'var(--g)', true) + '<div class="d">平均每月 +' + fmt(Math.round((z[2] - a[2]) / days * 30)) + ' 条</div></div>' +
     (ta && tz && tb.length > 1 ? '<div class="card kpi"><span class="plat" style="color:var(--t)"><span class="dot" style="background:var(--t)"></span>食べログ 口コミ数</span><br><b>' + fmt(tz[3]) + '</b> <span class="' + (tz[3] >= ta[3] ? 'up' : 'dn') + '" style="font-size:13px">' + (tz[3] >= ta[3] ? '+' : '−') + fmt(Math.abs(tz[3] - ta[3])) + '</span>' + spark(tb.map(x => x[3]), 200, 36, 'var(--t)', true) + '<div class="d">' + lab(ta) + ' 起；店铺分一直停在 3.09 左右</div></div>' : '') +
     '</div><p class="note">同一批店铺页相比（新开的页不算进去）。11/16 以前的数来自 Adali 每天记的表。</p></div>';
+}
+
+// ================= 🔁 回头客 =================
+// 11/18 用户：「ダイニー 有回头客数据，归类到集团 APP，放运营部」。数据＝ダイニー 経営管理・店舗管理ダッシュボード 每店每月
+// （电脑 运营部\回头客\dinii_回头客.py 每天 12:15 读、写云端「回头客」，后台 what=rk）。只有用 ダイニー 收银的 5 家店。
+// p＝客数、c＝チェックイン（扫码登录 ダイニー 的客人）、r＝回头客（登录客人里以前来过的）。不含营业额。
+let RK = cacheGet('rk'), rkBusy = false, rkErr = '', rkMonth = LS.get('rkMonth', '');
+async function loadRk() {
+  if (rkBusy) return;
+  rkBusy = true; rkErr = ''; if (tab === 'rk') render();
+  try {
+    const d = await api('rk');
+    if (d && Array.isArray(d.rows)) { RK = d; cachePut('rk', d); }
+    else if (d && d.error === 'device') rkErr = '这台手机还没登记';
+    else rkErr = '读不到回头客数据（后台还没部署新版本）';
+  } catch (e) { rkErr = '网络不通，显示的是上次的数据'; }
+  rkBusy = false;
+  if (tab === 'rk') render();
+}
+function rkSet(m) { rkMonth = m; LS.set('rkMonth', m); render(); }
+function renderRk() {
+  const rows = ((RK && RK.rows) || []).filter(r => r.k === 'rk'), meta = ((RK && RK.rows) || []).find(r => r.k === 'rkm') || {};
+  if (!rows.length) return '<div class="sec"><p class="note">' + (rkErr || (rkBusy ? '读取中…' : '还没有回头客数据')) + '</p></div>';
+  const months = [...new Set(rows.map(r => r.m))].sort(), stores = [...new Set(rows.map(r => r.s))];
+  const cur = (meta.upto || TD).slice(0, 7), full = months.filter(m => m < cur);
+  const m = months.includes(rkMonth) ? rkMonth : (full[full.length - 1] || months[months.length - 1]);
+  const prevM = months[months.indexOf(m) - 1], lyM = (+m.slice(0, 4) - 1) + m.slice(4);
+  const get = (mm, st) => rows.find(r => r.m === mm && r.s === st);
+  const sum = (mm, f) => rows.filter(r => r.m === mm).reduce((a, r) => a + (+r[f] || 0), 0);
+  const rate = (r, c) => c ? r / c : null;
+  const g = mm => ({ p: sum(mm, 'p'), c: sum(mm, 'c'), r: sum(mm, 'r') });
+  const G = g(m), GP = prevM ? g(prevM) : null, GL = months.includes(lyM) ? g(lyM) : null;
+  const pp = (a, b) => a == null || b == null ? '' : '<span class="' + (a >= b ? 'up' : 'dn') + '" style="font-size:13px">' + (a >= b ? '▲' : '▼') + Math.abs((a - b) * 100).toFixed(1) + ' 点</span>';
+  const pn = (a, b) => b == null ? '' : '<span class="' + (a >= b ? 'up' : 'dn') + '" style="font-size:13px">' + (a >= b ? '▲' : '▼') + fmt(Math.abs(a - b)) + '</span>';
+  const P = x => x == null ? '—' : (x * 100).toFixed(1) + '%';
+  const mLab = mm => (mm.slice(0, 4) !== TD.slice(0, 4) ? mm.slice(2, 4) + '年' : '') + +mm.slice(5) + '月';
+  const partial = mm => mm >= cur;
+  let h = '<div class="seg">' + months.slice(-13).map(mm => '<button class="' + (mm === m ? 'on' : '') + '" onclick="rkSet(\'' + mm + '\')">' + mLab(mm) + (partial(mm) ? '（进行中）' : '') + '</button>').join('') + '</div>';
+  if (rkErr) h += '<p class="note wn">⚠ ' + esc(rkErr) + '</p>';
+  const gr = rate(G.r, G.c), trend = months.map(mm => { const x = g(mm); return rate(x.r, x.c); });
+  h += '<div class="sec"><h2>🔁 ' + mLab(m) + ' 回头客<small>ダイニー 5 家店' + (partial(m) ? '・截至 ' + esc((meta.upto || '').slice(5).replace('-', '/')) : '') + '</small></h2><div class="grid g3">' +
+    '<div class="card kpi"><span class="plat">登录客里的回头率</span><br><b>' + P(gr) + '</b> ' + (GP ? '比上月 ' + pp(gr, rate(GP.r, GP.c)) : '') + (GL ? '　比去年 ' + pp(gr, rate(GL.r, GL.c)) : '') + spark(trend, 200, 34, 'var(--good)', true) + '</div>' +
+    '<div class="card kpi"><span class="plat">回头客</span><br><b>' + fmt(G.r) + '</b> 人 ' + (GP && !partial(m) ? '比上月 ' + pn(G.r, GP.r) : '') + (GL && !partial(m) ? '　比去年 ' + pn(G.r, GL.r) : '') + spark(months.map(mm => g(mm).r), 200, 34, 'var(--ink)', true) + '</div>' +
+    '<div class="card kpi"><span class="plat">扫码登录率</span><br><b>' + P(rate(G.c, G.p)) + '</b> ' + (GP ? '比上月 ' + pp(rate(G.c, G.p), rate(GP.c, GP.p)) : '') + '<br><span class="note">客数 ' + fmt(G.p) + ' 人，登录 ' + fmt(G.c) + ' 人</span></div>' +
+    '</div></div>';
+  const list = stores.map(st => { const x = get(m, st) || { p: 0, c: 0, r: 0 }, y = prevM && get(prevM, st);
+    return { st, x, rr: rate(x.r, x.c), pr: y ? rate(y.r, y.c) : null, ci: rate(x.c, x.p), tr: months.map(mm => { const z = get(mm, st); return z ? rate(z.r, z.c) : null; }) }; })
+    .sort((a, b) => (b.rr || 0) - (a.rr || 0));
+  const best = list[0], worst = list[list.length - 1];
+  h += '<div class="sec"><h2>🏪 各店<small>按回头率排</small></h2><table class="tbl card"><tr><th>店</th><th>回头率</th><th>比上月</th><th>回头客</th><th>登录率</th><th>客数</th><th style="width:22%">走势</th></tr>' +
+    list.map(o => '<tr><td><b>' + esc(o.st) + '</b></td><td><b class="' + (o === best ? 'up' : o === worst ? 'dn' : '') + '">' + P(o.rr) + '</b></td><td>' + pp(o.rr, o.pr) + '</td><td>' + fmt(o.x.r) + '</td><td' + (o.ci != null && o.ci < 0.45 ? ' class="wn"' : '') + '>' + P(o.ci) + '</td><td>' + fmt(o.x.p) + '</td><td>' + spark(o.tr, 120, 26, 'var(--good)', false) + '</td></tr>').join('') + '</table>';
+  if (best && worst && best !== worst) h += '<p class="note">' + mLab(m) + '：<b>' + esc(best.st) + '</b> 回头率最高（' + P(best.rr) + '），<b>' + esc(worst.st) + '</b> 最低（' + P(worst.rr) + '）。登录率低于 45% 标黄——登录的人少，认得出的回头客也少。</p>';
+  h += '</div>';
+  h += '<div class="sec"><p class="note">📌 怎么看：<br>・<b>回头率</b>＝回头客 ÷ 扫码登录的客人。只有扫码登录 ダイニー 的客人才认得出是不是来过，所以用登录的人当分母，各店才比得了（ダイニー 页面上的「リピーター比率」是除以全部客数，数字会小很多）。<br>・<b>登录率</b>＝扫码登录的客人 ÷ 客数，大约一半。登录率越高，回头客认得越全——店里多引导客人扫码，数字才准。<br>・一年来回头率往上走，有一部分是因为 ダイニー 记住的客人越来越多（第一次来的记下了，以后才认得出），主要看<b>各店之间比</b>、和<b>同一家店最近几个月的变化</b>。<br>・只有用 ダイニー 收银的 5 家店；PE regi・Airレジ 的店没有这种数据，三幸園的客人不扫码登录也没有。<br>・ダイニー 的「再来店意欲」分数每月忽高忽低（同一家店 0 分→90 分），不显示。<br>・每天 12:15 更新，来源：' + esc(meta.src || 'ダイニー') + '。</p></div>';
+  return h;
 }
 
 // ================= 📲 谷歌扫码 =================
