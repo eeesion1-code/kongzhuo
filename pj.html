@@ -79,6 +79,9 @@ main{padding:12px 14px calc(30px + env(safe-area-inset-bottom));max-width:760px;
 .ycchk input{flex:1;min-width:0;border:1px solid var(--line);border-radius:8px;padding:5px 8px;font-size:14px;background:var(--card);color:var(--ink)}
 .ycchk button{border:0;border-radius:8px;padding:5px 10px;background:var(--good);color:#fff;font-weight:700;white-space:nowrap}
 .ycchk a{color:var(--brand);cursor:pointer}
+.selbar{display:flex;align-items:center;gap:8px;margin:0 0 10px;padding:8px 10px;border:1px solid var(--line);border-radius:12px;background:var(--card);font-size:14px}
+.selbar span{font-weight:700;white-space:nowrap}.selbar select{flex:1;min-width:0;border:1px solid var(--line);border-radius:8px;padding:6px;background:var(--card);color:var(--ink);font-size:15px}
+.selbar button{border:0;border-radius:8px;padding:6px 10px;background:var(--soft);color:var(--ink);white-space:nowrap}
 .ycchk textarea{display:block;width:100%;box-sizing:border-box;margin-top:4px;border:1px solid var(--line);border-radius:8px;padding:5px 8px;font-size:14px;background:var(--card);color:var(--ink);resize:vertical;font-family:inherit}
 .sgq{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}.sgq button{background:var(--soft) !important;color:var(--ink) !important;font-weight:400 !important;font-size:12px;padding:3px 8px !important}
 .sgprev{font-size:12px;margin-top:4px;padding:4px 6px;border-radius:6px;background:var(--soft);color:var(--ink)}
@@ -261,7 +264,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
   addEventListener('touchcancel', () => { on = false; hide(); }, { passive: true });
 })();
 
-const APPV = 'yunying-v48';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v49';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 在 空桌一览 里面（pj.html）还是独立 APP
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
 const LS = {
@@ -358,7 +361,7 @@ function render() {
   $('tabs').innerHTML = tabs.map(([k, n]) => '<button class="' + (tab === k ? 'on' : '') + '" onclick="setTab(\'' + k + '\')">' + n + '</button>').join('');
   const at = tab === 'rk' ? (RK && RK.at) : tab === 'qr' ? (QRD && QRD.updated) : tab === 'pj' || tab === 'ty' || tab === 'yc' ? (PJ && PJ.at) : (HR && HR.at);
   $('at').textContent = (at ? at.slice(5).replace('-', '/') + ' 更新' : '') + (tab === 'rk' ? (rkBusy ? '・读取最新中…' : '') : tab === 'qr' ? (qrBusy ? '・读取最新中…' : '') : LOADING ? '・读取最新中…' : (pjErr && tab !== 'hr' && tab !== 'sy' && tab !== 'hy') ? '・⚠ 没读到最新（显示的是上次的）' : '');
-  $('main').innerHTML = (tab === 'hr' ? renderHr() : tab === 'sy' ? renderSy() : tab === 'hy' ? renderHy() : tab === 'ty' ? renderTy() : tab === 'yc' ? renderYc() : tab === 'qr' ? renderQr() : tab === 'rk' ? renderRk() : tab === 'cl' ? renderCl() : renderPj()) +
+  $('main').innerHTML = (tab === 'pj' || tab === 'yc' || tab === 'cl' ? selBar() : '') + (tab === 'hr' ? renderHr() : tab === 'sy' ? renderSy() : tab === 'hy' ? renderHy() : tab === 'ty' ? renderTy() : tab === 'yc' ? renderYc() : tab === 'qr' ? renderQr() : tab === 'rk' ? renderRk() : tab === 'cl' ? renderCl() : renderPj()) +
     '<div class="foot"><a onclick="changeKey()">🔑 换密码（老板 / 店长）</a>' + (IN_KZ ? '' : '　版本 ' + APPV.replace('yunying-v', '')) + '</div>';
 }
 const stars = s => s == null ? '' : '<span class="stars">' + '★'.repeat(Math.round(s)) + '<span style="opacity:.25">' + '★'.repeat(5 - Math.round(s)) + '</span></span>';
@@ -419,15 +422,15 @@ function rkSetR(k, v) { rkR[k] = v; LS.set('rkR', JSON.stringify(rkR)); render()
 // 11/18 用户：以后相同的问题怎么处理，都可以调取记录 → 每次按「已处理」写的做法（后台 ycd 的 h，一年内最新 400 条）
 let clCat = '', clSt = '', clQ = '';
 function renderCl() {
-  const H = YCD.h || [], cats = [...new Set(H.map(r => r[2]).filter(Boolean))], sts = [...new Set(H.map(r => r[3]).filter(Boolean))].sort();
+  const H = (YCD.h || []).filter(r => selOk(r[3])), cats = [...new Set(H.map(r => r[2]).filter(Boolean))], sts = [...new Set(H.map(r => r[3]).filter(Boolean))].sort();
   return '<div class="sec"><h2>📝 处理记录<small>每次按「已处理」写的做法，同样的问题可以照着做</small></h2>' +
     '<div class="seg">' + [['', '全部 ' + H.length]].concat(cats.map(c => [c, c + ' ' + H.filter(r => r[2] === c).length])).map(([k, t]) => '<button class="' + (clCat === k ? 'on' : '') + '" onclick="clCat=\'' + esc(k) + '\';render()">' + esc(t) + '</button>').join('') + '</div>' +
-    '<div style="display:flex;gap:6px;margin:8px 0"><select onchange="clSt=this.value;render()" style="border:1px solid var(--line);border-radius:8px;padding:6px;background:var(--card);color:var(--ink)"><option value="">全部店</option>' + sts.map(x => '<option' + (x === clSt ? ' selected' : '') + '>' + esc(x) + '</option>').join('') + '</select>' +
+    '<div style="display:flex;gap:6px;margin:8px 0">' +
     '<input id="clq" placeholder="搜：做法・内容・名字" value="' + esc(clQ) + '" oninput="clQ=this.value;$(\'cll\').innerHTML=clList()" style="flex:1;min-width:0;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:var(--card);color:var(--ink);font-size:14px"></div>' +
     '<div id="cll">' + clList() + '</div><p class="note">在「⭐ 评价」的差评、「🚨 预约异常」里按「✅ 已处理」时写的「怎么处理的」都会存在这里（一年内）。11/18 以前只写了名字的不在这里。</p></div>';
 }
 function clList() {
-  const q = clQ.trim(), L = (YCD.h || []).filter(r => (!clCat || r[2] === clCat) && (!clSt || r[3] === clSt) && (!q || r.join(' ').includes(q)));
+  const q = clQ.trim(), L = (YCD.h || []).filter(r => (!clCat || r[2] === clCat) && selOk(r[3]) && (!q || r.join(' ').includes(q)));
   if (!L.length) return '<div class="card empty" style="padding:16px">' + ((YCD.h || []).length ? '没有符合的记录' : '还没有记录：以后每次按「已处理」写的做法都会出现在这里') + '</div>';
   return '<div class="card">' + L.slice(0, 200).map(r => '<div class="rv"><div class="rvh"><span class="pill p-soft">' + esc(r[2] || '其他') + '</span> <b>' + esc(r[3] || '') + '</b> <span class="who">' + esc(String(r[0]).slice(5, 16)) + ' · ' + esc(r[1]) + '</span></div>' +
     (r[4] ? '<div class="tyc" style="margin-top:2px">' + esc(r[4]) + '</div>' : '') + '<div class="rvt">✅ ' + esc(r[5]) + '</div></div>').join('') + '</div>';
@@ -681,6 +684,7 @@ function renderPj() {
   if (!PJ) return pjErr ? '<div class="err">' + esc(pjErr) + '</div>' : '<div class="empty">读取中…</div>';
   const D = pjParse(), M = D.meta, G = M['集团'] || {};
   let h = pjErr ? '<div class="err">' + esc(pjErr) + '</div>' : '';
+  if (!SEL) {   // 11/18 选了店：不显示集团总览・半年走势，直接看这家店（下面）
   // ① 总览
   h += '<div class="sec"><h2>各平台总览<small>' + Object.keys(G).length + ' 个平台・' + D.pg.length + ' 个店铺页</small></h2><div class="grid g3">' +
     ['Google', '食べログ', 'ホットペッパー'].map(p => platKpi(p, G[p])).join('') + '</div>';
@@ -689,18 +693,19 @@ function renderPj() {
     h += '<p class="note">食べログ：' + D.pg.filter(p => p['平台'] === '食べログ').filter(p => p['评分'] != null && p['评分'] <= 3.1).length + ' 页的店铺分停在 3.08〜3.10（食べログ 的起步分），口コミ 自己的平均却有 ' + f2(tb['近90天均分']) + '。说明写评价的人在 食べログ 的影响力低，评价数加上去分数也不涨。</p>';
   h += '</div>';
   h += trendCard(M['走势']);
+  } else { const one = D.st.find(x => x['店'] === SEL); h += one ? '<div class="sec"><h2>' + esc(SEL) + '<small>这家店各平台的分数・件数・最新评价</small></h2><div class="card rows">' + stRow(one, D.pg.filter(p => p['店'] === SEL), D.rv.filter(r => r['店'] === SEL)) + '</div></div>' : '<div class="card empty" style="padding:16px">' + esc(SEL) + ' 没有评价数据</div>'; }
   // ② 要处理的差评
   const d30 = new Date(today - 30 * 864e5).toISOString().slice(0, 10);
-  const bad = D.rv.filter(r => rvBad(r) && ((r['日'] || r['首'] || '') >= d30 || r['顶'] || (r['平台'] === '食べログ' && !r['日'] && !r['首'])))
+  const bad = D.rv.filter(r => selOk(r['店']) && rvBad(r) && ((r['日'] || r['首'] || '') >= d30 || r['顶'] || (r['平台'] === '食べログ' && !r['日'] && !r['首'])))
     .sort((a, b) => (!!b['顶'] - !!a['顶']) || (b['回复'] === false) - (a['回复'] === false) || String(b['日'] || b['首'] || b['来店']).localeCompare(String(a['日'] || a['首'] || a['来店'])));
   const unrep = bad.filter(r => r['回复'] === false).length;
   const bc = p => bad.filter(r => r['平台'] === p).length;
   const badF = rvPlat ? bad.filter(r => r['平台'] === rvPlat) : bad;
-  h += '<div class="sec"><h2>⚠ 要处理的差评<small>近 30 天 ' + bad.length + ' 条' + (unrep ? '・<span class="dn">还没回复 ' + unrep + '</span>' : '') + '</small></h2>';
+  h += '<div class="sec"><h2>⚠ 要处理的差评<small>' + (SEL ? esc(SEL) + '・' : '') + '近 30 天 ' + bad.length + ' 条' + (unrep ? '・<span class="dn">还没回复 ' + unrep + '</span>' : '') + '</small></h2>';
   h += '<div class="seg">' + [['', '全部 ' + bad.length], ['Google', 'Google ' + bc('Google')], ['ホットペッパー', 'HPG ' + bc('ホットペッパー')], ['食べログ', '食べログ ' + bc('食べログ')]].map(([k, n]) => '<button class="' + (rvPlat === k ? 'on' : '') + '" onclick="rvPlat=\'' + k + '\';render()">' + n + '</button>').join('') + '</div>';
   // 差评的签名键：优先评价库的固定 id；没有就用每条评价自己的链接（食べログ・HPG 都有、不重复）；Google 没有链接→平台|品牌页|作者|第一次读到的日子（不用文字・分数，它们会被改）
   const rvId = r => 'rv|' + (r.id || r['链'] || sgHash([r['平台'], r['品牌页'], r['作者'] || '', r['首'] || r['日'] || ''].join('|')));
-  const ask = D.rv.filter(r => rvAsk(r) && (!rvPlat || r['平台'] === rvPlat));
+  const ask = D.rv.filter(r => selOk(r['店']) && rvAsk(r) && (!rvPlat || r['平台'] === rvPlat));
   if (ask.length) h += '<div class="card" style="border-left:4px solid var(--warn);margin-bottom:10px"><b>🤔 待确认：内容里有不满 ' + ask.length + ' 条</b><div class="tyc">4〜5 星但写了不满（红线是程序按词挑的，以原文为准）。按「算差评」就进下面的差评；「不算」就不再列。</div>' +
     ask.map(r => sgWrap(rvCard(r, true), nqBox(r))).join('') + '</div>';
   h += badF.length ? '<div class="card">' + badF.slice(0, 20).map(r => sgWrap(rvCard(r, true), sgBox([rvId(r)], r['平台'] === 'Google' ? '回复了吗？写上怎么处理的和名字' : '处理了吗？写上怎么处理的和名字', { 店: r['店'], 摘: r['平台'] + ' ' + (r['星'] != null ? r['星'] + '分 ' : '') + String(r['内容'] || r['标题'] || '').slice(0, 50) }))).join('') + '</div>' + (badF.length > 20 ? '<p class="note">只列最新 20 条，还有 ' + (badF.length - 20) + ' 条在下面各店里看。</p>' : '')
@@ -716,9 +721,9 @@ function renderPj() {
     if (k === 'bad') return -(((g['近30天差评'] || 0) + (t['来店月'] ? (rvBy[s['店']] || []).filter(r => rvBad(r) && r['平台'] === '食べログ').length : 0)));
     return 0;
   };
-  const sts = D.st.slice();
+  const sts = D.st.filter(x => selOk(x['店']));
   if (stSort !== 'area') sts.sort((a, b) => val(a, stSort) - val(b, stSort));
-  h += '<div class="sec"><h2>各店<small>点店名看各平台页面和最新评价</small></h2>' +
+  if (!SEL) h += '<div class="sec"><h2>各店<small>点店名看各平台页面和最新评价</small></h2>' +
     '<div class="seg">' + [['g', 'Google 分'], ['t', '食べログ 近期'], ['bad', '差评多'], ['area', '按地区']].map(([k, n]) => '<button class="' + (stSort === k ? 'on' : '') + '" onclick="stSort=\'' + k + '\';LS.set(\'pjSort\',\'' + k + '\');render()">' + n + '</button>').join('') + '</div>' +
     '<div class="card rows">' + sts.map(s => stRow(s, pgBy[s['店']] || [], rvBy[s['店']] || [])).join('') + '</div></div>';
   h += '<p class="note">' + esc(M['说明'] || '') + '<br>Google 不登录只看得到每家「关联度最高的 5 条」，看不到最新的：新增条数按评价数的增长算，新增差评按每天星级分布（几个 1 星、2 星…）的变化算（从 11/16 开始比）。<br>数据：各平台公开页面，电脑每天读一次（' + Object.entries(M['平台'] || {}).map(([k, v]) => k + ' ' + String(v).slice(5)).join('、') + '）。</p>';
@@ -1318,7 +1323,27 @@ function prBlock(R, sel, range) {
 // 11/16 用户：今天有店预约还没满，网上预约却停了，损失很大 → 每天查「今天起 7 天」各平台网页还能不能订（11/16 晚用户：一周的数据每次都更新；各平台预约\预约异常.py，10:30・12:00）
 //   食べログ＝公开的空席接口（○△×）；ホットペッパー＝店铺页的空席日历（◎○△×TEL），页面写「現在通常予約を受け付けていません」＝停了
 //   レストランボード 那天已订几组几人一起写；座位数定了以后再分「满了（正常）」和「没满却订不了（异常）」
-const ycRow = () => ((PJ && PJ.rows) || []).find(r => r.k === 'yc');
+// 11/18 用户：「需要添加选择店铺的功能」→ 上面一条「🏪 店铺」选择（记在这台手机），⭐ 评价・🚨 预约异常・📝 处理记录 都只看这家；选「全部店」恢复
+let SEL = LS.get('selSt', '');
+function selSet(v) { SEL = v; LS.set('selSt', v); openSt = new Set(v ? [v] : []); window.scrollTo(0, 0); render(); }
+const selOk = st => !SEL || st === SEL;
+function selBar() {
+  const D = PJ ? pjParse() : null, Y = ycRow(), by = {};
+  ((D && D.st) || []).forEach(x => { (by[x['站'] || '其他'] = by[x['站'] || '其他'] || new Set()).add(x['店']); });
+  ((Y && Y['页']) || []).forEach(x => { const k = Array.isArray(x) ? x[1] : x['店']; if (k && !Object.values(by).some(z => z.has(k))) (by['其他'] = by['其他'] || new Set()).add(k); });
+  const gs = Object.entries(by);
+  if (!gs.length) return '';
+  return '<div class="selbar"><span>🏪 店铺</span><select onchange="selSet(this.value)"><option value="">全部店</option>' +
+    gs.map(([g, ks]) => '<optgroup label="' + esc(g) + '">' + [...ks].map(k => '<option value="' + esc(k) + '"' + (k === SEL ? ' selected' : '') + '>' + esc(k) + '</option>').join('') + '</optgroup>').join('') +
+    '</select>' + (SEL ? '<button onclick="selSet(\'\')">看全部店</button>' : '') + '</div>';
+}
+const ycRowAll = () => ((PJ && PJ.rows) || []).find(r => r.k === 'yc');
+function ycRow() {   // 选了店：订不了・重复・各页都只留这家
+  const Y = ycRowAll();
+  if (!Y || !SEL) return Y;
+  const st = x => Array.isArray(x) ? x[1] : x['店'];
+  return Object.assign({}, Y, { '订不了': (Y['订不了'] || []).filter(b => b['店'] === SEL), '重复': (Y['重复'] || []).filter(d => d['店'] === SEL), '页': (Y['页'] || []).filter(x => st(x) === SEL) });
+}
 // 11/16 用户（「可以预约呀」）：同品牌在同平台上还有别的页能订＝客人订得到 → 不算警报（只在最下面灰字提醒）
 const ycBad = () => { const Y = ycRow(); return Y ? [...new Set((Y['订不了'] || []).filter(b => b['判断'] !== '满了' && !b['另一页'] && !ycDoneOf(b)).map(b => b['链接']))] : []; };
 // 11/18 用户（红卡右边）：「谁已经做了，有个检查栏，这样有做了就可以把名字输入进去，我们就知道这事已经做了」
@@ -1384,7 +1409,7 @@ async function sgSend(n, act) {
 }
 function ycChk(b, j) {
   if (j !== '没满' && j !== '待确认') return '';
-  const Y = ycRow();
+  const Y = ycRowAll();
   return sgBox([ycId(b)].concat((Y['订不了'] || []).filter(x => x['链接'] === b['链接']).map(ycId)), '', { 店: b['店'], 摘: (b['平台'] || '') + ' ' + (b['品牌'] || '') + ' ' + md(b['日']) + ' 订不了（' + (b['判断'] || '') + '）' });   // 同一网页列着的几天一起签
 }
 function renderYc() {
