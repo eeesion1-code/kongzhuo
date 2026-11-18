@@ -179,7 +179,7 @@ main{padding:12px 14px calc(30px + env(safe-area-inset-bottom));max-width:760px;
 </header>
 <main id="main"><div class="empty">读取中…</div></main>
 <script>
-const APPV = 'yunying-v38';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v39';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 在 空桌一览 里面（pj.html）还是独立 APP
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
 const LS = {
@@ -232,11 +232,7 @@ async function load() {
   if (a.status === 'fulfilled') {
     const d = a.value;
     if (d && d.error === 'key') { LS.del('k'); K = ''; return showKey('密码不对'); }
-    if (d && d.error === 'device') {   // 11/18：没登记的手机——手机里存的也删掉
-      LS.del('pjc_pj'); LS.del('pjc_hr'); PJ = HR = null; owner = false; LOADING = false;
-      $('main').innerHTML = `<div class="keybox"><p>🔒 这台手机还没登记，不能使用。<br>已经通知负责人。手机编号：<b>${esc(d.id || '—')}</b><br><span class="note">是自己人换了手机：请负责人在空桌一览「📱 登录手机 → 开放登记」，然后重新打开。</span></p></div>`;
-      return;
-    }
+    if (d && d.error === 'device') return blockDevice(d);   // 11/18：没登记的手机
     if (d && Array.isArray(d.rows)) { PJ = d; pjErr = ''; cachePut('pj', d); }
     else pjErr = '读不到评价数据（后台还没部署新版本）';
   } else pjErr = '网络不通，显示的是上次的数据';
@@ -252,6 +248,16 @@ async function load() {
   if (tab === 'qr') loadQr();
   if (tab === 'rk') loadRk();
 }
+// 11/18：后台说这台手机没登记 → 什么都不给看：手机里存的运营部数据（pjc_ 开头：评价・人事・回头客・谷歌扫码…）全删，上面的标签也收起
+//   （v39：以前只删评价・人事两份、标签还能点，点「回头客」「谷歌扫码」会显示手机里存的旧数据）
+let BLOCKED = false;
+function blockDevice(d) {
+  BLOCKED = true;
+  try { Object.keys(localStorage).filter(k => k.indexOf('pjc_') === 0).forEach(k => localStorage.removeItem(k)); } catch (e) {}
+  PJ = HR = RK = QRD = null; owner = false; LOADING = false;
+  $('tabs').innerHTML = ''; $('at').textContent = '';
+  $('main').innerHTML = `<div class="keybox"><p>🔒 这台手机还没登记，不能使用。<br>已经通知负责人。手机编号：<b>${esc((d && d.id) || '—')}</b><br><span class="note">是自己人换了手机：请负责人在空桌一览「📱 登录手机 → 开放登记」，然后重新打开。</span></p></div>`;
+}
 let LOADING = false;
 function showKey(msg) {
   $('main').innerHTML = '<div class="keybox"><img src="icon-192.png" alt="" style="width:64px;height:64px;border-radius:14px"><p>请输入密码（和空桌一览同一个）<br><span class="note">老板密码看得到人事评价・卫生检查；店长密码只看评价</span></p><input id="kin" type="password" autocomplete="off"><button onclick="saveKey()">确定</button><p class="note" style="color:var(--bad)">' + esc(msg || '') + '</p></div>';
@@ -262,6 +268,7 @@ function changeKey() { showKey(''); }
 // ---------- 公共 ----------
 function setTab(t) { tab = t; LS.set('pjTab', t); render(); window.scrollTo(0, 0); if (t === 'qr') loadQr(); if (t === 'rk') loadRk(); }
 function render() {
+  if (BLOCKED) return;
   const ycN = ycBad().length;   // 11/16 预约异常：有订不了的页面就在按钮上显示几处
   const tabs = [['pj', '⭐ 评价'], ['qr', '📲 谷歌扫码'], ['ty', '📅 预约'], ['rk', '🔁 回头客'], ['yc', '🚨 预约异常' + (ycN ? ' <b style="color:#fff;background:var(--bad);border-radius:9px;padding:0 6px;font-size:12px">' + ycN + '</b>' : '')], ...(owner ? [['hr', '👔 人事'], ['sy', '👤 社员'], ['hy', '🧹 卫生']] : [])];
   $('tabs').innerHTML = tabs.map(([k, n]) => '<button class="' + (tab === k ? 'on' : '') + '" onclick="setTab(\'' + k + '\')">' + n + '</button>').join('');
@@ -314,7 +321,7 @@ async function loadRk() {
   try {
     const d = await api('rk');
     if (d && Array.isArray(d.rows)) { RK = d; cachePut('rk', d); }
-    else if (d && d.error === 'device') rkErr = '这台手机还没登记';
+    else if (d && d.error === 'device') { rkBusy = false; return blockDevice(d); }
     else rkErr = '读不到回头客数据（后台还没部署新版本）';
   } catch (e) { rkErr = '网络不通，显示的是上次的数据'; }
   rkBusy = false;
@@ -367,7 +374,7 @@ function qrCfg() { return ((PJ && PJ.rows) || []).find(r => r.k === 'qr') || nul
 async function loadQr() {
   const c = qrCfg();
   if (LOCAL && !c) { try { const r = await fetch('./_qr.json', { cache: 'no-store' }); QRD = await r.json(); } catch (e) {} if (tab === 'qr') render(); return; }
-  if (!c || qrBusy) return;
+  if (!c || qrBusy || BLOCKED) return;
   qrBusy = true; qrErr = ''; if (tab === 'qr') render();
   try {
     const r = await fetch(c.api + '?fmt=json&k=' + encodeURIComponent(c.key) + '&_=' + Date.now(), { cache: 'no-store' });
