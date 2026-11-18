@@ -187,7 +187,7 @@ u.ng{text-decoration:underline;text-decoration-color:var(--bad);text-decoration-
 </header>
 <main id="main"><div class="empty">读取中…</div></main>
 <script>
-const APPV = 'yunying-v45';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v46';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 在 空桌一览 里面（pj.html）还是独立 APP
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
 const LS = {
@@ -615,7 +615,7 @@ function renderPj() {
     ask.map(r => sgWrap(rvCard(r, true), nqBox(r))).join('') + '</div>';
   h += badF.length ? '<div class="card">' + badF.slice(0, 20).map(r => sgWrap(rvCard(r, true), sgBox([rvId(r)], r['平台'] === 'Google' ? '回复了吗？写上名字' : '处理了吗？写上名字'))).join('') + '</div>' + (badF.length > 20 ? '<p class="note">只列最新 20 条，还有 ' + (badF.length - 20) + ' 条在下面各店里看。</p>' : '')
     : '<div class="card empty" style="padding:16px">近 30 天没有差评 👍</div>';
-  h += '<p class="note">差评（11/18 起和 KA广告部 发微信群的同一套标准）：三个平台都是 3 分及以下（食べログ 只打分没写内容的不算），加上 4〜5 星但内容里有不满、经人确认「算差评」的。📌 置顶＝店铺页上排第一条，客人一进去就看到，排在最前面。Google 差评店长 24 小时内回复。HPG 只有订过位的客人能写，最真实；HPG・食べログ 页面没有回复功能/看不到回复。</p></div>';
+  h += '<p class="note">差评（11/18 起和 KA广告部 发微信群的同一套标准）：不到 3 分的一律算；正好 3 分的，内容里有一句不满才算（一个抱怨都没有、或只打分没写内容的不算）；4〜5 星但内容里有不满、经人确认「算差评」的也算。红线＝程序按词挑的不满句子。📌 置顶＝店铺页上排第一条，客人一进去就看到，排在最前面。Google 差评店长 24 小时内回复。HPG 只有订过位的客人能写，最真实；HPG・食べログ 页面没有回复功能/看不到回复。</p></div>';
   // ③ 各店
   const pgBy = {}; D.pg.forEach(p => (pgBy[p['店']] = pgBy[p['店']] || []).push(p));
   const rvBy = {}; D.rv.forEach(r => (rvBy[r['店']] = rvBy[r['店']] || []).push(r));
