@@ -285,7 +285,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
   addEventListener('touchcancel', () => { on = false; hide(); }, { passive: true });
 })();
 
-const APPV = 'yunying-v58';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v59';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);
 const TEST = /\/test\//.test(location.pathname);   // 11/19 测试版（yunying/test/）：Claude 按需求改好先放这里，老板确认后才换成正式版   // 在 空桌一览 里面（pj.html）还是独立 APP
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
@@ -324,7 +324,7 @@ let tab = tabFromUrl || LS.get('pjTab', 'pj'), stSort = LS.get('pjSort', 'g'), r
 // ---------- 读数据 ----------
 async function api(what) {
   if (LOCAL) { const r = await fetch('./_' + what + '.json', { cache: 'no-store' }); return r.json(); }
-  const r = await fetch(API + '?fmt=json&what=' + what + '&k=' + encodeURIComponent(K) + '&dv=' + DV + '&ua=' + encodeURIComponent(DVUA), { cache: 'no-store' });   // 11/18：以后新加的请求也要带 dv・ua，不然被后台挡
+  const r = await fetch(API + '?fmt=json&what=' + what + '&k=' + encodeURIComponent(K) + '&dv=' + DV + '&ua=' + encodeURIComponent(DVUA) + (IN_KZ && LS.get('asStaff', '') === '1' ? '&as=staff' : ''), { cache: 'no-store' });   // 11/19 老板在空桌一览点了「👀 看店长画面」→ 运营部也按店长权限看   // 11/18：以后新加的请求也要带 dv・ua，不然被后台挡
   return r.json();
 }
 function cacheGet(what) { try { return JSON.parse(LS.get('pjc_' + what, 'null')); } catch (e) { return null; } }
