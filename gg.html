@@ -154,8 +154,8 @@ function caseCard(o) {
   h += '</div>';
   // ③ 会计部确认到账
   h += '<div class="step"><div class="t">③ 会计部确认钱到账</div>' + (o['到账・金额']
-    ? `<span class="ok">✓ 到账 ${yen(o['到账・金额'])}</span>　${esc(o['到账・日'])}　${esc(o['到账・谁'])}` + (o['到账・说明'] ? `<div class="note">${esc(o['到账・说明'])}</div>` : '')
-    : PAY.includes(o['联系・结果']) ? '<span class="wt">⏳ 等会计部确认到账</span><div class="note">会计部在会计部 APP「💴 取消料」里确认。</div>'
+    ? (+o['到账・金额'] ? `<span class="ok">✓ 到账 ${yen(o['到账・金额'])}</span>　${esc(o['到账・日'])}　${esc(o['到账・谁'])}` : `<span class="no">✗ 没回款</span>　${esc(o['到账・谁'])}`)   // 11/19 会计部按「没回款」记 0 円 + (o['到账・说明'] ? `<div class="note">${esc(o['到账・说明'])}</div>` : '')
+    : PAY.includes(o['联系・结果']) ? '<span class="wt">⏳ 等会计部确认回款</span><div class="note">会计部在「💴 取消料」按「回款成功」或「没回款」。</div>'
     : o['联系・结果'] ? '<span class="note">不用收</span>' : '<span class="note">—（先做完 ②）</span>') + '</div>';
   if (NS.owner) h += offOpen === id
     ? `<div class="row2"><input id="o_${esc(id)}" placeholder="为什么不算（例：重复、店里搞错）" maxlength="100"><button class="go" style="background:var(--bad)" onclick="offGo('${id}')">不算这单</button></div>`

@@ -87,7 +87,7 @@ textarea{min-height:120px;resize:vertical}
 // 11/18 用户：「单独的会计部键这个 APP 也做出来，因为给会计部看，然后让他们说有什么想更新的」。
 // 数据接口和「空桌一览」同一个后台（Apps Script）；会计部密码（或老板密码）才看得到。只有登记过的手机能用（手机编号 dv）。
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kuaiji-v8';
+const APPV = 'kuaiji-v9';
 // 11/19 自检：提需求「测试版 → 老板确认 → 正式版」流程跑通（这一行就是自检时上线的改动）
 const TEST = /\/test\//.test(location.pathname);
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 11/19 用户：「会计部跟运营部一样，不是 2 个网页」→ 空桌一览「🧾 会计」打开的是这份网页的副本 kongzhuo/kj.html（内容完全一样）   // 11/19 测试版（kuaiji/test/）：Claude 按需求改好先放这里，老板确认后才换成正式版   // 版本号：和 sw.js 的 V 一起改
@@ -393,7 +393,16 @@ function nsPaid(id) {
   if (!amt) { nsMsg[id] = '<div class="err">请写到账金额</div>'; return render(); }
   nsDo(id, '&act=paid&amt=' + amt + '&day=' + encodeURIComponent(day) + '&how=' + encodeURIComponent(how), '已确认到账 ' + yen(amt));
 }
-function nsUndo(id) { nsDo(id, '&act=undo&step=paid', '已撤销到账'); }
+function nsUndo(id) { nsDo(id, '&act=undo&step=paid', '已撤销'); }
+// 11/19 用户：「预约中心说明这组客人是答应回款的客人时，产生这个按键提供给会计人员点击，确认回款是否成功了。客人没有办法回款不要生成这个按键」
+//   → 按键只在 联系・结果＝同意付款／已当场付 的单上出现；没回款记 0 円＋原因（后台 act=paid amt=0），算「已处理」不再出现在等汇款里
+let nsOpen = {};
+function nsPick(id, x) { nsOpen[id] = nsOpen[id] === x ? '' : x; nsMsg[id] = ''; render(); }
+function nsNg(id) {
+  const why = (($('nr_' + id) || {}).value || '').trim();
+  if (!why) { nsMsg[id] = '<div class="err">请写为什么没回款</div>'; return render(); }
+  nsDo(id, '&act=paid&amt=0&day=&how=' + encodeURIComponent('没回款：' + why), '已记录：没回款');
+}
 // 11/19 用户：「取消料需要时间选择按键，提供时间的选择」→ 本月・上月・今年・全部・自选（从〜到）。按预约日筛；已到账按到账日；返金历史按月。
 let nsP = LS.get('nsP', 'm0'), nsFrom = LS.get('nsFrom', ''), nsTo = LS.get('nsTo', '');
 function nsRange() {
@@ -433,20 +442,23 @@ function renderNs() {
   if (notyet) h += `<div class="note" style="margin:0 2px 6px">这段时间还有 ${notyet} 组预约中心还没打电话（在空桌一览「📣 广告预约部」处理）。</div>`;
   if (waitAll.length > wait.length) h += `<div class="miss">其他时间还有 ${waitAll.length - wait.length} 组等汇款（${yen(sum(waitAll, '请求额') - sum(wait, '请求额'))}），按「全部」能看到。</div>`;
   h += `<div class="me" style="background:var(--warnbg);border-radius:12px;padding:8px 10px">✍ 确认人<input id="nsw" style="flex:1;margin:0" placeholder="你的名字（例：王）" maxlength="20" value="${esc(LS.get('acWho', '') || LS.get('sxWho', ''))}"></div>`;
-  h += `<div class="grp">⏳ 等客人汇款（${wait.length}）— 到账了就确认</div>` + (wait.length ? wait.map(o => {
+  h += `<div class="grp">⏳ 等客人汇款（${wait.length}）— 预约中心说客人同意付款的单，钱到了按「回款成功」，确定收不到按「没回款」</div>` + (wait.length ? wait.map(o => {
     const id = o['编号'], days = Math.floor((today - new Date(o['联系・时间'].slice(0, 10).replace(/\//g, '-'))) / 864e5);
     return `<div class="it${days >= 7 ? ' late' : ''}"><div class="nm">${esc(o['公司'])} ${esc(o['店'])}　${esc(o['客人'])} 様　<span style="color:var(--bad)">${yen(o['请求额'])}</span></div>`
       + `<div class="dl">预约 ${esc(o['预约日'].slice(5).replace('-', '/'))} ${esc(o['时间'])}　${esc(o['人数'])}名　合计 ${yen(o['合计'])}</div>`
       + `<div class="dl">${esc(o['联系・结果'])}：${esc(o['联系・谁'])} ${esc(o['联系・时间'].slice(5))}（${days} 天前${days >= 7 ? '，<b>超过一周还没到账</b>' : ''}）${o['联系・说明'] ? '　' + esc(o['联系・说明']) : ''}</div>`
-      + `<div class="stk" style="display:grid;grid-template-columns:1fr 1fr;gap:6px"><input id="na_${esc(id)}" inputmode="numeric" placeholder="到账金额" value="${esc(o['请求额'])}"><input id="nd_${esc(id)}" type="date" value="${td}"></div>`
-      + `<div class="stk"><input id="nh_${esc(id)}" placeholder="备注（例：银行汇款、现金）" maxlength="200"><button class="btn" style="background:#16a34a" onclick="nsPaid('${id}')">✅ 确认到账</button></div>${nsMsg[id] || ''}</div>`;
+      + `<div class="bt3" style="grid-template-columns:1fr 1fr"><button class="b1${nsOpen[id] === 'ok' ? ' cur' : ''}" onclick="nsPick('${id}','ok')">✅ 回款成功</button><button class="b3${nsOpen[id] === 'ng' ? ' cur' : ''}" onclick="nsPick('${id}','ng')">✗ 没回款</button></div>`
+      + (nsOpen[id] === 'ok' ? `<div class="stk" style="display:grid;grid-template-columns:1fr 1fr;gap:6px"><input id="na_${esc(id)}" inputmode="numeric" placeholder="到账金额" value="${esc(o['请求额'])}"><input id="nd_${esc(id)}" type="date" value="${td}"></div>`
+        + `<div class="stk"><input id="nh_${esc(id)}" placeholder="备注（例：银行汇款、现金）" maxlength="200"><button class="btn" style="background:#16a34a" onclick="nsPaid('${id}')">确认：回款成功</button></div>` : '')
+      + (nsOpen[id] === 'ng' ? `<div class="stk"><input id="nr_${esc(id)}" placeholder="为什么没回款（例：客人不付了、联系不上）必填" maxlength="200"><button class="btn" onclick="nsNg('${id}')">确认：没回款</button></div>` : '')
+      + `${nsMsg[id] || ''}</div>`;
   }).join('') : '<div class="note">这段时间没有等汇款的。</div>');
   // 按店
   const by = {};
   rows.forEach(o => { const k = o['公司'] + ' ' + o['店'], b = by[k] = by[k] || { n: 0, a: 0, q: 0, g: 0 }; b.n++; b.a += +o['合计'] || 0; if (NS_PAY.includes(o['联系・结果'])) b.q += +o['请求额'] || 0; b.g += +o['到账・金额'] || 0; });
   const ks = Object.keys(by).sort((x, y) => by[y].n - by[x].n || by[y].a - by[x].a);
   if (ks.length) h += `<div class="grp">🏪 按店（${esc(lab)}）</div><div class="card">` + ks.map(k => `<div class="row"><b>${esc(k)}</b>　${by[k].n} 组　预约合计 ${yen(by[k].a)}<br><small>请求 ${yen(by[k].q)}・已收回 ${yen(by[k].g)}</small></div>`).join('') + '</div>';
-  h += `<div class="grp">✓ 已到账（${paid.length}）</div>` + (paid.length ? '<div class="card">' + paid.slice(0, 50).map(o => `<div class="row">${esc(paidDay(o))}　<b>${yen(o['到账・金额'])}</b>　${esc(o['公司'])} ${esc(o['店'])} ${esc(o['客人'])} 様<br><small>确认：${esc(o['到账・谁'])}${o['到账・说明'] ? '　' + esc(o['到账・说明']) : ''}　</small><a onclick="nsUndo('${o['编号']}')" style="color:var(--sub);font-size:12px;text-decoration:underline;cursor:pointer">撤销</a>${nsMsg[o['编号']] || ''}</div>`).join('') + '</div>' : '<div class="note">这段时间还没有。</div>');
+  h += `<div class="grp">✓ 会计已确认（${paid.length}）</div>` + (paid.length ? '<div class="card">' + paid.slice(0, 50).map(o => `<div class="row">${esc(paidDay(o))}　${+o['到账・金额'] ? '<b>' + yen(o['到账・金额']) + '</b>' : '<b style="color:var(--bad)">✗ 没回款</b>'}　${esc(o['公司'])} ${esc(o['店'])} ${esc(o['客人'])} 様<br><small>确认：${esc(o['到账・谁'])}${o['到账・说明'] ? '　' + esc(o['到账・说明']) : ''}　</small><a onclick="nsUndo('${o['编号']}')" style="color:var(--sub);font-size:12px;text-decoration:underline;cursor:pointer">撤销</a>${nsMsg[o['编号']] || ''}</div>`).join('') + '</div>' : '<div class="note">这段时间还没有。</div>');
   // 每月：APP 里的（请求・到账）＋ 用户给的返金历史（各公司每月收回）
   const byM = {};
   hist.forEach(x => { const m = x[1]; (byM[m] = byM[m] || { h: 0, q: 0, g: 0, co: {} }).h += +x[2] || 0; byM[m].co[x[0]] = (byM[m].co[x[0]] || 0) + (+x[2] || 0); });
