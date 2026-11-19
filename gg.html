@@ -141,6 +141,20 @@ function signCall(id) {
 }
 function undo(id, step) { act(id, '&act=undo&step=' + step, '已撤销'); }
 function offGo(id) { const w = (($('o_' + id) || {}).value || '').trim(); if (!w) { msgs[id] = ['e', '请写为什么不算']; return render(); } act(id, '&act=off&how=' + encodeURIComponent(w), '这单不算了'); }
+// 11/19 用户：「手机上可以操作的那种」→ 老板在手机上设广告预约部密码：用 POST 发（密码不放网址里），后台 doPost what=setgg 只认老板密码
+async function setGgKey() {
+  const a = (($('gp1') || {}).value || '').trim(), b = (($('gp2') || {}).value || '').trim();
+  if (!a) { msgs.__gg = ['e', '请输入新密码']; return render(); }
+  if (a !== b) { msgs.__gg = ['e', '两次输入的不一样，请再输一次']; return render(); }
+  msgs.__gg = ['', '保存中…']; render();
+  try {
+    const r = await fetch(API, { method: 'POST', body: JSON.stringify({ k: K, what: 'setgg', v: a }) }).then(x => x.json());
+    if (!r.ok) throw new Error(r.error === 'owner' ? '要用老板密码' : (r.error || '后台没回答'));
+    msgs.__gg = ['s', '✓ 广告预约部密码已启用，把下面的链接和密码发给广告部・预约中心'];
+  } catch (e) { msgs.__gg = ['e', '没保存：' + e.message]; }
+  render();
+  ['gp1', 'gp2'].forEach(i => { const e = $(i); if (e) e.value = ''; });
+}
 function setMonth(m) { month = m; LS.set('ggMonth', m); render(); }
 
 function caseCard(o) {
@@ -211,6 +225,10 @@ function render() {
   const done = ms.filter(o => stOf(o) === 'done');
   h += `<details><summary>🟢 ${+month.slice(5)}月已完成（${done.length}）</summary>${done.map(caseCard).join('') || '<div class="note">没有。</div>'}</details>`;
   if (NS.role === 'gg') h += '<div class="foot"><a onclick="changeKey()">🔑 换密码</a></div>';
+  if (NS.owner) h += `<div class="card"><div class="ct">🔐 广告预约部密码（只有老板看得到）</div><div class="note">给广告部・预约中心用的密码。用这个密码只能看这一页；最开始登录的 2 台手机・2 台电脑能用（第 3 台起挡住、发邮件给你）。至少 6 个字，不能和别的密码一样。</div>`
+    + `<div class="row2"><input id="gp1" type="password" autocomplete="new-password" placeholder="新密码"><input id="gp2" type="password" autocomplete="new-password" placeholder="再输一次"></div>`
+    + `<div class="row2"><button class="go" onclick="setGgKey()">保存</button></div>${msgs.__gg ? `<div class="msg ${msgs.__gg[0]}">${msgs.__gg[1]}</div>` : ''}`
+    + `<div class="note">发给广告部・预约中心的链接：<br><b>${esc(location.origin + location.pathname)}</b>　<a class="undo" style="margin:0" onclick="navigator.clipboard && navigator.clipboard.writeText(location.origin + location.pathname).then(() => { msgs.__gg = ['s', '✓ 链接已复制']; render(); })">复制链接</a></div></div>`;
   // 重画时保留已经写的字・选的结果（签名失败提示时不用重写）
   const keep = {}, picked = {};
   $('main').querySelectorAll('input[id]').forEach(e => keep[e.id] = e.value);
