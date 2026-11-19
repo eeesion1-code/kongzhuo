@@ -115,7 +115,7 @@ async function load() {
   try {
     const d = await api('&what=ns');
     if (d && d.rows) { NS = d; err = ''; LS.set('ggc', JSON.stringify(d)); }
-    else if (d && d.error === 'device') { NS = null; LS.set('ggc', 'null'); $('main').innerHTML = `<div class="empty">🔒 这台${/Windows|Macintosh|Linux/.test(DVUA) ? '电脑' : '手机'}不能使用（广告预约部只给最开始登录的 2 台手机・2 台电脑）。<br>已经通知负责人。编号：<b>${esc(d.id || '—')}</b></div>`; busy = false; return; }
+    else if (d && d.error === 'device') { NS = null; LS.set('ggc', 'null'); $('main').innerHTML = `<div class="empty">🔒 这台${/Windows|Macintosh|Linux/.test(DVUA) ? '电脑' : '手机'}还没登记，不能使用${LS.get('ggk', '') === K ? '（广告预约部只给最开始登录的 2 台手机・2 台电脑）' : '（这个密码的名额已满）'}。<br>已经通知负责人，请负责人授权后再打开。编号：<b>${esc(d.id || '—')}</b></div>`; busy = false; return; }
     else if (d && (d.error === 'key' || d.error === 'owner')) { NS = null; LS.set('ggc', 'null'); busy = false; if (LS.get('ggk', '') === K) { try { localStorage.removeItem('ggk'); } catch (e) {} } K = ''; return showKey(d.error === 'key' ? '密码不对，请再确认一下' : '这个密码看不到广告预约部'); }
     else err = '读不到（' + ((d && d.error) || '') + '）';
   } catch (e) { err = '网络不通，显示的是上次的数据'; }
