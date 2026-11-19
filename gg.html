@@ -65,6 +65,10 @@ th{font-size:12px;color:var(--sub);font-weight:600;border-top:0}td:first-child,t
 .foot{font-size:12px;color:var(--faint);text-align:center;margin:20px 0 0}.foot a{color:var(--sub);text-decoration:underline;cursor:pointer}
 .det{background:var(--soft);border-radius:10px;padding:8px 10px;margin:6px 0 2px}.det table{width:100%;border-collapse:collapse;font-size:13.5px}.det th,.det td{text-align:left;padding:4px 4px;border-top:1px solid var(--line);vertical-align:top;white-space:normal}.det tr:first-child th,.det tr:first-child td{border-top:0}.det th{width:7.5em;color:var(--sub);font-weight:600;white-space:nowrap}.det td{word-break:break-all}
 details summary{cursor:pointer;color:var(--sub);font-size:14px;margin:12px 2px}
+/* 11/20 「📋 每日上报」 */
+.chips .bd{display:inline-block;min-width:18px;padding:0 5px;border-radius:999px;background:var(--bad);color:#fff;font-size:11px;line-height:1.5}
+.cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:6px;margin:8px 0}.cg{border-radius:10px;padding:6px 8px;font-size:12.5px;line-height:1.4;border:1px solid var(--line);background:var(--card)}.cg.ok{border-color:var(--good);background:var(--goodBg)}.cg.miss{border-color:var(--bad);background:var(--badBg)}.cg.bad{border-color:var(--warn);background:var(--warnBg)}.cg small{color:var(--sub)}
+.kp .g b{color:var(--good)}
 /* 11/19 「🔍 网页检查」 */
 .tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:4px 0 6px}
 .tabs button{border:1px solid var(--line);background:var(--card);border-radius:12px;padding:10px 6px;font-weight:700;font-size:15px;box-shadow:var(--shadow)}
@@ -226,18 +230,71 @@ function caseCard(o) {
   if (m) h += `<div class="msg ${m[0]}">${esc(m[1])}</div>`;
   return h + '</div>';
 }
+// ================= 11/20 「📋 每日上报」 =================
+// 用户：「广告预约部里面要添加一个每日 4 点读取 slack 的经营汇报。31 家店铺有没有都报？没有的话异常显示在 APP 里。
+//   每一天的无断取消没有写得非常准确的话也是异常，把这个键加上去」。没有无断取消的店也要每天发「无」（用户确认）。
+// Claude 每天 4:00（10:00 再补查）读 Slack #经营汇报，前一营业日每家店写进后台「经营汇报检查」（what=ns 里的 chk）；
+// 异常＝未报・写得不全，要签名＋写怎么处理（nsdo act=chksign / chkundo）。
+let chkDay = LS.get('ggChkDay', '');
+function chkObjs() { return NS && NS.chk ? NS.chk.map(r => { const o = {}; NS.chkHead.forEach((h, i) => o[h] = r[i]); return o; }) : []; }
+const CHK_BAD = r => r === '未报' || r === '写得不全';
+function chkTodo() { const lim = new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10); return chkObjs().filter(o => CHK_BAD(o['结果']) && !o['处理・谁'] && o['营业日'] >= lim).length; }
+function chkSetDay(d) { chkDay = d; LS.set('ggChkDay', d); render(); }
+async function chkAct(id, q, okText) {
+  const who = (($('cwho') || {}).value || '').trim();
+  if (!who) { msgs[id] = ['e', '请先在上面写你的名字']; return render(); }
+  LS.set('ggWho', who); msgs[id] = ['', '保存中…']; render();
+  try {
+    const d = await api('&what=nsdo&id=' + encodeURIComponent(id) + '&who=' + encodeURIComponent(who) + q);
+    if (d.error) throw new Error(d.error === 'device' ? '这台手机没登记' : d.error === 'owner' ? '这个密码不能签' : d.error);
+    NS = d; LS.set('ggc', JSON.stringify(d)); msgs[id] = ['s', '✓ ' + okText];
+  } catch (e) { msgs[id] = ['e', '没保存：' + e.message]; }
+  render();
+}
+function chkSign(id) { const how = (($('ch_' + id) || {}).value || '').trim(); if (!how) { msgs[id] = ['e', '请写怎么处理的（例：已提醒店长补报）']; return render(); } chkAct(id, '&act=chksign&how=' + encodeURIComponent(how), '已签名'); }
+function renderChk() {
+  $('at').textContent = NS ? NS.at.slice(5) + (busy ? ' 读取中…' : ' 更新') : '';
+  let h = tabsHtml() + `<div class="card"><div class="ct">📋 每日上报检查（Slack #经营汇报）</div><div class="note">31 家店每天都要在 Slack #经营汇报 报：有无断取消就写明细（日期・时间・客人名・人数・内容・合计），没有就发「无」。Claude 每天 4:00 查前一营业日（10:00 再补查一次，晚报的会变成已报）。<b>未报・写得不全</b>是异常，处理后签名并写怎么处理。</div></div>`;
+  if (!NS) return paint(h + `<div class="empty">${busy ? '读取中…' : esc(err || '还没有数据')}</div>`);
+  const all = chkObjs(), days = [...new Set(all.map(o => o['营业日']))].sort().reverse();
+  if (!days.length) return paint(h + '<div class="empty">还没有检查记录（每天 4:00 第一次检查后会出现）。</div>');
+  if (!days.includes(chkDay)) chkDay = days[0];
+  const wd = d => '日一二三四五六'[new Date(d + 'T00:00:00').getDay()];
+  h += '<div class="chips">' + days.slice(0, 14).map(d => { const n = all.filter(o => o['营业日'] === d && CHK_BAD(o['结果']) && !o['处理・谁']).length;
+    return `<button class="${d === chkDay ? 'on' : ''}" onclick="chkSetDay('${d}')">${+d.slice(5, 7)}/${+d.slice(8)}(${wd(d)})${n ? ` <span class="bd">${n}</span>` : ''}</button>`; }).join('') + '</div>';
+  const rows = all.filter(o => o['营业日'] === chkDay).sort((a, b) => +a['店No'] - +b['店No']);
+  const ok = rows.filter(o => !CHK_BAD(o['结果'])), miss = rows.filter(o => o['结果'] === '未报'), bad = rows.filter(o => o['结果'] === '写得不全');
+  const nsN = rows.reduce((t, o) => t + (+((o['结果'].match(/有\s*(\d+)/) || [])[1]) || 0), 0);
+  h += `<div class="kp"><div class="g"><small>已报</small><b>${ok.length}</b> / ${rows.length} 家</div><div class="r"><small>未报</small><b>${miss.length}</b> 家</div>`
+    + `<div class="${bad.length ? 'r' : ''}"><small>写得不全</small><b>${bad.length}</b> 家</div><div><small>报了无断取消</small><b>${nsN}</b> 组</div></div>`;
+  h += '<div class="cgrid">' + rows.map(o => { const c = o['结果'] === '未报' ? 'miss' : o['结果'] === '写得不全' ? 'bad' : 'ok';
+    return `<div class="cg ${c}"><b>No.${esc(o['店No'])}</b> ${esc(String(o['店']).replace(/^(まとめ[ｘx×]?|まとめX)/, '').slice(0, 9))}<br><small>${esc(o['结果'])}</small></div>`; }).join('') + '</div>';
+  const todo = rows.filter(o => CHK_BAD(o['结果']));
+  h += `<div class="me">✍ 签名用的名字<input id="cwho" placeholder="例：预约中心 王" maxlength="20" value="${esc(LS.get('ggWho', ''))}"></div>`;
+  h += `<div class="sec">⚠ 异常（${todo.length}）</div>` + (todo.length ? todo.map(o => {
+    const id = o['编号'], m = msgs[id], done = !!o['处理・谁'];
+    return `<div class="case ${done ? 'done' : 'todo'}"><div class="h">No.${esc(o['店No'])} ${esc(o['店'])}　<span class="${o['结果'] === '未报' ? 'no' : 'wt'}">${esc(o['结果'])}</span></div>`
+      + (o['说明'] ? `<div class="m">${esc(o['说明'])}</div>` : '') + (o['Slack链接'] ? `<div class="m"><a href="${esc(o['Slack链接'])}" target="_blank" style="color:var(--brand)">Slack 原文</a></div>` : '')
+      + '<div class="step">' + (done ? `<span class="ok">✓ 已处理</span>　${esc(o['处理・谁'])}　<small>${esc(o['处理・时间'].slice(5))}</small><div class="note">怎么处理：${esc(o['怎么处理'])}</div><a class="undo" onclick="chkAct('${id}','&act=chkundo','已撤销')">撤销</a>`
+        : `<div class="row2"><input id="ch_${esc(id)}" placeholder="怎么处理的（必填，例：已提醒店长补报）" maxlength="200"><button class="go" onclick="chkSign('${id}')">✍ 签名</button></div>`) + '</div>'
+      + (m ? `<div class="msg ${m[0]}">${esc(m[1])}</div>` : '') + '</div>';
+  }).join('') : '<div class="note">这天没有异常。</div>');
+  h += `<div class="note" style="margin-top:10px">检查时间：${esc((rows[0] || {})['检查时间'] || '')}。No.12 大宮 群里还没有账号，先算未报。</div>`;
+  paint(h);
+}
+
 // ================= 11/19 「🔍 网页检查」 =================
 // 用户：「在广告预约部 APP 点击进去后多一个按键，网页检查的键生成更新上传；检查这些网页的信息内容一致性，不同的需要标注，然后需要签名这个，说已经更改完成」
 // 电脑 广告部\网页检查\网页检查.py 每天 9 点后查一次（APP 按「🔄 现在检查」也会查）：各店 食べログ・ホットペッパー・ぐるなび・谷歌 店铺页的
 //   住所・电话・营业时间・定休日・席数・最大宴会人数 互相比 → 上传后台（what=wc 读・wcdo 签名／请求检查）。
-let tab = LS.get('ggTab', 'ns') === 'wc' ? 'wc' : 'ns';
+let tab = ['wc', 'chk'].includes(LS.get('ggTab', 'ns')) ? LS.get('ggTab', 'ns') : 'ns';
 let WC = (() => { try { return JSON.parse(LS.get('ggwc', 'null')); } catch (e) { return null; } })(), wcErr = '', wcBusy = false, wcField = '', wcOpen = new Set();
 const WCP = { T: '食べログ', H: 'ホットペッパー', R: 'ぐるなび', G: '谷歌' };
 const WCF = ['住所', '电话', '营业时间', '定休日', '席数', '最大宴会人数'];
 function setTab(t) { tab = t; LS.set('ggTab', t); render(); load(); window.scrollTo(0, 0); }
 function tabsHtml() {
   const nBad = WC ? wcObjs().filter(o => wcTodo(o)).length : 0;
-  return `<div class="tabs"><button class="${tab === 'ns' ? 'on' : ''}" onclick="setTab('ns')">🚫 无断取消</button><button class="${tab === 'wc' ? 'on' : ''}" onclick="setTab('wc')">🔍 网页检查${nBad ? `<span class="bd">${nBad}</span>` : ''}</button></div>`;
+  return `<div class="tabs"><button class="${tab === 'ns' ? 'on' : ''}" onclick="setTab('ns')">🚫 无断取消</button><button class="${tab === 'chk' ? 'on' : ''}" onclick="setTab('chk')">📋 每日上报${chkTodo() ? `<span class="bd">${chkTodo()}</span>` : ''}</button><button class="${tab === 'wc' ? 'on' : ''}" onclick="setTab('wc')">🔍 网页检查${nBad ? `<span class="bd">${nBad}</span>` : ''}</button></div>`;
 }
 function paint(h) {   // 重画时保留已经写的字・选的结果
   const keep = {}, picked = {};
@@ -353,6 +410,7 @@ function render() {
   if (!K) return showKey('');
   $('back').style.display = (NS || WC) && (NS || WC).role !== 'gg' ? '' : 'none';   // 广告预约部密码只看这一页，不显示「‹ 空桌一览」
   if (tab === 'wc') return renderWc();
+  if (tab === 'chk') return renderChk();
   $('at').textContent = NS ? NS.at.slice(5) + (busy ? ' 读取中…' : ' 更新') : '';
   if (!NS) { $('main').innerHTML = tabsHtml() + `<div class="empty">${busy ? '读取中…' : esc(err || '还没有数据')}</div>`; return; }
   const all = rowsObj(), months = [...new Set(all.map(o => o['预约日'].slice(0, 7)))].sort().reverse();
