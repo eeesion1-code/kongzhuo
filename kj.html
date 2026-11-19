@@ -87,7 +87,7 @@ textarea{min-height:120px;resize:vertical}
 // 11/18 用户：「单独的会计部键这个 APP 也做出来，因为给会计部看，然后让他们说有什么想更新的」。
 // 数据接口和「空桌一览」同一个后台（Apps Script）；会计部密码（或老板密码）才看得到。只有登记过的手机能用（手机编号 dv）。
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kuaiji-v9';
+const APPV = 'kuaiji-v10';
 // 11/19 自检：提需求「测试版 → 老板确认 → 正式版」流程跑通（这一行就是自检时上线的改动）
 const TEST = /\/test\//.test(location.pathname);
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 11/19 用户：「会计部跟运营部一样，不是 2 个网页」→ 空桌一览「🧾 会计」打开的是这份网页的副本 kongzhuo/kj.html（内容完全一样）   // 11/19 测试版（kuaiji/test/）：Claude 按需求改好先放这里，老板确认后才换成正式版   // 版本号：和 sw.js 的 V 一起改
@@ -107,7 +107,10 @@ const DVUA = (() => { const u = navigator.userAgent, st = (navigator.standalone 
   if ((m = u.match(/iPad.*? OS ([\d_]+)/))) return `iPad iOS ${m[1].replace(/_/g, '.')}・${st}${IN_KZ ? '' : '・会计部APP'}`;
   if ((m = u.match(/Android ([\d.]+); ([^;)]+)/))) return `Android ${m[1]} ${m[2].trim()}・${st}${IN_KZ ? '' : '・会计部APP'}`;
   return `${(u.match(/Windows NT|Macintosh|Android|Linux/) || ['其他'])[0]}・${st}${IN_KZ ? '' : '・会计部APP'}`; })();
-const api = q => fetch(API + '?fmt=json' + q + '&k=' + encodeURIComponent(K) + '&dv=' + DV + '&ua=' + encodeURIComponent(DVUA), { cache: 'no-store' }).then(r => r.json());
+// 11/19 老板在空桌一览「📱 登录手机」点「👀 会计部画面」→ 在 kj.html 里按会计部密码的权限看（后台第 27 版 as=ac），顶上黄条「回到老板画面」
+const PVAC = IN_KZ && LS.get('asRole', '') === 'ac';
+function exitPreview() { ['asRole', 'asStaff', 'last', 'acrq'].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} }); location.href = './'; }
+const api = q => fetch(API + '?fmt=json' + q + '&k=' + encodeURIComponent(K) + '&dv=' + DV + '&ua=' + encodeURIComponent(DVUA) + (PVAC ? '&as=ac' : ''), { cache: 'no-store' }).then(r => r.json());
 
 const TABS = [['sx', '📋 事项汇报'], ['ns', '💴 取消料'], ['msg', '💡 提需求'], ['cash', '资金余额'], ['pay', '要付的钱'], ['pl', '月度损益']];   // 11/19 用户：「没有提需求这个键」——第 5 个在手机上被挤到右边看不见 → 放第 2 个，标签换行全部看得到
 const INFO = {
@@ -482,6 +485,7 @@ async function send() {
 }
 if (!TEST && !IN_KZ && 'serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 if (IN_KZ) $('kzback').style.display = '';
+if (PVAC) document.body.insertAdjacentHTML('afterbegin', '<div id="pvbar" style="position:sticky;top:0;z-index:60;background:#facc15;color:#422006;font-size:14px;font-weight:700;padding:calc(8px + env(safe-area-inset-top)) 12px 8px;display:flex;align-items:center;gap:8px"><span style="flex:1">👀 正在看会计部画面（会计部的人看到的样子）</span><button onclick="exitPreview()" style="border:0;border-radius:999px;background:#422006;color:#fff;padding:6px 12px;font-weight:700">回到老板画面</button></div>');
 if (TEST) document.body.insertAdjacentHTML('afterbegin', '<div class="testbar">🧪 测试版（还没上线）　在这里按的按钮会真的记下来　<a href="./">回正式版</a></div>');
 async function checkUpdate() {
   if (TEST || IN_KZ) return;

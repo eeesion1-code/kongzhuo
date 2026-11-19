@@ -285,8 +285,10 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
   addEventListener('touchcancel', () => { on = false; hide(); }, { passive: true });
 })();
 
-const APPV = 'yunying-v59';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v60';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);
+const PVST = IN_KZ && (localStorage.getItem('asRole') === 'staff' || localStorage.getItem('asStaff') === '1');   // 11/19 老板在空桌一览点「👀 运营部画面／店长画面」→ 按店长权限看
+function exitPreview() { ['asRole', 'asStaff', 'last', 'acrq'].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} }); location.href = './'; }
 const TEST = /\/test\//.test(location.pathname);   // 11/19 测试版（yunying/test/）：Claude 按需求改好先放这里，老板确认后才换成正式版   // 在 空桌一览 里面（pj.html）还是独立 APP
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
 const LS = {
@@ -324,7 +326,7 @@ let tab = tabFromUrl || LS.get('pjTab', 'pj'), stSort = LS.get('pjSort', 'g'), r
 // ---------- 读数据 ----------
 async function api(what) {
   if (LOCAL) { const r = await fetch('./_' + what + '.json', { cache: 'no-store' }); return r.json(); }
-  const r = await fetch(API + '?fmt=json&what=' + what + '&k=' + encodeURIComponent(K) + '&dv=' + DV + '&ua=' + encodeURIComponent(DVUA) + (IN_KZ && LS.get('asStaff', '') === '1' ? '&as=staff' : ''), { cache: 'no-store' });   // 11/19 老板在空桌一览点了「👀 看店长画面」→ 运营部也按店长权限看   // 11/18：以后新加的请求也要带 dv・ua，不然被后台挡
+  const r = await fetch(API + '?fmt=json&what=' + what + '&k=' + encodeURIComponent(K) + '&dv=' + DV + '&ua=' + encodeURIComponent(DVUA) + (PVST ? '&as=staff' : ''), { cache: 'no-store' });   // 11/19 老板在空桌一览点了「👀 看店长画面」→ 运营部也按店长权限看   // 11/18：以后新加的请求也要带 dv・ua，不然被后台挡
   return r.json();
 }
 function cacheGet(what) { try { return JSON.parse(LS.get('pjc_' + what, 'null')); } catch (e) { return null; } }
@@ -1696,6 +1698,7 @@ function tgHy(k) { hyOpen.has(k) ? hyOpen.delete(k) : hyOpen.add(k); render(); }
 
 // 独立 APP：显示图标、注册 sw.js（加到主屏幕用）、打开或切回来时看 sw.js 版本号，变了就重新载入一次
 if (IN_KZ) $('back').style.display = ''; else $('logo').style.display = '';
+if (PVST) document.body.insertAdjacentHTML('afterbegin', '<div id="pvbar" style="position:sticky;top:0;z-index:60;background:#facc15;color:#422006;font-size:14px;font-weight:700;padding:calc(8px + env(safe-area-inset-top)) 12px 8px;display:flex;align-items:center;gap:8px"><span style="flex:1">👀 正在看运营部画面（店长看到的样子）</span><button onclick="exitPreview()" style="border:0;border-radius:999px;background:#422006;color:#fff;padding:6px 12px;font-weight:700">回到老板画面</button></div>');
 if (!IN_KZ && !LOCAL && !TEST && 'serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 if (TEST) document.body.insertAdjacentHTML('afterbegin', '<div class="testbar">🧪 测试版（还没上线）　在这里按的按钮会真的记下来　<a href="./">回正式版</a></div>');
 async function checkUpdate() {

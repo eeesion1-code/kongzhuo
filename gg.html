@@ -91,8 +91,9 @@ const DVUA = (() => { const u = navigator.userAgent, st = (navigator.standalone 
   if ((m = u.match(/iPad.*? OS ([\d_]+)/))) return `iPad iOS ${m[1].replace(/_/g, '.')}・${st}`;
   if ((m = u.match(/Android ([\d.]+); ([^;)]+)/))) return `Android ${m[1]} ${m[2].trim()}・${st}`;
   return `${(u.match(/Windows NT|Macintosh|Android|Linux/) || ['其他'])[0]}・${st}`; })();
-const PV = () => LS.get('asStaff', '') === '1' && K === LS.get('k', '');   // 11/19 老板在空桌一览「📱 登录手机」点了「👀 看店长画面」→ 这页也按店长权限看
-const api = q => fetch(API + '?fmt=json' + q + '&k=' + encodeURIComponent(K) + '&dv=' + DV + '&ua=' + encodeURIComponent(DVUA) + (PV() ? '&as=staff' : ''), { cache: 'no-store' }).then(r => r.json());
+const PV = () => K === LS.get('k', '') ? (['staff', 'gg'].includes(LS.get('asRole', '')) ? LS.get('asRole', '') : LS.get('asStaff', '') === '1' ? 'staff' : '') : '';
+function exitPreview() { ['asRole', 'asStaff', 'last', 'acrq'].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} }); location.href = './'; }   // 11/19 老板在空桌一览「📱 登录手机」点了「👀 看店长画面」→ 这页也按店长权限看
+const api = q => fetch(API + '?fmt=json' + q + '&k=' + encodeURIComponent(K) + '&dv=' + DV + '&ua=' + encodeURIComponent(DVUA) + (PV() ? '&as=' + PV() : ''), { cache: 'no-store' }).then(r => r.json());
 
 let NS = (() => { try { return JSON.parse(LS.get('ggc', 'null')); } catch (e) { return null; } })(), err = '', busy = false, msgs = {}, month = LS.get('ggMonth', ''), offOpen = '';
 const RES = ['同意付款', '已当场付', '拒绝', '联系不上', '不收'];
@@ -238,7 +239,7 @@ function render() {
   Object.keys(keep).forEach(k => { const e = $(k); if (e) e.value = keep[k]; });
   Object.keys(picked).forEach(n => { const e = document.querySelector(`input[name="${CSS.escape(n)}"][value="${CSS.escape(picked[n])}"]`); if (e) e.checked = true; });
 }
-if (PV()) document.body.insertAdjacentHTML('afterbegin', '<div style="background:#facc15;color:#422006;font-size:14px;font-weight:700;padding:8px 12px;text-align:center">👀 正在看店长画面（回空桌一览按「回到老板画面」）</div>');
+if (PV()) document.body.insertAdjacentHTML('afterbegin', '<div id="pvbar" style="position:sticky;top:0;z-index:60;background:#facc15;color:#422006;font-size:14px;font-weight:700;padding:calc(8px + env(safe-area-inset-top)) 12px 8px;display:flex;align-items:center;gap:8px"><span style="flex:1">👀 正在看' + (PV() === 'gg' ? '广告预约部画面（广告部・预约中心看到的样子）' : '店长画面') + '</span><button onclick="exitPreview()" style="border:0;border-radius:999px;background:#422006;color:#fff;padding:6px 12px;font-weight:700">回到老板画面</button></div>');
 render();
 load();
 document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });

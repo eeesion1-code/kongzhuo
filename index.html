@@ -580,7 +580,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
 })();
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v88';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v89';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -597,10 +597,14 @@ const DVUA = (() => { const u = navigator.userAgent, st = (navigator.standalone 
   return `${(u.match(/Windows NT|Macintosh|Android|Linux/) || ['其他'])[0]}・${st}`; })();
 // 11/19 用户：「看店长画面」按键放到「📱 登录手机」里（首页太乱）→ 老板点了以后，所有请求带 &as=staff，后台按店长权限回数据（第 26 版）；
 //   手机里存的老板密码不变，顶上黄条「回到老板画面」一点就回来。广告预约部 gg.html・运营部 pj.html 也跟着看店长画面。
-const ASSTAFF = LS.get('asStaff', '') === '1';
+const ASROLE0 = LS.get('asRole', '') || (LS.get('asStaff', '') === '1' ? 'staff' : '');
+if (ASROLE0 && ASROLE0 !== 'staff') LS.del('asRole');   // 从会计部・广告预约部画面回到空桌一览＝结束那个预览
+const ASSTAFF = ASROLE0 === 'staff';
 const KQ = () => '&k=' + encodeURIComponent(K) + '&dv=' + DV + '&ua=' + encodeURIComponent(DVUA) + (ASSTAFF ? '&as=staff' : '');
-function previewStaff() { LS.set('asStaff', '1'); LS.del('last'); location.reload(); }
-function exitPreview() { LS.del('asStaff'); LS.del('last'); location.reload(); }
+// 11/19 用户：「运营部的也做一个，会计部也做一个，点一下看就知道是什么情况」→ 店长・运营部（店长密码）・会计部（会计部密码）・广告预约部（广告预约部密码）四种画面
+function previewAs(r, page) { LS.set('asRole', r); ['asStaff', 'last', 'acrq'].forEach(k => LS.del(k)); if (page) location.href = page; else location.reload(); }
+function previewStaff() { previewAs('staff'); }
+function exitPreview() { ['asRole', 'asStaff', 'last', 'acrq'].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} }); location.href = './'; }
 if (ASSTAFF) document.body.insertAdjacentHTML('afterbegin', '<div id="pvbar" style="position:sticky;top:0;z-index:60;background:#facc15;color:#422006;font-size:14px;font-weight:700;padding:calc(8px + env(safe-area-inset-top)) 12px 8px;display:flex;align-items:center;gap:8px"><span style="flex:1">👀 正在看店长画面（店长・预约中心看到的样子）</span><button onclick="exitPreview()" style="border:0;border-radius:999px;background:#422006;color:#fff;padding:6px 12px;font-weight:700">回到老板画面</button></div>');
 // 密码：网址里的 #k=… 或 ?k=…，第一次带进来就记在这台手机上（加到主屏幕后 iPhone 要在 APP 里再输一次）
 const fromUrl = (location.hash.match(/k=([^&]+)/) || location.search.match(/[?&]k=([^&]+)/) || [])[1];
@@ -2310,7 +2314,8 @@ function devRender() {
   // 11/18 用户：「是要分开的，运营部APP可以开4台手机和4台电脑。会计部APP4台电脑，和5台手机」
   const pl = d.pools || [], grp = [['空桌一览', 'm', 'pcw'], ['运营部 APP', 'yp', 'yc'], ['会计部 APP', 'ac', 'acw'], ['广告预约部', 'gp', 'gw']], P = k => pl.find(o => o.k === k) || { n: 0, max: 0 };
   let h = `<div class="dvsum"><table class="dvpool"><tr><th></th><th>手机</th><th>电脑</th></tr>${grp.map(g => `<tr><td><b>${g[0]}</b></td>${g.slice(1).map(k => `<td><b${P(k).n >= P(k).max ? ' style="color:#dc2626"' : ''}>${P(k).n}/${P(k).max}</b> <button class="svmore" onclick="devPool('${k}')">改</button></td>`).join('')}</tr>`).join('')}</table><small>每个 APP 的手机・电脑分开算；满了以后那个 APP 别的设备打不开（删掉一台才能进新的）。电脑＝Windows・Mac 用浏览器打开。</small><br>${d.open ? `🟢 开放登记中（到 ${d.open}；进来一台就自动关）` : d.lock ? '🔒 已锁定：只有下面这几台手机・电脑能用（空桌一览・会计部・电脑都不能再加）；别的设备密码对也打不开，有人试就发邮件给你' : `🟡 自动登记中：用对密码打开的手机・电脑会自动登记（每台发邮件给你）。<b>大家都登记好以后，请按「🔒 现在锁定」</b>，之后就只有这几台能用（空桌一览满 ${d.max} 台也会自动锁定）`}</div>`;
-  h = '<div class="dvbtns" style="margin:0 0 12px"><button onclick="previewStaff()">👀 看店长画面（店长・预约中心看到的样子，不换密码）</button></div>' + h;   // 11/19 用户要求放这里
+  h = '<div class="svsub2">👀 看别人看到的画面（不换密码，顶上黄条一点就回来）</div><div class="dvbtns" style="margin:4px 0 12px;flex-wrap:wrap">' + [['staff', '', '店长画面（空桌一览）'], ['staff', 'pj.html', '运营部画面'], ['ac', 'kj.html', '会计部画面'], ['gg', 'gg.html', '广告预约部画面']]
+    .map(([r, pg, n]) => `<button onclick="previewAs('${r}','${pg}')">👀 ${n}</button>`).join('') + '</div>' + h;   // 11/19 用户要求放「📱 登录手机」里
   h += `<div class="dvbtns">${d.lock && !d.open ? `<button onclick="devDo('&act=open')">➕ 开放登记 30 分钟</button>` : ''}${d.lock ? `<button class="sub" onclick="devDo('&act=unlock','解锁后，任何用对密码的手机都会自动登记，直到满 ${d.max} 台。确定吗？')">解锁</button>` : `<button onclick="devDo('&act=lock','锁定后只有名单里这几台手机・电脑能用，别的设备一律打不开。确定吗？')">🔒 现在锁定（只留这几台）</button>`}</div>`;
   h += d.list.map((x, i) => `<div class="dvrow"><div><b>${i + 1}. ${esc(x.n || '（还没起名）')}</b>${x.me ? ' <span class="dvme">这台</span>' : ''}${x.pc ? ' <span class="dvme">电脑・不占名额</span>' : ''}${[['m', '空桌手机', '#2563eb'], ['pcw', '空桌电脑', '#0f766e'], ['yp', '运营部手机', '#c2410c'], ['yc', '运营部电脑', '#9a3412'], ['ac', '会计部手机', '#6d28d9'], ['acw', '会计部电脑', '#4c1d95'], ['gp', '广告预约部手机', '#b45309'], ['gw', '广告预约部电脑', '#92400e']].filter(t => x[t[0]]).map(t => ` <span class="dvme" style="background:${t[2]}">${t[1]}</span>`).join('')}<small>${esc(DV_ROLE[x.r] || x.r)}・${esc(x.ua)}<br>登记 ${esc(x.a)}　最后用 ${esc(x.t)}</small></div>`
     + `<span><button onclick="devName(${i})">改名</button>${x.me ? '' : `<button class="del" onclick="devDel(${i})">删</button>`}</span></div>`).join('') || '<div class="rlnote">还没有登记的手机</div>';
