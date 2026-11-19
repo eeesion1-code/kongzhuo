@@ -585,7 +585,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
 })();
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v80';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v81';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -739,10 +739,11 @@ function render() {
     inHours = m >= startM + 20 || m <= endM;
     beforeStart = m > endM && m < startM + 20;
   }
+  if (beforeStart && age != null && age > RT_BAD) live.className = 'live';   // 11/19：还没开始读的时段，右上角不再亮红点
   const hm = st ? st.getHours() + ':' + String(st.getMinutes()).padStart(2, '0') : '';
   banner.className = '';
   if (D.offline) { banner.style.display = 'block'; banner.textContent = '⚠ 现在连不上网络，显示的是上次读到的数据'; }
-  else if (age != null && age > RT_BAD && beforeStart && !open.length) {
+  else if (age != null && age > RT_BAD && beforeStart) {   // 11/19：还没到开始读的时间，上次（0:30）快照里还开着的店不算——以前白天会误报「程序可能停了」
     banner.style.display = 'block'; banner.className = 'info';
     banner.textContent = '🕓 今天空桌 ' + (pwNow().getDay() === 6 ? '14:00' : '16:30') + ' 开始读（周六 14:00），现在是上次营业的数据。预约 ' + (D.rbStamp ? D.rbStamp.replace(/^\d{4}\/\d+\/\d+\s*/, '').replace(/:\d{2}$/, '') + ' ' : '') + '已更新，看「📋 繁忙日排位」。';
   }
