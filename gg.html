@@ -96,7 +96,8 @@ function exitPreview() { ['asRole', 'asStaff', 'last', 'acrq'].forEach(k => { tr
 const api = q => fetch(API + '?fmt=json' + q + '&k=' + encodeURIComponent(K) + '&dv=' + DV + '&ua=' + encodeURIComponent(DVUA) + (PV() ? '&as=' + PV() : ''), { cache: 'no-store' }).then(r => r.json());
 
 let NS = (() => { try { return JSON.parse(LS.get('ggc', 'null')); } catch (e) { return null; } })(), err = '', busy = false, msgs = {}, month = LS.get('ggMonth', ''), offOpen = '';
-const RES = ['同意付款', '已当场付', '拒绝', '联系不上', '不收'];
+const RES = ['同意付款', '已当场付', '请求中', '客人回复不付款', '拒绝', '联系不上', '不收'];   // 11/19 用户加「请求中」「客人回复不付款」
+const ASKED = r => PAY.includes(r) || r === '请求中';   // 已经向客人请求了金额的
 const PAY = ['同意付款', '已当场付'];
 function rowsObj() {
   if (!NS) return [];
@@ -104,7 +105,7 @@ function rowsObj() {
 }
 // 一单的状态：todo＝预约中心还没签（取消或联系）；wait＝同意付款等会计到账；done＝收完／不用收
 function stOf(o) {
-  if (!o['取消・谁'] || !o['联系・结果']) return 'todo';
+  if (!o['取消・谁'] || !o['联系・结果'] || o['联系・结果'] === '请求中') return 'todo';   // 请求中＝客人还没回复，预约中心还要跟
   if (PAY.includes(o['联系・结果']) && !o['到账・金额']) return 'wait';
   return 'done';
 }
@@ -137,8 +138,8 @@ function signCall(id) {
   const r = (document.querySelector(`input[name="r_${CSS.escape(id)}"]:checked`) || {}).value || '';
   const amt = ((document.getElementById('a_' + id) || {}).value || '').replace(/[^0-9]/g, ''), how = ((document.getElementById('h_' + id) || {}).value || '').trim();
   if (!r) { msgs[id] = ['e', '请选联系结果']; return render(); }
-  if (PAY.includes(r) && !amt) { msgs[id] = ['e', '请写请求金额']; return render(); }
-  if (!PAY.includes(r) && !how) { msgs[id] = ['e', '请写说明（为什么）']; return render(); }
+  if (ASKED(r) && !amt) { msgs[id] = ['e', '请写请求金额']; return render(); }
+  if (['拒绝', '联系不上', '不收'].includes(r) && !how) { msgs[id] = ['e', '请写说明（为什么）']; return render(); }
   act(id, '&act=call&res=' + encodeURIComponent(r) + '&amt=' + amt + '&how=' + encodeURIComponent(how), '已签名：' + r);
 }
 function undo(id, step) { act(id, '&act=undo&step=' + step, '已撤销'); }
@@ -163,28 +164,35 @@ function caseCard(o) {
   const id = o['编号'], s = stOf(o), m = msgs[id], d = o['预约日'].slice(5).replace('-', '/');
   let h = `<div class="case ${s}"><div class="h">${esc(d)} ${esc(o['时间'])}　${esc(o['公司'])} ${esc(o['店'])}</div>`
     + `<div class="m">${esc(o['客人'])} 様　${esc(o['人数'])}名　${esc(o['内容'])}　合计 <span class="amt">${yen(o['合计'])}</span>`
-    + (o['Slack链接'] ? `　<a href="${esc(o['Slack链接'])}" target="_blank" style="color:var(--brand)">Slack 原文</a>` : '') + '</div>';
+    + (o['Slack链接'] ? `　<a href="${esc(o['Slack链接'])}" target="_blank" style="color:var(--brand)">Slack 原文</a>` : '') + '</div>'
+    // 11/19 用户：「点击打开这，就是显示客人电话的预约台账页面」→ 电脑程序（rb配对.py，只读）配上 レストランボード 的这组预约；电话只给老板・广告预约部・会计部
+    + (o['RB预约编号'] ? `<div class="m">📒 レストランボード：${esc(o['RB店'])}・<b style="color:${o['RB状态'] === '已取消' ? 'var(--good)' : 'var(--warn)'}">${esc(o['RB状态'])}</b>`
+        + (o['电话'] ? `　📞 <a href="tel:${esc(o['电话'])}" style="color:var(--brand);font-weight:700">${esc(o['电话'])}</a>` : '')
+        + `　<a href="https://restaurant-board.com/CLP/view/reserveDetailMobile/?reserveId=${encodeURIComponent(o['RB预约编号'])}" target="_blank" style="color:var(--brand)">🔗 打开预约台账</a></div>`
+      : '<div class="m">📒 レストランボード里还没找到这组（每天 10:00 再找）</div>');
   // ① 预约中心：预约系统里取消
   h += '<div class="step"><div class="t">① 预约中心：在预约系统里取消这组</div>' + (o['取消・谁']
     ? `<span class="ok">✓ 已取消</span>　${esc(o['取消・谁'])}　<small>${esc(o['取消・时间'].slice(5))}</small><a class="undo" onclick="undo('${id}','yc')">撤销</a>`
-    : `<div class="row2"><button class="go" onclick="signYc('${id}')">✍ 已取消，签名</button></div>`) + '</div>';
+    : (o['RB状态'] === '已取消' ? '<div class="note">レストランボード里已经是「已取消」，确认后签名。</div>' : o['RB状态'] ? `<div class="note" style="color:var(--warn)">⚠ レストランボード里还是「${esc(o['RB状态'])}」，请先在预约系统取消。</div>` : '')
+      + `<div class="row2"><button class="go" onclick="signYc('${id}')">✍ 已取消，签名</button></div>`) + '</div>';
   // ② 打电话收取消料
   h += '<div class="step"><div class="t">② 打电话给客人收取消料</div>';
-  if (o['联系・结果']) {
+  if (o['联系・结果'] && o['联系・结果'] !== '请求中') {
     const pay = PAY.includes(o['联系・结果']);
     h += `<span class="${pay ? 'ok' : 'no'}">✓ ${esc(o['联系・结果'])}</span>${o['请求额'] ? '　请求 <b>' + yen(o['请求额']) + '</b>' : ''}　${esc(o['联系・谁'])}　<small>${esc(o['联系・时间'].slice(5))}</small>`
       + (o['联系・说明'] ? `<div class="note">说明：${esc(o['联系・说明'])}</div>` : '') + (o['到账・金额'] ? '' : `<a class="undo" onclick="undo('${id}','call')">撤销</a>`);
   } else {
+    if (o['联系・结果'] === '请求中') h += `<div><span class="wt">⏳ 请求中 ${yen(o['请求额'])}</span>　${esc(o['联系・谁'])}　<small>${esc(o['联系・时间'].slice(5))}</small>${o['联系・说明'] ? '<div class="note">说明：' + esc(o['联系・说明']) + '</div>' : ''}<div class="note">客人回复了就在下面选结果再签名。</div></div>`;
     h += '<div class="res">' + RES.map(r => `<label><input type="radio" name="r_${esc(id)}" value="${r}">${r}</label>`).join('') + '</div>'
-      + `<div class="row2"><input id="a_${esc(id)}" inputmode="numeric" placeholder="请求金额" value="${esc(o['合计'])}"><input id="h_${esc(id)}" placeholder="说明（拒绝・联系不上必填）" maxlength="200"></div>`
+      + `<div class="row2"><input id="a_${esc(id)}" inputmode="numeric" placeholder="请求金额" value="${esc(o['请求额'] || o['合计'])}"><input id="h_${esc(id)}" placeholder="说明（拒绝・联系不上・不收必填）" maxlength="200"></div>`
       + `<div class="row2"><button class="go" onclick="signCall('${id}')">✍ 签名</button></div><div class="note">请求金额先填了 Slack 上的合计，按实际跟客人说的金额改。</div>`;
   }
   h += '</div>';
   // ③ 会计部确认到账
   h += '<div class="step"><div class="t">③ 会计部确认钱到账</div>' + (o['到账・金额']
-    ? (+o['到账・金额'] ? `<span class="ok">✓ 到账 ${yen(o['到账・金额'])}</span>　${esc(o['到账・日'])}　${esc(o['到账・谁'])}` : `<span class="no">✗ 没回款</span>　${esc(o['到账・谁'])}`)   // 11/19 会计部按「没回款」记 0 円 + (o['到账・说明'] ? `<div class="note">${esc(o['到账・说明'])}</div>` : '')
+    ? (+o['到账・金额'] ? `<span class="ok">✓ 到账 ${yen(o['到账・金额'])}</span>　${esc(o['到账・日'])}　${esc(o['到账・谁'])}` : `<span class="no">✗ 没回款</span>　${esc(o['到账・谁'])}`) + (o['到账・说明'] ? `<div class="note">${esc(o['到账・说明'])}</div>` : '')
     : PAY.includes(o['联系・结果']) ? '<span class="wt">⏳ 等会计部确认回款</span><div class="note">会计部在「💴 取消料」按「回款成功」或「没回款」。</div>'
-    : o['联系・结果'] ? '<span class="note">不用收</span>' : '<span class="note">—（先做完 ②）</span>') + '</div>';
+    : o['联系・结果'] === '请求中' ? '<span class="note">—（客人还没回复）</span>' : o['联系・结果'] ? '<span class="note">不用收</span>' : '<span class="note">—（先做完 ②）</span>') + '</div>';
   if (NS.owner) h += offOpen === id
     ? `<div class="row2"><input id="o_${esc(id)}" placeholder="为什么不算（例：重复、店里搞错）" maxlength="100"><button class="go" style="background:var(--bad)" onclick="offGo('${id}')">不算这单</button></div>`
     : `<div class="note"><a class="undo" style="margin:0" onclick="offOpen='${id}';render()">（老板）这单不算</a></div>`;
@@ -201,7 +209,7 @@ function render() {
   if (!month || (!months.includes(month) && month !== cm)) month = months[0] || cm;
   const ms = all.filter(o => o['预约日'].startsWith(month));
   const sum = (a, f) => a.reduce((t, o) => t + (Number(o[f]) || 0), 0);
-  const req = ms.filter(o => PAY.includes(o['联系・结果'])), got = sum(ms, '到账・金额'), rq = sum(req, '请求额');
+  const req = ms.filter(o => ASKED(o['联系・结果'])), got = sum(ms, '到账・金额'), rq = sum(req, '请求额');
   const pend = sum(req.filter(o => !o['到账・金额']), '请求额');
   let h = '';
   if (err) h += `<div class="msg e">${esc(err)}</div>`;
@@ -211,10 +219,10 @@ function render() {
     + `<div><small>预约合计（损失）</small><b>${yen(sum(ms, '合计'))}</b></div>`
     + `<div><small>向客人请求</small><b>${yen(rq)}</b></div>`
     + `<div class="g"><small>已收回（讨回来的钱）</small><b>${yen(got)}</b></div>`
-    + `<div class="r w"><small>请求了还没到账（会计部跟进）</small><b>${yen(pend)}</b>　<small style="display:inline">${req.filter(o => !o['到账・金额']).length} 组</small></div></div>`;
+    + `<div class="r w"><small>请求了还没到账（请求中＋等会计部确认）</small><b>${yen(pend)}</b>　<small style="display:inline">${req.filter(o => !o['到账・金额']).length} 组</small></div></div>`;
   // 按店
   const by = {};
-  ms.forEach(o => { const k = o['公司'] + ' ' + o['店']; const b = by[k] || (by[k] = { n: 0, a: 0, q: 0, g: 0 }); b.n++; b.a += +o['合计'] || 0; if (PAY.includes(o['联系・结果'])) b.q += +o['请求额'] || 0; b.g += +o['到账・金额'] || 0; });
+  ms.forEach(o => { const k = o['公司'] + ' ' + o['店']; const b = by[k] || (by[k] = { n: 0, a: 0, q: 0, g: 0 }); b.n++; b.a += +o['合计'] || 0; if (ASKED(o['联系・结果'])) b.q += +o['请求额'] || 0; b.g += +o['到账・金额'] || 0; });
   const ks = Object.keys(by).sort((x, y) => by[y].n - by[x].n || by[y].a - by[x].a);
   h += `<div class="card"><div class="ct">🏪 按店（${+month.slice(5)}月）</div>` + (ks.length ? '<table><tr><th>店</th><th>组数</th><th>预约合计</th><th>请求</th><th>已收回</th></tr>'
     + ks.map(k => `<tr><td>${esc(k)}</td><td>${by[k].n}</td><td>${yen(by[k].a)}</td><td>${yen(by[k].q)}</td><td>${yen(by[k].g)}</td></tr>`).join('') + '</table>' : '<div class="note">这个月还没有。</div>') + '</div>';
