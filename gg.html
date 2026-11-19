@@ -7,6 +7,7 @@
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="广告预约部">
 <meta name="theme-color" content="#f5f6f8" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#0f1115" media="(prefers-color-scheme: dark)">
 <style>
@@ -60,11 +61,13 @@ th{font-size:12px;color:var(--sub);font-weight:600;border-top:0}td:first-child,t
 .msg{font-size:13.5px;margin:6px 0}.msg.e{color:var(--bad)}.msg.s{color:var(--good)}
 .sec{font-size:13.5px;color:var(--sub);font-weight:700;margin:16px 2px 4px}
 .empty{padding:28px 10px;text-align:center;color:var(--sub)}
+.keybox{text-align:center;padding:40px 8px}.keybox input{display:block;width:100%;max-width:260px;margin:12px auto 0;padding:11px;border:1px solid var(--line);border-radius:10px;background:var(--card);font-size:16px;text-align:center}.keybox button{display:block;width:100%;max-width:260px;margin:10px auto 0;padding:12px;border:0;border-radius:12px;background:var(--brand);color:#fff;font-weight:700;font-size:16px}
+.foot{font-size:12px;color:var(--faint);text-align:center;margin:20px 0 0}.foot a{color:var(--sub);text-decoration:underline;cursor:pointer}
 details summary{cursor:pointer;color:var(--sub);font-size:14px;margin:12px 2px}
 </style>
 </head>
 <body>
-<header><div class="top"><a class="back" href="./">‹ 空桌一览</a><h1>📣 广告预约部</h1><small id="at"></small></div></header>
+<header><div class="top"><a class="back" id="back" href="./" style="display:none">‹ 空桌一览</a><h1>📣 广告预约部</h1><small id="at"></small></div></header>
 <main id="main"><div class="empty">读取中…</div></main>
 <script>
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
@@ -72,8 +75,17 @@ const LS = { get(k, d) { try { const v = localStorage.getItem(k); return v == nu
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const yen = n => '¥' + (Number(n) || 0).toLocaleString('ja-JP');
-// 和空桌一览同一个密码・同一个手机编号（同一个网站，手机里共用）；说明文字也和主页一样，名额算在空桌一览里
-const K = LS.get('k', ''), DV = LS.get('dv', '');
+// 11/19 用户：「广告部的 APP 只能让广告部和预约中心看的链接发一个…只能最开始的 2 台手机看，和 2 台电脑」
+//   单独打开（https://eeesion1-code.github.io/kongzhuo/gg.html）时用「广告预约部密码」（后台角色 gg，名额：广告预约部手机 2・电脑 2，先登录先占）；
+//   这个密码另存在 ggk，不动空桌一览的密码 k。从空桌一览底栏点进来时没有 ggk，就用空桌一览的密码（老板・店长）。
+let K = LS.get('ggk', '') || LS.get('k', '');
+const DV = (() => { let v = LS.get('dv', ''); if (!/^[0-9a-f]{32}$/.test(v)) { const a = new Uint8Array(16); crypto.getRandomValues(a); v = Array.from(a, b => b.toString(16).padStart(2, '0')).join(''); LS.set('dv', v); } return v; })();
+function showKey(msg) {
+  $('main').innerHTML = `<div class="keybox"><p>📣 广告预约部<br>请输入负责人给的密码</p><input id="kin" autocomplete="off" autocapitalize="off" enterkeyhint="go" onkeydown="if(event.key==='Enter')saveKey()"><button onclick="saveKey()">开始使用</button><p class="msg e">${esc(msg || '')}</p></div>`;
+  $('at').textContent = '';
+}
+function saveKey() { const v = (($('kin') || {}).value || '').trim(); if (!v) return; LS.set('ggk', v); K = v; NS = null; load(); }
+function changeKey() { try { localStorage.removeItem('ggk'); localStorage.removeItem('ggc'); } catch (e) {} K = LS.get('k', ''); NS = null; showKey(''); }
 const DVUA = (() => { const u = navigator.userAgent, st = (navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) ? '主屏幕APP' : '浏览器'; let m;
   if ((m = u.match(/iPhone OS ([\d_]+)/))) return `iPhone iOS ${m[1].replace(/_/g, '.')}・${st}`;
   if ((m = u.match(/iPad.*? OS ([\d_]+)/))) return `iPad iOS ${m[1].replace(/_/g, '.')}・${st}`;
@@ -95,13 +107,13 @@ function stOf(o) {
   return 'done';
 }
 async function load() {
-  if (!K || !/^[0-9a-f]{32}$/.test(DV)) { $('main').innerHTML = '<div class="empty">请先在<a href="./">空桌一览</a>输入密码，再回来。</div>'; return; }
+  if (!K) return showKey('');
   busy = true; if (NS) render();
   try {
     const d = await api('&what=ns');
     if (d && d.rows) { NS = d; err = ''; LS.set('ggc', JSON.stringify(d)); }
-    else if (d && d.error === 'device') { NS = null; LS.set('ggc', 'null'); $('main').innerHTML = '<div class="empty">🔒 这台手机还没登记，不能使用。<br>请在<a href="./">空桌一览</a>按提示登记。</div>'; busy = false; return; }
-    else if (d && d.error === 'owner') { NS = null; LS.set('ggc', 'null'); $('main').innerHTML = '<div class="empty">这个密码看不到广告预约部。</div>'; busy = false; return; }
+    else if (d && d.error === 'device') { NS = null; LS.set('ggc', 'null'); $('main').innerHTML = `<div class="empty">🔒 这台${/Windows|Macintosh|Linux/.test(DVUA) ? '电脑' : '手机'}不能使用（广告预约部只给最开始登录的 2 台手机・2 台电脑）。<br>已经通知负责人。编号：<b>${esc(d.id || '—')}</b></div>`; busy = false; return; }
+    else if (d && (d.error === 'key' || d.error === 'owner')) { NS = null; LS.set('ggc', 'null'); busy = false; if (LS.get('ggk', '') === K) { try { localStorage.removeItem('ggk'); } catch (e) {} } K = ''; return showKey(d.error === 'key' ? '密码不对，请再确认一下' : '这个密码看不到广告预约部'); }
     else err = '读不到（' + ((d && d.error) || '') + '）';
   } catch (e) { err = '网络不通，显示的是上次的数据'; }
   busy = false; render();
@@ -164,6 +176,8 @@ function caseCard(o) {
   return h + '</div>';
 }
 function render() {
+  if (!K) return showKey('');
+  $('back').style.display = NS && NS.role !== 'gg' ? '' : 'none';   // 广告预约部密码只看这一页，不显示「‹ 空桌一览」
   $('at').textContent = NS ? NS.at.slice(5) + (busy ? ' 读取中…' : ' 更新') : '';
   if (!NS) { $('main').innerHTML = `<div class="empty">${busy ? '读取中…' : esc(err || '还没有数据')}</div>`; return; }
   const all = rowsObj(), months = [...new Set(all.map(o => o['预约日'].slice(0, 7)))].sort().reverse();
@@ -196,6 +210,7 @@ function render() {
   h += `<div class="sec">🟡 等会计部确认到账（${wait.length}）</div>` + (wait.length ? wait.map(caseCard).join('') : '<div class="note">没有。</div>');
   const done = ms.filter(o => stOf(o) === 'done');
   h += `<details><summary>🟢 ${+month.slice(5)}月已完成（${done.length}）</summary>${done.map(caseCard).join('') || '<div class="note">没有。</div>'}</details>`;
+  if (NS.role === 'gg') h += '<div class="foot"><a onclick="changeKey()">🔑 换密码</a></div>';
   // 重画时保留已经写的字・选的结果（签名失败提示时不用重写）
   const keep = {}, picked = {};
   $('main').querySelectorAll('input[id]').forEach(e => keep[e.id] = e.value);
