@@ -285,7 +285,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
   addEventListener('touchcancel', () => { on = false; hide(); }, { passive: true });
 })();
 
-const APPV = 'yunying-v57';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v58';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);
 const TEST = /\/test\//.test(location.pathname);   // 11/19 测试版（yunying/test/）：Claude 按需求改好先放这里，老板确认后才换成正式版   // 在 空桌一览 里面（pj.html）还是独立 APP
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
@@ -421,7 +421,7 @@ function trendCard(T) {
     '<div class="card kpi"><span class="plat" style="color:var(--g)"><span class="dot" style="background:var(--g)"></span>Google 平均分</span><br><b>' + z[1].toFixed(2) + '</b> <span class="' + (z[1] >= a[1] ? 'up' : 'dn') + '" style="font-size:13px">' + (z[1] >= a[1] ? '▲' : '▼') + Math.abs(z[1] - a[1]).toFixed(2) + '</span>' + spark(T.map(x => x[1]), 200, 36, 'var(--g)', true) + '<div class="d">' + lab(a) + ' 是 ' + a[1].toFixed(2) + '</div></div>' +
     '<div class="card kpi"><span class="plat" style="color:var(--g)"><span class="dot" style="background:var(--g)"></span>Google 评价数</span><br><b>' + fmt(z[2]) + '</b> <span class="up" style="font-size:13px">+' + fmt(z[2] - a[2]) + '</span>' + spark(T.map(x => x[2]), 200, 36, 'var(--g)', true) + '<div class="d">平均每月 +' + fmt(Math.round((z[2] - a[2]) / days * 30)) + ' 条</div></div>' +
     (ta && tz && tb.length > 1 ? '<div class="card kpi"><span class="plat" style="color:var(--t)"><span class="dot" style="background:var(--t)"></span>食べログ 口コミ数</span><br><b>' + fmt(tz[3]) + '</b> <span class="' + (tz[3] >= ta[3] ? 'up' : 'dn') + '" style="font-size:13px">' + (tz[3] >= ta[3] ? '+' : '−') + fmt(Math.abs(tz[3] - ta[3])) + '</span>' + spark(tb.map(x => x[3]), 200, 36, 'var(--t)', true) + '<div class="d">' + lab(ta) + ' 起；店铺分一直停在 3.09 左右</div></div>' : '') +
-    '</div><p class="note">同一批店铺页相比（新开的页不算进去）。11/16 以前的数来自 Adali 每天记的表。</p></div>';
+    '</div><p class="note">每一天只比前后两天都有的店铺页，新加的页、某天没读到的页不会被当成新增。11/16 以前的数来自 Adali 每天记的表，11/19 起以广告部每天读的为准。食べログ 条数 11/18 起按口コミ一览的「全 N 件」（和广告部月表一样），以前的口径不一样，不接着比。</p></div>';
 }
 
 
@@ -765,7 +765,7 @@ function rvCard(r, showStore) {
     (r['内容'] ? '<div class="rvt">' + rvNg(r) + '</div>' : '<div class="rvt" style="color:var(--faint)">（只打了分，没写内容）</div>') +
     '<div class="rvf">' + reply + '<span>' + esc(r['作者'] || '') + '</span>' + (r['链'] ? '<a class="lk" href="' + esc(r['链']) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">打开这条评价 ↗</a>' : r['网址'] ? '<a class="lk" href="' + esc(r['网址']) + '" target="_blank" rel="noopener" onclick="event.stopPropagation()">' + (r['平台'] === 'Google' ? '打开 Google 店铺页（在「クチコミ」里找）↗' : '打开店铺页 ↗') + '</a>' : '') + '</div></div>';
 }
-function platKpi(name, g) {
+function platKpi(name, g, M) {
   if (!g) return '';
   const c = PC[name];
   let h = '<div class="card kpi"><span class="plat" style="color:' + c + '"><span class="dot" style="background:' + c + '"></span>' + name + '</span>';
@@ -785,7 +785,19 @@ function platKpi(name, g) {
       '<div class="d">共 ' + fmt(g['件数']) + ' 条・近 30 天 ' + g['近30天'] + ' 条' + (g['近30天差评'] ? '・<span class="dn">差评 ' + g['近30天差评'] + '</span>' : '') +
       (g['差评未回复'] ? '・<span class="dn">没回 ' + g['差评未回复'] + '</span>' : '') + '</div>';
   }
-  return h + '</div>';
+  return h + srcLine(name, M) + '</div>';
+}
+// v58（11/19 用户「好，接进去」）：评分・件数以 KA广告部 每天读的为准（和广告部月表同一个数），KA 没跑（周末）用运营部自己读的。
+//   卡片最下面写是哪天谁读的；比别的平台旧、或者是前天以前的数 → 红字「⚠ 没读到最新」（今天谷歌 9 点没读成那种，原来看不出来）
+function srcLine(name, M) {
+  const S = (M && M['来源']) || {}, s = S[name];
+  if (!s || !s['日']) return '';
+  const ld = k => { const x = new Date(); x.setDate(x.getDate() - k); return x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0'); };
+  const newest = Object.values(S).map(x => x['日'] || '').sort().pop() || '';
+  const old = s['日'] < newest || s['日'] < ld(1);
+  const t = s['KA页'] ? s['KA'] : s['自读'], md = x => x ? +x.slice(5, 7) + '/' + +x.slice(8, 10) + (x.length > 10 ? ' ' + x.slice(11, 16) : '') : '';
+  return '<div class="d" style="color:' + (old ? 'var(--bad)' : 'var(--sub)') + ';font-size:11px">' + (old ? '⚠ 没读到最新・' : '') +
+    (s['KA页'] ? md(t) + ' 广告部读' + (s['KA页'] < s['页'] ? '（' + s['KA页'] + '/' + s['页'] + ' 页，其余运营部读）' : '') : md(t) + ' 运营部读') + '</div>';
 }
 function renderPj() {
   if (!PJ) return pjErr ? '<div class="err">' + esc(pjErr) + '</div>' : '<div class="empty">读取中…</div>';
@@ -794,7 +806,7 @@ function renderPj() {
   if (!SEL) {   // 11/18 选了店：不显示集团总览・半年走势，直接看这家店（下面）
   // ① 总览
   h += '<div class="sec"><h2>各平台总览<small>' + Object.keys(G).length + ' 个平台・' + D.pg.length + ' 个店铺页</small></h2><div class="grid g3">' +
-    ['Google', '食べログ', 'ホットペッパー'].map(p => platKpi(p, G[p])).join('') + '</div>';
+    ['Google', '食べログ', 'ホットペッパー'].map(p => platKpi(p, G[p], M)).join('') + '</div>';
   const tb = G['食べログ'];
   if (tb && tb['评分'] != null && tb['评分'] < 3.15)
     h += '<p class="note">食べログ：' + D.pg.filter(p => p['平台'] === '食べログ').filter(p => p['评分'] != null && p['评分'] <= 3.1).length + ' 页的店铺分停在 3.08〜3.10（食べログ 的起步分），口コミ 自己的平均却有 ' + f2(tb['近90天均分']) + '。说明写评价的人在 食べログ 的影响力低，评价数加上去分数也不涨。</p>';
