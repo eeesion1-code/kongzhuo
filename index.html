@@ -81,7 +81,6 @@ h1{font-size:20px;margin:0;flex:1;letter-spacing:.5px}
 .dvme{background:var(--brand);color:#fff;border-radius:6px;padding:0 5px;font-size:11px;font-weight:400}
 .dvbad{font-size:12.5px;color:var(--sub);line-height:1.6;padding:5px 0;border-top:1px dashed var(--line)}
 #rlhint button+button{margin-left:6px}
-#acView{display:none;position:fixed;inset:0;z-index:30;background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch}
 .rlst{font-size:14px;margin:6px 0}
 .rlres{background:var(--soft);border-radius:10px;padding:8px 10px;font-size:13px;line-height:1.6;margin:8px 0}
 .rlnote{font-size:12.5px;color:var(--sub);line-height:1.55;margin:8px 0}
@@ -499,10 +498,6 @@ button:active,nav button:active,a:active{opacity:.6}
   <h3>📱 登录手机<button class="iconbtn" onclick="closeDev()" aria-label="关闭">✕</button></h3>
   <div id="dvBody"></div>
 </div></div>
-<div id="acView"><div class="svwrap">
-  <div class="svtop"><button class="iconbtn" onclick="closeAc()" aria-label="返回">‹</button><h2>🧾 会计</h2></div>
-  <div id="acBody"></div>
-</div></div>
 <div id="rlView" onclick="if(event.target===this)closeRelogin()"><div class="rlbox">
   <h3>🖥️ 让电脑重新登录<button class="iconbtn" onclick="closeRelogin()" aria-label="关闭">✕</button></h3>
   <div id="rlBody"></div>
@@ -585,7 +580,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
 })();
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v83';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v84';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -2317,59 +2312,10 @@ function devRender() {
   devShow(h);
 }
 // ---- 11/18 用户：「APP 里面加入一个会计的键」；内容选了 资金余额・要付的钱・月度损益——「先有这些键，数据先不跑」----
-const AC_TABS = [['ns', '💴 取消料'], ['cash', '资金余额'], ['pay', '要付的钱'], ['pl', '月度损益']];   // 11/19 用户：「会计部的新标签取消料还没有进去」→ 这里（空桌一览「🧾 会计」）也放，排第一
-const AC_INFO = {
-  cash: ['各公司银行・现金余额，这个月进了多少、出了多少。', 'Google Drive「11家流水」整理出来的现金流（残高）表。'],
-  pay: ['请求书・信用卡要付的钱：哪天付、付多少，快到期的标出来。', '公司档案里的请求书、信用卡明细。'],
-  pl: ['每家店每个月：营业额 − 工资 − 食材酒水 − 房租等，看赚多少。', '营业额＝收银台日报；工资＝工资表；食材酒水・房租等＝freee 记账。'],
-};
-let acTab = LS.get('acTab', 'ns');
-function openAc() { if (!D || !D.owner) return; navPush('ac', closeAc); document.getElementById('acView').style.display = 'block'; document.body.style.overflow = 'hidden'; renderAc(); }
-function closeAc() { navDone('ac'); const v = document.getElementById('acView'); if (v) v.style.display = 'none'; document.body.style.overflow = ''; }
-function acOpenKj(t) { if (t) LS.set('acTab', t); window.open('https://eeesion1-code.github.io/kuaiji/#k=' + encodeURIComponent(K), '_blank'); }
-function acGo(t) { acTab = t; LS.set('acTab', t); renderAc(); }
-
-// ===== 11/19 💴 取消料（无断取消讨回来的钱）：Slack #经营汇报 → 「📣 广告预约部」① 取消 ② 打电话收取消料 → 会计部 APP 确认到账。这里给老板看汇总（只读），确认到账在会计部 APP。
-let ACNS = null, acnsBusy = false;
-async function loadAcNs() {
-  if (acnsBusy) return; acnsBusy = true;
-  try { const d = await fetch(API + '?fmt=json&what=ns' + KQ(), { cache: 'no-store' }).then(r => r.json()); if (d && d.rows) ACNS = d; } catch (e) {}
-  acnsBusy = false;
-  if (acTab === 'ns' && document.getElementById('acView').style.display === 'block') renderAcNs(true);
-}
-function renderAcNs(loaded) {
-  if (!loaded) loadAcNs();
-  const tabs = '<div class="svtabs">' + AC_TABS.map(([k, n]) => `<button class="${acTab === k ? 'on' : ''}" onclick="acGo('${k}')">${n}</button>`).join('') + '</div>';
-  const yen = n => '¥' + (Number(n) || 0).toLocaleString('ja-JP'), PAY = ['同意付款', '已当场付'];
-  let h = tabs + '<div class="svcard"><div class="svct">💴 取消料（无断取消讨回来的钱）</div><div class="svnote">各店在 Slack #经营汇报 发的无断取消 → 预约中心在「📣 广告预约部」取消预约、打电话要取消料并签名 → 会计部在会计部 APP 确认到账、跟进没汇款的客人。</div></div>';
-  if (!ACNS) { document.getElementById('acBody').innerHTML = h + `<div class="svcard"><div class="svnote">${acnsBusy ? '读取中…' : '读不到'}</div></div>`; return; }
-  const all = ACNS.rows.map(r => { const o = {}; ACNS.head.forEach((k, i) => o[k] = r[i]); return o; }).filter(o => !o['停用']);
-  const sum = (a, f) => a.reduce((t, o) => t + (Number(o[f]) || 0), 0), now = new Date(), cm = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
-  const wait = all.filter(o => PAY.includes(o['联系・结果']) && !o['到账・金额']), notyet = all.filter(o => !o['联系・结果']), mon = all.filter(o => o['预约日'].startsWith(cm));
-  h += '<div class="svcard"><div class="svct">' + (+cm.slice(5)) + ' 月</div><div class="svnote" style="font-size:15px;line-height:1.9;color:var(--ink)">'
-    + `无断取消 <b>${mon.length}</b> 组・预约合计 <b>${yen(sum(mon, '合计'))}</b><br>向客人请求 <b>${yen(sum(mon.filter(o => PAY.includes(o['联系・结果'])), '请求额'))}</b>・已收回 <b style="color:var(--free)">${yen(sum(mon, '到账・金额'))}</b><br>`
-    + `<span style="color:var(--over)">请求了还没到账 <b>${wait.length}</b> 组 <b>${yen(sum(wait, '请求额'))}</b></span>　预约中心还没打电话 <b>${notyet.length}</b> 组</div>`
-    + '<div class="svlinks"><button onclick="acOpenKj(\'ns\')">去会计部 APP 确认到账 ›</button></div></div>';
-  if (wait.length) h += '<div class="svcard"><div class="svct">⏳ 等客人汇款</div>' + wait.map(o => `<div class="svnote" style="color:var(--ink)">${esc(o['公司'])} ${esc(o['店'])}　${esc(o['客人'])} 様　<b>${yen(o['请求额'])}</b><br><small>预约 ${esc(o['预约日'].slice(5))}・${esc(o['联系・谁'])} ${esc(o['联系・时间'].slice(5))} 联系</small></div>`).join('') + '</div>';
-  const byM = {};
-  (ACNS.hist || []).forEach(x => { byM[x[1]] = (byM[x[1]] || 0) + (+x[2] || 0); });
-  all.forEach(o => { const m = o['预约日'].slice(0, 7); if (o['到账・金额']) byM[m] = (byM[m] || 0) + (+o['到账・金额'] || 0); else if (!(m in byM)) byM[m] = 0; });
-  const ms = Object.keys(byM).sort().reverse();
-  h += '<div class="svcard"><div class="svct">📅 每月讨回来的钱</div>' + ms.map(m => `<div class="svnote" style="color:var(--ink)">${m.slice(0, 4)}年${+m.slice(5)}月　<b>${yen(byM[m])}</b></div>`).join('')
-    + `<div class="svnote">2〜10 月是「お客様から返金」表（合计 ${yen((ACNS.hist || []).reduce((t, x) => t + (+x[2] || 0), 0))}）；11 月起是会计部在 APP 里确认的。</div></div>`;
-  document.getElementById('acBody').innerHTML = h + '<div class="foot">会计只有老板密码看得到。</div>';
-}
-function renderAc() {
-  if (acTab === 'ns') return renderAcNs();
-  if (!AC_INFO[acTab]) acTab = 'cash';
-  const nm = AC_TABS.find(x => x[0] === acTab)[1], [what, src] = AC_INFO[acTab];
-  document.getElementById('acBody').innerHTML = '<div class="svtabs">' + AC_TABS.map(([k, n]) => `<button class="${acTab === k ? 'on' : ''}" onclick="acGo('${k}')">${n}</button>`).join('') + '</div>'
-    + `<div class="svmiss">🧾 ${nm}：<b>数据源无</b>——还没接上数据（11/18：先有这些键，数据先不跑）。</div>`
-    + `<div class="svcard"><div class="svct">接上以后这里显示</div><div class="svnote">${what}</div><div class="svct" style="margin-top:10px">数据从哪里来</div><div class="svnote">${src}</div></div>`
-    + '<div class="svcard"><div class="svct">💬 会计部 APP</div><div class="svnote">给会计部用的单独 APP（会计部密码登录），内容和这里一样，还有「想更新什么」意见箱：会计部写的意见会发邮件给你，也能在那边看全部。网址和密码在 G 盘「会计部／公司情报信息／APP・后台网址和密码」。</div>'
-    + '<div class="svlinks"><button onclick="acOpenKj()">打开会计部 APP（用老板密码）›</button></div></div>'
-    + '<div class="foot">会计只有老板密码看得到。</div>';
-}
+// 11/19 用户：「会计部跟运营部一样，不是 2 个网页…或者怎么统合」→ 「🧾 会计」打开 kj.html＝会计部 APP（kuaiji）同一份网页的副本（和运营部 pj.html 同样做法），
+//   以前这里自己写的会计页（资金余额・要付的钱・月度损益・取消料汇总）删掉。kj.html 由 会计部\提需求\测试版.py 上线时自动更新。
+function openAc() { if (!D || !D.owner) return; location.href = 'kj.html'; }
+function closeAc() {}
 function closeRelogin() { navDone('rl'); clearInterval(rlTimer); document.getElementById('rlView').style.display = 'none'; }
 function card(s) {
   const isOpen = isOpenS(s.label), fav = favs.includes(s.label);

@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>会计部</title>
+<meta name="theme-color" content="#6d28d9">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="会计部">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--ink:#16181d;--sub:#6b7280;--line:#e5e7eb;--soft:#f0f1f4;--brand:#6d28d9;--warnbg:#fef3c7;--warn:#78350f;--ok:#15803d;--bad:#dc2626}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1115;--card:#181b21;--ink:#eceef2;--sub:#9aa1ad;--line:#2a2e36;--soft:#22262e;--brand:#8b5cf6;--warnbg:#3a2f12;--warn:#fde68a}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,BlinkMacSystemFont,"Hiragino Sans","PingFang SC","Noto Sans CJK SC","Microsoft YaHei",sans-serif;-webkit-text-size-adjust:100%}
+.wrap{max-width:720px;margin:0 auto;padding:calc(10px + env(safe-area-inset-top)) 16px calc(30px + env(safe-area-inset-bottom))}
+.top{display:flex;align-items:center;gap:8px;margin:4px 0 10px}
+.top h1{flex:1;margin:0;font-size:22px}
+.top small{color:var(--sub);font-size:12px}
+.tabs{display:flex;flex-wrap:wrap;gap:6px;position:sticky;top:0;z-index:2;background:var(--bg);padding:4px 0 10px}
+.tabs::-webkit-scrollbar{display:none}
+.tabs button{flex:1 0 auto;padding-left:10px!important;padding-right:10px!important;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:8px 12px;font-size:14.5px;font-weight:600}
+.tabs button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:10px 0}
+.ct{font-weight:700;font-size:15.5px;margin-bottom:4px}
+.note{font-size:13px;color:var(--sub);line-height:1.65;margin:4px 0}
+.miss{background:var(--warnbg);color:var(--warn);border-radius:10px;padding:8px 10px;font-size:13.5px;line-height:1.6;margin:6px 0}
+.btn{display:block;width:100%;margin-top:10px;padding:12px;border:0;border-radius:12px;background:var(--brand);color:#fff;font:inherit;font-size:15px;font-weight:600}
+.btn.sub{background:var(--soft);color:var(--ink);font-weight:500}
+.btn:disabled{opacity:.5}
+input,textarea{display:block;width:100%;margin-top:8px;padding:10px;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}
+textarea{min-height:120px;resize:vertical}
+.msg{border-top:1px solid var(--line);padding:9px 0}
+.msg:first-child{border-top:0}
+.msg small{display:block;color:var(--sub);font-size:12px}
+.msg div{white-space:pre-wrap;word-break:break-word}
+.ok{color:var(--ok);font-size:13.5px;margin-top:8px}
+.err{color:var(--bad);font-size:13.5px;margin-top:8px}
+.foot{font-size:12px;color:var(--sub);text-align:center;margin-top:16px;line-height:1.7}
+.foot a{color:var(--brand);cursor:pointer}
+#keybox{display:none;text-align:center;padding:40px 8px}
+#keybox img{width:72px;height:72px;border-radius:18px}
+#keybox input{max-width:260px;margin:12px auto 0;text-align:center}
+#keybox .btn{max-width:260px;margin:12px auto 0}
+
+/* 11/19 📋 事项汇报 */
+.seg2{display:flex;gap:6px;margin:0 0 6px}.seg2 button{flex:1;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:9px;font:inherit;font-weight:600}.seg2 button.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+.who{display:grid;grid-template-columns:repeat(auto-fill,minmax(96px,1fr));gap:8px;margin-top:8px}.who button{padding:16px 6px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--ink);font:inherit;font-size:17px;font-weight:700}
+.me{display:flex;align-items:center;gap:8px;margin:2px 0 4px;font-size:15px}.me b{font-size:18px}.me a{color:var(--brand);cursor:pointer;font-size:13.5px}
+.grp{font-size:13.5px;color:var(--sub);font-weight:700;margin:14px 2px 4px}
+.it{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 12px;margin:8px 0}
+.it.late{border:2px solid var(--bad)}.it.done{opacity:.75}
+.it .nm{font-weight:700;font-size:15.5px;line-height:1.45}.it .dl{font-size:12.5px;color:var(--sub);margin-top:2px}.it .dl b{color:var(--bad)}
+.it .now{font-size:13px;margin-top:4px}.it .now .bad{color:var(--bad);font-weight:700}
+.bt3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:8px}.bt3 button{padding:12px 4px;border:0;border-radius:10px;font:inherit;font-size:15.5px;font-weight:700;color:#fff}
+.bt3 .b1{background:#16a34a}.bt3 .b2{background:#d97706}.bt3 .b3{background:#dc2626}.bt3 button.cur{outline:3px solid var(--ink);outline-offset:1px}.bt3 button:disabled{opacity:.5}
+.stk{margin-top:8px}.stk input{margin-top:0}.stk .btn{margin-top:6px;background:#dc2626}
+.pill{display:inline-block;font-size:12px;font-weight:700;border-radius:999px;padding:1px 8px}.p1{background:#dcfce7;color:#166534}.p2{background:#fef3c7;color:#92400e}.p3{background:#fee2e2;color:#991b1b}.p0{background:var(--soft);color:var(--sub)}
+.kp{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:8px 0}.kp div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 4px;text-align:center}.kp b{display:block;font-size:22px;line-height:1.2}.kp small{font-size:12px;color:var(--sub)}.kp .r b{color:var(--bad)}
+.row{border-top:1px solid var(--line);padding:8px 0;font-size:14px;line-height:1.5}.row:first-of-type{border-top:0}.row small{color:var(--sub)}.row .kd{color:var(--bad);font-weight:600}
+.bar{height:8px;background:var(--soft);border-radius:4px;overflow:hidden;margin-top:4px}.bar i{display:block;height:100%;background:var(--brand)}
+.fm label{display:block;font-size:13px;color:var(--sub);margin-top:10px}.fm select{display:block;width:100%;margin-top:4px;padding:10px;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}.fm input{margin-top:4px}
+.testbar{position:sticky;top:0;z-index:9;background:#facc15;color:#422006;font-size:13.5px;font-weight:700;text-align:center;padding:calc(7px + env(safe-area-inset-top)) 8px 7px}.testbar a{color:#422006;text-decoration:underline}
+.fm .ck{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:15px}.fm .ck input{width:auto;margin:0}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div id="keybox">
+    <img src="icon-192.png" alt="">
+    <p id="ktip">会计部 APP<br>请输入负责人给的密码</p>
+    <input id="kin" autocomplete="off" autocapitalize="off" enterkeyhint="go" onkeydown="if(event.key==='Enter')saveKey()">
+    <button class="btn" id="kgo" onclick="saveKey()">开始使用</button>
+    <button class="btn sub" id="kretry" style="display:none" onclick="load()">重新试一次</button>
+    <p id="kerr" class="err"></p>
+  </div>
+  <div id="main" style="display:none">
+    <div class="top"><a id="kzback" href="./" style="display:none;border:1px solid var(--line);background:var(--card);border-radius:10px;padding:6px 10px;font-size:14px;color:var(--ink);text-decoration:none">‹ 空桌一览</a><h1>🧾 会计部</h1><small id="age"></small></div>
+    <div class="tabs" id="tabs"></div>
+    <div id="body"></div>
+    <div class="foot" id="foot"></div>
+  </div>
+</div>
+<script>
+// 11/18 用户：「单独的会计部键这个 APP 也做出来，因为给会计部看，然后让他们说有什么想更新的」。
+// 数据接口和「空桌一览」同一个后台（Apps Script）；会计部密码（或老板密码）才看得到。只有登记过的手机能用（手机编号 dv）。
+const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
+const APPV = 'kuaiji-v8';
+// 11/19 自检：提需求「测试版 → 老板确认 → 正式版」流程跑通（这一行就是自检时上线的改动）
+const TEST = /\/test\//.test(location.pathname);
+const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 11/19 用户：「会计部跟运营部一样，不是 2 个网页」→ 空桌一览「🧾 会计」打开的是这份网页的副本 kongzhuo/kj.html（内容完全一样）   // 11/19 测试版（kuaiji/test/）：Claude 按需求改好先放这里，老板确认后才换成正式版   // 版本号：和 sw.js 的 V 一起改
+const LS = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+  del(k) { try { localStorage.removeItem(k); } catch (e) {} }
+};
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+let K = LS.get('k', '');
+const fromUrl = (location.hash.match(/k=([^&]+)/) || [])[1];
+if (fromUrl) { K = decodeURIComponent(fromUrl); LS.set('k', K); history.replaceState(null, '', location.pathname); }
+const DV = (() => { let v = LS.get('dv', ''); if (!/^[0-9a-f]{32}$/.test(v)) { const a = new Uint8Array(16); crypto.getRandomValues(a); v = Array.from(a, b => b.toString(16).padStart(2, '0')).join(''); LS.set('dv', v); } return v; })();
+const DVUA = (() => { const u = navigator.userAgent, st = (navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) ? '主屏幕APP' : '浏览器'; let m;
+  if ((m = u.match(/iPhone OS ([\d_]+)/))) return `iPhone iOS ${m[1].replace(/_/g, '.')}・${st}${IN_KZ ? '' : '・会计部APP'}`;
+  if ((m = u.match(/iPad.*? OS ([\d_]+)/))) return `iPad iOS ${m[1].replace(/_/g, '.')}・${st}${IN_KZ ? '' : '・会计部APP'}`;
+  if ((m = u.match(/Android ([\d.]+); ([^;)]+)/))) return `Android ${m[1]} ${m[2].trim()}・${st}${IN_KZ ? '' : '・会计部APP'}`;
+  return `${(u.match(/Windows NT|Macintosh|Android|Linux/) || ['其他'])[0]}・${st}${IN_KZ ? '' : '・会计部APP'}`; })();
+const api = q => fetch(API + '?fmt=json' + q + '&k=' + encodeURIComponent(K) + '&dv=' + DV + '&ua=' + encodeURIComponent(DVUA), { cache: 'no-store' }).then(r => r.json());
+
+const TABS = [['sx', '📋 事项汇报'], ['ns', '💴 取消料'], ['msg', '💡 提需求'], ['cash', '资金余额'], ['pay', '要付的钱'], ['pl', '月度损益']];   // 11/19 用户：「没有提需求这个键」——第 5 个在手机上被挤到右边看不见 → 放第 2 个，标签换行全部看得到
+const INFO = {
+  cash: ['各公司银行・现金余额，这个月进了多少、出了多少。', 'Google Drive「11家流水」整理出来的现金流（残高）表。'],
+  pay: ['请求书・信用卡要付的钱：哪天付、付多少，快到期的标出来。', '公司档案里的请求书、信用卡明细。'],
+  pl: ['每家店每个月：营业额 − 工资 − 食材酒水 − 房租等，看赚多少。', '营业额＝收银台日报；工资＝工资表；食材酒水・房租等＝freee 记账。'],
+};
+let tab = LS.get('acTab', 'sx'), AC = null, sendMsg = '', draft = '';
+if (!TABS.some(t => t[0] === tab) || (tab === 'cash' && !LS.get('sxSeen', ''))) tab = 'sx';   // 11/19：事项汇报做好后第一次打开先看它
+LS.set('sxSeen', '1');
+
+function showKey(msg, blocked) {
+  $('main').style.display = 'none'; $('keybox').style.display = 'block';
+  $('kin').style.display = $('kgo').style.display = blocked ? 'none' : '';
+  $('kretry').style.display = blocked ? '' : 'none';
+  if (!blocked) $('ktip').innerHTML = '会计部 APP<br>请输入负责人给的密码';
+  $('kerr').textContent = msg || '';
+}
+function saveKey() { const v = $('kin').value.trim(); if (!v) return; K = v; LS.set('k', K); load(); }
+function changeKey() { LS.del('k'); K = ''; LS.del('acc'); AC = null; showKey(''); }
+async function load() {
+  if (!K) return showKey('');
+  if (!AC) { try { AC = JSON.parse(LS.get('acc', 'null')); } catch (e) {} if (AC) render(); }
+  try {
+    const d = await api('&what=ac');
+    if (d.error === 'key') { LS.del('k'); K = ''; return showKey('密码不对，请再确认一下'); }
+    if (d.error === 'device') {   // 没登记的手机：不显示任何东西，手机里存的也删掉
+      LS.del('acc'); AC = null;
+      $('ktip').innerHTML = `🔒 这台手机还没登记，不能使用。<br>已经通知负责人。<br>手机编号：<b>${esc(d.id || '—')}</b><br><small>请负责人在「空桌一览 › 📱 登录手机」里开放登记，然后按下面的「重新试一次」。</small>`;
+      return showKey('', true);
+    }
+    if (d.error === 'owner') { LS.del('k'); K = ''; return showKey('这个密码看不到会计部，请用会计部密码'); }
+    if (d.error) throw new Error(d.error);
+    AC = d; LS.set('acc', JSON.stringify(d));
+  } catch (e) { if (!AC) return showKey('读不到（' + e.message + '），等一下再试'); }
+  render();
+  if (tab === 'sx') loadSx();
+  if (tab === 'msg') loadRq();
+  if (tab === 'ns') loadNs();
+}
+function go(t) { tab = t; LS.set('acTab', t); sendMsg = ''; render(); window.scrollTo(0, 0); if (t === 'sx') loadSx(); if (t === 'msg') loadRq(); if (t === 'ns') loadNs(); }
+function ask(t) { const nm = TABS.find(x => x[0] === t)[1]; draft = `【${nm}】`; go('msg'); setTimeout(() => { const e = $('mv'); if (e) { e.focus(); e.setSelectionRange(e.value.length, e.value.length); } }, 50); }
+function render() {
+  $('keybox').style.display = 'none'; $('main').style.display = 'block';
+  $('age').textContent = AC && AC.now ? AC.now.slice(5) + ' 更新' : '';
+  $('tabs').innerHTML = TABS.map(([k, n]) => `<button class="${tab === k ? 'on' : ''}" onclick="go('${k}')">${n}</button>`).join('');
+  let h = '';
+  if (tab === 'sx') h += renderSx();
+  else if (tab === 'msg') h += renderRq();
+  else if (tab === 'ns') h += renderNs();
+  else {
+    const nm = TABS.find(x => x[0] === tab)[1], [what, src] = INFO[tab];
+    h += `<div class="miss">🧾 ${nm}：<b>数据源无</b>——还没接上数据（先把页面做出来，请会计部先看看想要什么）。</div>`
+      + `<div class="card"><div class="ct">接上以后这里显示</div><div class="note">${what}</div><div class="ct" style="margin-top:10px">数据从哪里来</div><div class="note">${src}</div>`
+      + `<button class="btn sub" onclick="ask('${tab}')">💬 对这一页提意见</button></div>`;
+  }
+  $('body').innerHTML = h;
+  $('foot').innerHTML = `只有会计部密码和老板密码看得到。<br><a onclick="changeKey()">🔑 换密码</a>　版本 ${APPV.replace('kuaiji-v', '')}`;
+}
+
+// ===== 11/19 📋 事项汇报（GitHub kuaiji《事项汇报模块_指令.md》）=====
+// 员工：选自己的名字 → 只看自己的事项（每日／每月／不定期）→ 每件点「完成／进行中／卡住」（卡住必须写卡在哪里）。
+// 管理者：汇总（应报・已报・还没报・卡住・逾期，还没报名单・卡住清单・逾期清单・每人进度）＋新增事项。
+// 数据存在后台同一份表（what=sx 读・what=sxdo 写，「事项清单」「事项汇报」工作表），大家手机看到的是同一份。
+let SX = (() => { try { return JSON.parse(LS.get('acsx', 'null')); } catch (e) { return null; } })(), sxErr = '', sxBusy = false, sxMode = LS.get('sxMode', 'me'), sxWho = LS.get('sxWho', ''), sxStuck = '', sxMsg = '', sxSaving = '';
+async function loadSx() {
+  if (sxBusy) return; sxBusy = true;
+  try {
+    const d = await api('&what=sx');
+    if (d && d.items) { SX = d; sxErr = ''; LS.set('acsx', JSON.stringify(d)); }
+    else if (d && d.error === 'device') sxErr = '这台手机没登记';
+    else sxErr = d && d.error === 'owner' ? '后台还没开通事项汇报（正在部署）' : '读不到：' + ((d && d.error) || '');
+  } catch (e) { sxErr = '网络不通，显示的是上次的'; }
+  sxBusy = false; if (tab === 'sx') render();
+}
+const sxPer = it => it.cat === '每日' ? SX.day : it.cat === '每月' ? SX.day.slice(0, 7) : '-';
+const sxRep = it => SX.rep[it.id + '|' + sxPer(it)] || null;   // [时间, 谁, 状态, 卡点]
+const sxLate = it => { const r = sxRep(it), dn = r && r[2] === '完成'; if (dn) return false;
+  if (it.cat === '每月' && it.dd) return +SX.day.slice(8) > it.dd;
+  if (it.cat === '每日' && it.dh) return SX.hour >= it.dh;
+  return false; };
+const sxDue = it => it.cat === '每日' ? (it.due && it.due !== '未定日期' ? '每天 ' + it.due : '每天') : it.cat === '每月' ? '每月 ' + (it.due || '未定日期') : (it.due && it.due !== '未定日期' ? it.due : '有事时报');
+const SXP = { '完成': 'p1', '进行中': 'p2', '卡住': 'p3' };
+const sxNow = r => r ? '<span class="pill ' + SXP[r[2]] + '">' + esc(r[2]) + '</span> <small style="color:var(--sub)">' + esc(String(r[0]).slice(5, 16)) + (r[1] ? ' ' + esc(r[1]) : '') + '</small>' + (r[2] === '卡住' && r[3] ? '<div class="bad">卡在：' + esc(r[3]) + '</div>' : '') : '<span class="pill p0">还没报</span>';
+function sxSetMode(m) { sxMode = m; LS.set('sxMode', m); sxMsg = ''; render(); window.scrollTo(0, 0); }
+function sxSetWho(w) { sxWho = w; LS.set('sxWho', w); sxStuck = ''; sxMsg = ''; render(); window.scrollTo(0, 0); }
+function renderSx() {
+  let h = '<div class="seg2"><button class="' + (sxMode === 'me' ? 'on' : '') + '" onclick="sxSetMode(\'me\')">🙋 我的事项</button><button class="' + (sxMode === 'all' ? 'on' : '') + '" onclick="sxSetMode(\'all\')">📊 汇总</button></div>';
+  if (sxErr) h += '<div class="miss">' + esc(sxErr) + '</div>';
+  if (!SX) return h + '<div class="card"><div class="note">' + (sxBusy ? '读取中…' : '还没有数据') + '</div></div>';
+  if (sxMsg) h += sxMsg;
+  return h + (sxMode === 'all' ? renderSxAll() : renderSxMe());
+}
+function renderSxMe() {
+  const P = SX.people || [];
+  if (!sxWho || P.indexOf(sxWho) < 0) return '<div class="card"><div class="ct">你是谁？</div><div class="note">选一次就记住，以后打开直接是你的事项。</div><div class="who">' + P.map(n => '<button onclick="sxSetWho(\'' + esc(n) + '\')">' + esc(n) + '</button>').join('') + '</div></div>';
+  const mine = SX.items.filter(it => it.who === sxWho);
+  let h = '<div class="me">我是 <b>' + esc(sxWho) + '</b><a onclick="sxSetWho(\'\')">换人</a><span style="flex:1"></span><small style="color:var(--sub)">' + esc(SX.day.slice(5).replace('-', '/')) + '</small></div>';
+  ['每日', '每月', '不定期'].forEach(cat => {
+    const L = mine.filter(it => it.cat === cat);
+    if (!L.length) return;
+    const nd = cat === '不定期' ? '' : '（还没报 ' + L.filter(it => !sxRep(it)).length + '）';
+    h += '<div class="grp">' + cat + ' ' + L.length + ' 件' + nd + '</div>' + L.map(sxItem).join('');
+  });
+  return h + (mine.length ? '' : '<div class="card"><div class="note">你名下还没有事项。</div></div>');
+}
+function sxItem(it) {
+  const r = sxRep(it), late = sxLate(it), cur = r ? r[2] : '', busy = sxSaving === it.id;
+  return '<div class="it' + (late ? ' late' : '') + (cur === '完成' ? ' done' : '') + '"><div class="nm">' + (it.imp ? '⭐ ' : '') + esc(it.n) + '</div>' +
+    '<div class="dl">' + esc(sxDue(it)) + (late ? '　<b>已过期限，还没报完成</b>' : '') + '</div><div class="now">' + sxNow(r) + '</div>' +
+    '<div class="bt3"><button class="b1' + (cur === '完成' ? ' cur' : '') + '"' + (busy ? ' disabled' : '') + ' onclick="sxSend(\'' + it.id + '\',\'完成\')">完成</button><button class="b2' + (cur === '进行中' ? ' cur' : '') + '"' + (busy ? ' disabled' : '') + ' onclick="sxSend(\'' + it.id + '\',\'进行中\')">进行中</button><button class="b3' + (cur === '卡住' ? ' cur' : '') + '"' + (busy ? ' disabled' : '') + ' onclick="sxStuckOpen(\'' + it.id + '\')">卡住</button></div>' +
+    (sxStuck === it.id ? '<div class="stk"><input id="sxk_' + it.id + '" placeholder="卡在哪里？（必填，一句话）" maxlength="200" enterkeyhint="send" onkeydown="if(event.key===\'Enter\')sxSend(\'' + it.id + '\',\'卡住\')"><button class="btn"' + (busy ? ' disabled' : '') + ' onclick="sxSend(\'' + it.id + '\',\'卡住\')">' + (busy ? '提交中…' : '提交「卡住」') + '</button></div>' : '') +
+    (busy && sxStuck !== it.id ? '<div class="note">保存中…</div>' : '') + '</div>';
+}
+function sxStuckOpen(id) { sxStuck = sxStuck === id ? '' : id; sxMsg = ''; render(); setTimeout(() => { const e = $('sxk_' + id); if (e) e.focus(); }, 30); }
+async function sxSend(id, st) {
+  let note = '';
+  if (st === '卡住') { const e = $('sxk_' + id); note = ((e && e.value) || '').trim(); if (!note) { alert('请写一句卡在哪里'); if (e) e.focus(); return; } }
+  const it = SX.items.find(x => x.id === id); if (!it) return;
+  sxSaving = id; render();
+  try {
+    const d = await api('&what=sxdo&act=rep&id=' + encodeURIComponent(id) + '&st=' + encodeURIComponent(st) + '&note=' + encodeURIComponent(note) + '&per=' + encodeURIComponent(sxPer(it)) + '&who=' + encodeURIComponent(sxWho));
+    if (!d || !d.items) throw new Error(d && d.error === 'device' ? '这台手机没登记' : (d && d.error) || '没存上');
+    SX = d; LS.set('acsx', JSON.stringify(d)); sxStuck = ''; sxMsg = '<div class="ok">✓ 已报：' + esc(it.n.slice(0, 20)) + ' → ' + st + '</div>';
+  } catch (e) { sxMsg = '<div class="err">没报上：' + esc(e.message) + '，请再按一次</div>'; }
+  sxSaving = ''; render();
+}
+function renderSxAll() {
+  const Q = SX.items.filter(it => it.who !== '未定' && it.cat !== '不定期'), done = Q.filter(sxRep), notyet = Q.filter(it => !sxRep(it));
+  const stuck = SX.items.filter(it => (sxRep(it) || [])[2] === '卡住'), late = SX.items.filter(it => it.who !== '未定' && sxLate(it));
+  let h = '<div class="note">' + esc(SX.day.replace(/-/g, '/')) + ' 今天的每日事项＋这个月的每月事项（不定期的不算应报，卡住的会列出来）。' + (SX.now ? ' 读取 ' + esc(String(SX.now).slice(11, 16)) : '') + '　<a style="color:var(--brand);cursor:pointer" onclick="loadSx()">↻ 刷新</a></div>';
+  h += '<div class="kp"><div><b>' + Q.length + '</b><small>应报</small></div><div><b>' + done.length + '</b><small>已报</small></div><div' + (notyet.length ? ' class="r"' : '') + '><b>' + notyet.length + '</b><small>还没报</small></div><div' + (stuck.length ? ' class="r"' : '') + '><b>' + stuck.length + '</b><small>卡住</small></div><div' + (late.length ? ' class="r"' : '') + '><b>' + late.length + '</b><small>逾期</small></div></div>';
+  // 卡住清单
+  h += '<div class="card"><div class="ct">🚧 卡住清单（' + stuck.length + '）</div>' + (stuck.length ? stuck.map(it => { const r = sxRep(it); return '<div class="row"><b>' + esc(it.who) + '</b>　' + (it.imp ? '⭐ ' : '') + esc(it.n) + '<br><span class="kd">卡在：' + esc(r[3] || '') + '</span><br><small>' + esc(String(r[0]).slice(5, 16)) + ' ' + esc(r[1]) + ' 报・' + esc(sxDue(it)) + '</small></div>'; }).join('') : '<div class="note">没有卡住的。</div>') + '</div>';
+  // 逾期清单
+  h += '<div class="card"><div class="ct">⏰ 逾期清单（' + late.length + '）</div>' + (late.length ? late.map(it => '<div class="row"><b>' + esc(it.who) + '</b>　' + (it.imp ? '⭐ ' : '') + esc(it.n) + '<br><small>' + esc(sxDue(it)) + '・现在：' + ((sxRep(it) || [])[2] || '还没报') + '</small></div>').join('') : '<div class="note">没有逾期的。</div>') + '</div>';
+  // 每人进度＋还没报名单
+  h += '<div class="card"><div class="ct">👥 每人进度・还没报的</div>' + (SX.people || []).map(n => {
+    const q = Q.filter(it => it.who === n), d = q.filter(sxRep), nd = q.filter(it => !sxRep(it)), fin = q.filter(it => (sxRep(it) || [])[2] === '完成').length;
+    return '<div class="row"><b>' + esc(n) + '</b>　已报 ' + d.length + '/' + q.length + '（完成 ' + fin + '）<div class="bar"><i style="width:' + (q.length ? Math.round(100 * d.length / q.length) : 0) + '%"></i></div>' +
+      (nd.length ? '<small>还没报：' + nd.map(it => (it.imp ? '⭐' : '') + esc(it.n)).join('、') + '</small>' : '<small style="color:var(--ok)">全部报了</small>') + '</div>';
+  }).join('') + '</div>';
+  // 还没定负责人
+  const und = SX.items.filter(it => it.who === '未定');
+  if (und.length) h += '<div class="card"><div class="ct">❓ 还没定负责人（' + und.length + '）</div>' + und.map(it => '<div class="row">' + (it.imp ? '⭐ ' : '') + esc(it.n) + '<br><small>' + esc(sxDue(it)) + '</small></div>').join('') + '<div class="note">定了负责人后，用下面「新增事项」按负责人重新加一条。</div></div>';
+  // 新增事项
+  const opts = (SX.people || []).concat(['未定']);
+  h += '<div class="card fm"><div class="ct">➕ 新增事项</div><label>名称</label><input id="sxn" maxlength="80" placeholder="例：月末库存盘点表">' +
+    '<label>负责人</label><select id="sxo">' + opts.map(n => '<option>' + esc(n) + '</option>').join('') + '</select>' +
+    '<label>类别</label><select id="sxc"><option>每日</option><option selected>每月</option><option>不定期</option></select>' +
+    '<label>期限（照实际写，例「15日」「5到10日」「13点前」；不写＝未定日期）</label><input id="sxd" maxlength="30">' +
+    '<label class="ck"><input type="checkbox" id="sxi"> ⭐ 重要（牵涉钱）</label>' +
+    '<label>你的名字（谁加的）</label><input id="sxb" maxlength="20" value="' + esc(LS.get('sxBy', sxWho || '')) + '">' +
+    '<button class="btn" id="sxadd" onclick="sxAdd()">加进清单</button></div>';
+  // 11/19 用户「毛线项目还没开始，暂时撤掉」→ 管理者自己也能撤掉事项（表里「停用」栏写上；删掉那几个字就恢复）
+  h += '<div class="card fm"><div class="ct">🗑 撤掉事项</div><div class="note">暂时不做的事项可以撤掉，撤掉后不在任何人的清单里、也不算应报。</div><label>负责人</label><select id="sxfo" onchange="sxOffOpts()">' + opts.map(n => '<option>' + esc(n) + '</option>').join('') + '</select>' +
+    '<label>事项</label><select id="sxfi"></select><button class="btn sub" id="sxoff" onclick="sxOff()">撤掉这件</button></div>';
+  setTimeout(sxOffOpts, 0);
+  return h;
+}
+function sxOffOpts() { const o = $('sxfo'), i = $('sxfi'); if (!o || !i || !SX) return; i.innerHTML = SX.items.filter(it => it.who === o.value).map(it => '<option value="' + esc(it.id) + '">' + esc(it.cat + '・' + it.n) + '</option>').join(''); }
+async function sxOff() {
+  const id = $('sxfi').value, it = SX.items.find(x => x.id === id), by = ($('sxb') && $('sxb').value.trim()) || LS.get('sxBy', '') || sxWho;
+  if (!it) return;
+  if (!by) { alert('请先在上面「你的名字」写上名字'); return; }
+  if (!confirm('撤掉「' + it.n + '」（' + it.who + '）？')) return;
+  $('sxoff').disabled = true; $('sxoff').textContent = '保存中…';
+  try {
+    const d = await api('&what=sxdo&act=off&id=' + encodeURIComponent(id) + '&who=' + encodeURIComponent(by));
+    if (!d || !d.items) throw new Error((d && d.error) || '没存上');
+    SX = d; LS.set('acsx', JSON.stringify(d)); sxMsg = '<div class="ok">✓ 已撤掉：' + esc(it.n) + '（' + esc(it.who) + '）</div>';
+  } catch (e) { sxMsg = '<div class="err">没撤掉：' + esc(e.message) + '</div>'; }
+  render(); window.scrollTo(0, 0);
+}
+async function sxAdd() {
+  const name = $('sxn').value.trim(), own = $('sxo').value, cat = $('sxc').value, due = $('sxd').value.trim(), imp = $('sxi').checked ? '1' : '', by = $('sxb').value.trim();
+  if (!name) { alert('请写事项名称'); $('sxn').focus(); return; }
+  if (!by) { alert('请写你的名字'); $('sxb').focus(); return; }
+  LS.set('sxBy', by); $('sxadd').disabled = true; $('sxadd').textContent = '保存中…';
+  try {
+    const d = await api('&what=sxdo&act=add&name=' + encodeURIComponent(name) + '&own=' + encodeURIComponent(own) + '&cat=' + encodeURIComponent(cat) + '&due=' + encodeURIComponent(due) + '&imp=' + imp + '&who=' + encodeURIComponent(by));
+    if (!d || !d.items) throw new Error((d && d.error) || '没存上');
+    SX = d; LS.set('acsx', JSON.stringify(d)); sxMsg = '<div class="ok">✓ 已加进「' + esc(own) + '」的' + esc(cat) + '事项：' + esc(name) + '</div>';
+  } catch (e) { sxMsg = '<div class="err">没加上：' + esc(e.message) + '</div>'; }
+  render(); window.scrollTo(0, 0);
+}
+
+// ===== 11/19 用户：「其他人的需求自己可以生成，然后我来确认结果，在更新上传 APP」=====
+// 💡 提需求：员工写 → Claude 每天 19:00 做成测试版（kuaiji/test/）→ 老板在这里看测试版、按 ✅ 上线 / ↩ 退回 → 电脑脚本换成正式版。
+// 数据在后台（what=acreq），云端表格「会计部意见」工作表。碰到 营业额谁能看・密码登录・删数据・改后台 的需求，Claude 不自己做，放「等老板定」。
+const RQ_PILL = { '新': ['p0', '已收到，等处理'], '处理中': ['p2', 'Claude 在做'], '做好待确认': ['p2', '做好了，等老板确认'], '要问你': ['p3', '要你补充'], '等老板定': ['p2', '等老板决定'],
+  '退回修改': ['p2', '老板退回，重新改'], '上线中': ['p1', '老板同意，马上上线'], '已上线': ['p1', '✓ 已上线'], '不做': ['p0', '这次不做'] };
+let RQ = (() => { try { return JSON.parse(LS.get('acrq', 'null')); } catch (e) { return null; } })(), rqBusy = false, rqErr = '', rqAt = 0, rqOpen = '', rqMsg = '', rqBack = false;
+async function loadRq() {
+  if (rqBusy || Date.now() - rqAt < 20000) return; rqBusy = true; rqAt = Date.now();
+  try {
+    const d = await api('&what=acreq');
+    if (d && d.rows) { RQ = d; rqErr = ''; rqMsg = ''; LS.set('acrq', JSON.stringify(d)); }
+    else rqErr = d && d.error === 'device' ? '这台手机没登记' : '读不到（' + ((d && d.error) || '') + '）';
+  } catch (e) { rqErr = '读不到（' + e.message + '）'; }
+  rqBusy = false; if (tab === 'msg') render();
+}
+async function rqDo(q, okText) {
+  sendMsg = ''; rqMsg = '<div class="note">保存中…</div>'; render();   // 上一次的提示先清掉
+  try {
+    const d = await api('&what=acreq' + q + '&who=' + encodeURIComponent(LS.get('acWho', '') || (RQ && RQ.owner ? '老板' : '')));
+    if (d.error) throw new Error(d.error === 'device' ? '这台手机没登记' : d.error);
+    RQ = d; LS.set('acrq', JSON.stringify(d)); rqOpen = ''; rqBack = false; rqMsg = `<div class="ok">✓ ${okText}</div>`;
+  } catch (e) { rqMsg = `<div class="err">没保存：${esc(e.message)}</div>`; }
+  render();
+}
+function rqOk() { rqDo('&act=ok', '已同意上线：电脑 10 分钟内换成正式版，大家手机自动更新。'); }
+function rqBackGo() { const w = ($('rqwhy') || {}).value || ''; if (!w.trim()) { rqMsg = '<div class="err">请写退回的原因（哪里不对、要怎么改）</div>'; return render(); } rqDo('&act=back&why=' + encodeURIComponent(w.trim()), '已退回，Claude 下次按你写的重新改。'); }
+function rqYes(id, yes) { rqDo('&act=' + (yes ? 'yes' : 'no') + '&id=' + id, yes ? '同意做，Claude 下次处理。' : '这条不做了。'); }
+function rqReply(id) { const v = ($('rqr_' + id) || {}).value || ''; if (!v.trim()) return; rqDo('&act=reply&id=' + id + '&v=' + encodeURIComponent(v.trim()), '补充好了，Claude 下次一起处理。'); }
+function rqToggle(id) { rqOpen = rqOpen === id ? '' : id; rqMsg = ''; render(); }
+function renderRq() {
+  let h = `<div class="card"><div class="ct">💡 想改什么、想加什么，直接写</div><div class="note">例：「事项汇报想加一个“明天提醒我”」「要付的钱想提前 7 天提醒」。<br>`
+    + `提了以后：<b>Claude 每天 19:00 处理</b> → 做好的先放<b>测试版</b> → <b>老板看过按「上线」</b> → 大家手机自动更新。写不清楚的，Claude 会在下面问你。</div>`
+    + `<input id="mw" placeholder="你的名字（例：王）" value="${esc(LS.get('acWho', ''))}" maxlength="20">`
+    + `<textarea id="mv" placeholder="写在这里（最多 1000 字）：哪一页、想改成什么样" maxlength="1000">${esc(draft)}</textarea>`
+    + `<button class="btn" id="msend" onclick="send()">发送</button>${sendMsg}</div>`;
+  if (!RQ) return h + `<div class="card"><div class="note">${rqBusy ? '读取中…' : esc(rqErr || '还没有数据')}</div></div>`;
+  const rows = RQ.rows || [], wait = rows.filter(r => r.st === '做好待确认'), boss = rows.filter(r => r.st === '等老板定');
+  if (rqErr) h += `<div class="miss">${esc(rqErr)}（显示的是上次读到的）</div>`;
+  if (RQ.owner && wait.length) {
+    const url = (wait.find(r => r.test) || {}).test || '../kuaiji/test/';
+    h += `<div class="card" style="border:2px solid #d97706"><div class="ct">🟡 待你确认：测试版里有 ${wait.length} 条</div>`
+      + wait.map(r => `<div class="row"><b>${esc(r.id)}</b>　<small>${esc(r.who)}　${esc(r.t.slice(5))}</small><div>${esc(r.v)}</div>${r.note ? `<div class="note">🛠 Claude：${esc(r.note)}</div>` : ''}</div>`).join('')
+      + `<a class="btn sub" style="text-align:center;text-decoration:none" href="${esc(url)}" target="_blank">🧪 打开测试版看看</a>`
+      + `<div class="bt3" style="grid-template-columns:1fr 1fr"><button class="b1" onclick="rqOk()">✅ 上线这一版</button><button class="b3" onclick="rqBack=!rqBack;rqMsg='';render()">↩ 退回</button></div>`
+      + (rqBack ? `<div class="stk"><input id="rqwhy" placeholder="哪里不对、要怎么改（必填）" maxlength="300"><button class="btn" onclick="rqBackGo()">退回给 Claude</button></div>` : '')
+      + `<div class="note">测试版是同一批一起上线的；只想要其中几条，就按退回写「第几条不要」。</div>${rqMsg}</div>`;
+  }
+  if (RQ.owner && boss.length) {
+    h += `<div class="card" style="border:2px solid #d97706"><div class="ct">🔒 等你决定（${boss.length} 条）</div><div class="note">碰到 营业额谁能看・密码登录・删数据・改后台 的，Claude 不自己做。</div>`
+      + boss.map(r => `<div class="row"><b>${esc(r.id)}</b>　<small>${esc(r.who)}　${esc(r.t.slice(5))}</small><div>${esc(r.v)}</div>${r.note ? `<div class="note">🛠 Claude：${esc(r.note)}</div>` : ''}`
+        + `<div class="bt3" style="grid-template-columns:1fr 1fr"><button class="b1" onclick="rqYes('${r.id}',1)">同意做</button><button class="b3" onclick="rqYes('${r.id}',0)">不做</button></div></div>`).join('')
+      + (wait.length ? '' : rqMsg) + '</div>';
+  }
+  h += `<div class="card"><div class="ct">全部需求（${rows.length} 条）</div>` + (rows.length ? rows.map(r => {
+    const [pc, pt] = RQ_PILL[r.st] || ['p0', r.st], ask = r.st === '要问你';
+    return `<div class="row"${ask ? ' style="background:var(--warnbg);border-radius:10px;padding:8px"' : ''}><span class="pill ${pc}">${esc(pt)}</span>　<small>${esc(r.id)}　${esc(r.who)}　${esc(r.t.slice(5))}</small>`
+      + `<div style="white-space:pre-wrap;word-break:break-word">${esc(r.v)}</div>`
+      + (r.note ? `<div class="note">${ask ? '❓ Claude 问：' : '🛠 Claude：'}${esc(r.note)}</div>` : '')
+      + (r.back ? `<div class="note">老板：${esc(r.back)}</div>` : '')
+      + (r.st === '做好待确认' && r.test ? `<div class="note"><a href="${esc(r.test)}" target="_blank" style="color:var(--brand)">🧪 打开测试版看看</a></div>` : '')
+      + (ask || rqOpen === r.id ? `<div class="stk"><input id="rqr_${r.id}" placeholder="${ask ? '回答 Claude 的问题' : '补充一句'}" maxlength="500"><button class="btn" style="background:var(--brand)" onclick="rqReply('${r.id}')">补充</button></div>`
+        : (r.st !== '不做' ? `<div class="note"><a onclick="rqToggle('${r.id}')" style="color:var(--brand);cursor:pointer">➕ 补充</a></div>` : ''))
+      + (rqOpen === r.id || (ask && !rqOpen) ? rqMsg : '') + '</div>';
+  }).join('') : '<div class="note">还没有。</div>') + '</div>';
+  return h;
+}
+
+// ===== 11/19 💴 取消料（用户：「那钱有没有回来要在会计部显示，会计部根据这个信息来跟进客人是否汇款。这个数据重要…这个是我们讨回来的钱」）=====
+// 来源：Slack #经营汇报 的无断取消 → 空桌一览「📣 广告预约部」：① 预约中心在预约系统取消 ② 打电话收取消料（同意付款＋请求额）→ 这里 ③ 会计部确认到账。
+// 后台 what=ns 读・nsdo act=paid 确认到账（会计部・老板）。「返金历史」＝用户给的 2026 年各公司每月收回的取消料（お客様から返金.xlsx）。
+let NS = (() => { try { return JSON.parse(LS.get('acns', 'null')); } catch (e) { return null; } })(), nsBusy = false, nsErr = '', nsAt = 0, nsMsg = {};
+const NS_PAY = ['同意付款', '已当场付'], yen = n => '¥' + (Number(n) || 0).toLocaleString('ja-JP');
+async function loadNs(force) {
+  if (nsBusy || (!force && Date.now() - nsAt < 20000)) return; nsBusy = true; nsAt = Date.now();
+  try {
+    const d = await api('&what=ns');
+    if (d && d.rows) { NS = d; nsErr = ''; LS.set('acns', JSON.stringify(d)); }
+    else nsErr = d && d.error === 'device' ? '这台手机没登记' : '读不到（' + ((d && d.error) || '') + '）';
+  } catch (e) { nsErr = '读不到（' + e.message + '）'; }
+  nsBusy = false; if (tab === 'ns') render();
+}
+function nsRows() { return NS ? NS.rows.map(r => { const o = {}; NS.head.forEach((h, i) => o[h] = r[i]); return o; }).filter(o => !o['停用']) : []; }
+async function nsDo(id, q, okText) {
+  const who = (($('nsw') || {}).value || '').trim();
+  if (!who) { nsMsg[id] = '<div class="err">请先在上面写你的名字</div>'; return render(); }
+  LS.set('acWho', who); nsMsg[id] = '<div class="note">保存中…</div>'; render();
+  try {
+    const d = await api('&what=nsdo&id=' + encodeURIComponent(id) + '&who=' + encodeURIComponent(who) + q);
+    if (d.error) throw new Error(d.error === 'device' ? '这台手机没登记' : d.error);
+    NS = d; LS.set('acns', JSON.stringify(d)); nsMsg[id] = `<div class="ok">✓ ${okText}</div>`;
+  } catch (e) { nsMsg[id] = `<div class="err">没保存：${esc(e.message)}</div>`; }
+  render();
+}
+function nsPaid(id) {
+  const amt = (($('na_' + id) || {}).value || '').replace(/[^0-9]/g, ''), day = (($('nd_' + id) || {}).value || '').trim(), how = (($('nh_' + id) || {}).value || '').trim();
+  if (!amt) { nsMsg[id] = '<div class="err">请写到账金额</div>'; return render(); }
+  nsDo(id, '&act=paid&amt=' + amt + '&day=' + encodeURIComponent(day) + '&how=' + encodeURIComponent(how), '已确认到账 ' + yen(amt));
+}
+function nsUndo(id) { nsDo(id, '&act=undo&step=paid', '已撤销到账'); }
+// 11/19 用户：「取消料需要时间选择按键，提供时间的选择」→ 本月・上月・今年・全部・自选（从〜到）。按预约日筛；已到账按到账日；返金历史按月。
+let nsP = LS.get('nsP', 'm0'), nsFrom = LS.get('nsFrom', ''), nsTo = LS.get('nsTo', '');
+function nsRange() {
+  const d = new Date(), y = d.getFullYear(), m = d.getMonth(), f = x => x.getFullYear() + '-' + String(x.getMonth() + 1).padStart(2, '0') + '-' + String(x.getDate()).padStart(2, '0');
+  if (nsP === 'm0') return [f(new Date(y, m, 1)), f(new Date(y, m + 1, 0)), (m + 1) + '月'];
+  if (nsP === 'm1') return [f(new Date(y, m - 1, 1)), f(new Date(y, m, 0)), (new Date(y, m - 1, 1).getMonth() + 1) + '月'];
+  if (nsP === 'y') return [y + '-01-01', y + '-12-31', y + '年'];
+  if (nsP === 'c' && nsFrom && nsTo) return [nsFrom <= nsTo ? nsFrom : nsTo, nsFrom <= nsTo ? nsTo : nsFrom, (nsFrom <= nsTo ? nsFrom : nsTo).slice(5).replace('-', '/') + '〜' + (nsFrom <= nsTo ? nsTo : nsFrom).slice(5).replace('-', '/')];
+  return ['0000-00-00', '9999-12-31', '全部'];
+}
+function nsSetP(x) { nsP = x; LS.set('nsP', x); render(); }
+function nsSetC() { nsFrom = ($('nsf') || {}).value || ''; nsTo = ($('nst') || {}).value || ''; LS.set('nsFrom', nsFrom); LS.set('nsTo', nsTo); nsP = 'c'; LS.set('nsP', 'c'); render(); }
+function renderNs() {
+  let h = `<div class="card"><div class="ct">💴 取消料（无断取消讨回来的钱）</div><div class="note">各店在 Slack #经营汇报 发的无断取消 → 预约中心在空桌一览「📣 广告预约部」取消预约、打电话跟客人要取消料并签名 → <b>会计部在这里确认钱到账</b>。客人还没汇款的，会计部跟进。</div></div>`;
+  if (!NS) return h + `<div class="card"><div class="note">${nsBusy ? '读取中…' : esc(nsErr || '还没有数据')}</div></div>`;
+  if (nsErr) h += `<div class="miss">${esc(nsErr)}（显示的是上次读到的）</div>`;
+  const [fr, to, lab] = nsRange(), inR = d => !!d && d >= fr && d <= to, mIn = m => m >= fr.slice(0, 7) && m <= to.slice(0, 7);
+  const today = new Date(), td = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+  const paidDay = o => o['到账・日'] || o['到账・时间'].slice(0, 10).replace(/\//g, '-');
+  const all = nsRows(), rows = all.filter(o => inR(o['预约日']));
+  const waitAll = all.filter(o => NS_PAY.includes(o['联系・结果']) && !o['到账・金额']);
+  const wait = waitAll.filter(o => inR(o['预约日'])).sort((a, b) => a['联系・时间'].localeCompare(b['联系・时间']));
+  const paid = all.filter(o => o['到账・金额'] && inR(paidDay(o))).sort((a, b) => b['到账・时间'].localeCompare(a['到账・时间']));
+  const hist = (NS.hist || []).filter(x => mIn(x[1]));
+  const sum = (a, f) => a.reduce((t, o) => t + (Number(o[f]) || 0), 0), hsum = hist.reduce((t, x) => t + (+x[2] || 0), 0);
+  // 时间选择
+  h += '<div class="seg2" style="flex-wrap:wrap">' + [['m0', '本月'], ['m1', '上月'], ['y', '今年'], ['all', '全部'], ['c', '自选']].map(([k, n]) => `<button class="${nsP === k ? 'on' : ''}" style="flex:1 0 18%" onclick="nsSetP('${k}')">${n}</button>`).join('') + '</div>';
+  if (nsP === 'c') h += `<div class="stk" style="display:grid;grid-template-columns:1fr auto 1fr auto;gap:6px;align-items:center"><input id="nsf" type="date" value="${esc(nsFrom)}"><span>〜</span><input id="nst" type="date" value="${esc(nsTo)}"><button class="btn" style="margin:0;padding:10px 12px;width:auto" onclick="nsSetC()">看</button></div>`
+    + (nsFrom && nsTo ? '' : '<div class="note">选好开始和结束日期，按「看」。</div>');
+  h += `<div class="note" style="margin:2px 2px 6px">期间：<b>${esc(lab)}</b>${fr !== '0000-00-00' ? '（' + fr + ' 〜 ' + to + '）' : ''}</div>`;
+  h += `<div class="kp" style="grid-template-columns:repeat(2,1fr)">`
+    + `<div><b>${rows.length}</b><small>无断取消（组）</small></div><div><b style="font-size:17px">${yen(sum(rows, '合计'))}</b><small>预约合计（损失）</small></div>`
+    + `<div><b style="font-size:17px">${yen(sum(rows.filter(o => NS_PAY.includes(o['联系・结果'])), '请求额'))}</b><small>向客人请求</small></div>`
+    + `<div><b style="font-size:17px;color:var(--ok)">${yen(sum(paid, '到账・金额') + hsum)}</b><small>已收回${hsum ? '（含返金表）' : ''}</small></div>`
+    + `<div class="r" style="grid-column:1/-1"><b style="font-size:17px">${yen(sum(wait, '请求额'))}</b><small>请求了还没到账（${wait.length} 组）</small></div></div>`;
+  const notyet = rows.filter(o => !o['联系・结果']).length;
+  if (notyet) h += `<div class="note" style="margin:0 2px 6px">这段时间还有 ${notyet} 组预约中心还没打电话（在空桌一览「📣 广告预约部」处理）。</div>`;
+  if (waitAll.length > wait.length) h += `<div class="miss">其他时间还有 ${waitAll.length - wait.length} 组等汇款（${yen(sum(waitAll, '请求额') - sum(wait, '请求额'))}），按「全部」能看到。</div>`;
+  h += `<div class="me" style="background:var(--warnbg);border-radius:12px;padding:8px 10px">✍ 确认人<input id="nsw" style="flex:1;margin:0" placeholder="你的名字（例：王）" maxlength="20" value="${esc(LS.get('acWho', '') || LS.get('sxWho', ''))}"></div>`;
+  h += `<div class="grp">⏳ 等客人汇款（${wait.length}）— 到账了就确认</div>` + (wait.length ? wait.map(o => {
+    const id = o['编号'], days = Math.floor((today - new Date(o['联系・时间'].slice(0, 10).replace(/\//g, '-'))) / 864e5);
+    return `<div class="it${days >= 7 ? ' late' : ''}"><div class="nm">${esc(o['公司'])} ${esc(o['店'])}　${esc(o['客人'])} 様　<span style="color:var(--bad)">${yen(o['请求额'])}</span></div>`
+      + `<div class="dl">预约 ${esc(o['预约日'].slice(5).replace('-', '/'))} ${esc(o['时间'])}　${esc(o['人数'])}名　合计 ${yen(o['合计'])}</div>`
+      + `<div class="dl">${esc(o['联系・结果'])}：${esc(o['联系・谁'])} ${esc(o['联系・时间'].slice(5))}（${days} 天前${days >= 7 ? '，<b>超过一周还没到账</b>' : ''}）${o['联系・说明'] ? '　' + esc(o['联系・说明']) : ''}</div>`
+      + `<div class="stk" style="display:grid;grid-template-columns:1fr 1fr;gap:6px"><input id="na_${esc(id)}" inputmode="numeric" placeholder="到账金额" value="${esc(o['请求额'])}"><input id="nd_${esc(id)}" type="date" value="${td}"></div>`
+      + `<div class="stk"><input id="nh_${esc(id)}" placeholder="备注（例：银行汇款、现金）" maxlength="200"><button class="btn" style="background:#16a34a" onclick="nsPaid('${id}')">✅ 确认到账</button></div>${nsMsg[id] || ''}</div>`;
+  }).join('') : '<div class="note">这段时间没有等汇款的。</div>');
+  // 按店
+  const by = {};
+  rows.forEach(o => { const k = o['公司'] + ' ' + o['店'], b = by[k] = by[k] || { n: 0, a: 0, q: 0, g: 0 }; b.n++; b.a += +o['合计'] || 0; if (NS_PAY.includes(o['联系・结果'])) b.q += +o['请求额'] || 0; b.g += +o['到账・金额'] || 0; });
+  const ks = Object.keys(by).sort((x, y) => by[y].n - by[x].n || by[y].a - by[x].a);
+  if (ks.length) h += `<div class="grp">🏪 按店（${esc(lab)}）</div><div class="card">` + ks.map(k => `<div class="row"><b>${esc(k)}</b>　${by[k].n} 组　预约合计 ${yen(by[k].a)}<br><small>请求 ${yen(by[k].q)}・已收回 ${yen(by[k].g)}</small></div>`).join('') + '</div>';
+  h += `<div class="grp">✓ 已到账（${paid.length}）</div>` + (paid.length ? '<div class="card">' + paid.slice(0, 50).map(o => `<div class="row">${esc(paidDay(o))}　<b>${yen(o['到账・金额'])}</b>　${esc(o['公司'])} ${esc(o['店'])} ${esc(o['客人'])} 様<br><small>确认：${esc(o['到账・谁'])}${o['到账・说明'] ? '　' + esc(o['到账・说明']) : ''}　</small><a onclick="nsUndo('${o['编号']}')" style="color:var(--sub);font-size:12px;text-decoration:underline;cursor:pointer">撤销</a>${nsMsg[o['编号']] || ''}</div>`).join('') + '</div>' : '<div class="note">这段时间还没有。</div>');
+  // 每月：APP 里的（请求・到账）＋ 用户给的返金历史（各公司每月收回）
+  const byM = {};
+  hist.forEach(x => { const m = x[1]; (byM[m] = byM[m] || { h: 0, q: 0, g: 0, co: {} }).h += +x[2] || 0; byM[m].co[x[0]] = (byM[m].co[x[0]] || 0) + (+x[2] || 0); });
+  rows.forEach(o => { const m = o['预约日'].slice(0, 7), b = byM[m] = byM[m] || { h: 0, q: 0, g: 0, co: {} }; if (NS_PAY.includes(o['联系・结果'])) b.q += +o['请求额'] || 0; b.g += +o['到账・金额'] || 0; });
+  const ms = Object.keys(byM).sort().reverse();
+  if (ms.length) h += `<div class="grp">📅 每月讨回来的钱</div><div class="card">` + ms.map(m => { const b = byM[m];
+    return `<div class="row"><b>${m.slice(0, 4)}年${+m.slice(5)}月</b>　` + (b.h ? `收回 <b>${yen(b.h)}</b><br><small>${Object.entries(b.co).sort((x, y) => y[1] - x[1]).map(([c, v]) => esc(c) + ' ' + yen(v)).join('・')}</small>` : `请求 ${yen(b.q)}　已到账 <b>${yen(b.g)}</b>`) + '</div>'; }).join('')
+    + `<div class="note">2〜10 月是老板给的「お客様から返金」表（各公司合计）；11 月起是 APP 里一单一单确认的。</div></div>`;
+  return h;
+}
+async function send() {
+  const v = $('mv').value.trim(), who = $('mw').value.trim();
+  if (!v || v === draft.trim()) { sendMsg = '<div class="err">内容还是空的</div>'; draft = $('mv').value; return render(); }
+  LS.set('acWho', who); draft = v; $('msend').disabled = true; $('msend').textContent = '发送中…';
+  try {
+    const d = await api('&what=acmsg&who=' + encodeURIComponent(who) + '&v=' + encodeURIComponent(v));
+    if (d.error) throw new Error(d.error === 'device' ? '这台手机没登记' : d.error);
+    AC = d; LS.set('acc', JSON.stringify(d)); draft = ''; sendMsg = '<div class="ok">✓ 收到了。Claude 每天 19:00 处理，做好的先放测试版，老板确认后上线。进度看下面。</div>'; rqAt = 0; loadRq();
+  } catch (e) { sendMsg = `<div class="err">没发出去：${esc(e.message)}。内容还在，等一下再按一次。</div>`; }
+  render();
+}
+if (!TEST && !IN_KZ && 'serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
+if (IN_KZ) $('kzback').style.display = '';
+if (TEST) document.body.insertAdjacentHTML('afterbegin', '<div class="testbar">🧪 测试版（还没上线）　在这里按的按钮会真的记下来　<a href="./">回正式版</a></div>');
+async function checkUpdate() {
+  if (TEST || IN_KZ) return;
+  try {
+    const t = await (await fetch('sw.js', { cache: 'no-store' })).text(), v = (t.match(/const V = '([^']+)'/) || [])[1];
+    if (v && v !== APPV && LS.get('reloadedFor', '') !== v) { LS.set('reloadedFor', v); location.reload(); }
+  } catch (e) {}
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { checkUpdate(); if (K && tab !== 'msg') load(); } });
+checkUpdate();
+load();
+</script>
+</body>
+</html>
