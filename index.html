@@ -509,9 +509,9 @@ button:active,nav button:active,a:active{opacity:.6}
 </div></div>
 <nav id="nav">
   <button data-tab="all" onclick="setTab('all')"><span>🏬</span>全部店</button>
-  <button data-tab="fav" onclick="setTab('fav')"><span>⭐</span>我的店</button>
   <button data-tab="free" onclick="setTab('free')"><span>🪑</span>现在有空桌</button>
   <button data-tab="pw" onclick="setTab('pw')"><span>📋</span>繁忙日排位</button>
+  <button id="ggBtn" onclick="location.href='gg.html'"><span>📣</span>广告预约部</button>
   <button id="opsBtn" onclick="location.href='pj.html'"><span>📊</span>运营部</button>
   <button id="acBtn" onclick="openAc()" style="display:none"><span>🧾</span>会计</button>
 </nav>
@@ -585,7 +585,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
 })();
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v81';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v82';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -609,7 +609,7 @@ let D = null, area = '', tab = LS.get('tab', 'all'), sortBy = LS.get('sort2', 'a
 let openSet = new Set(), closedSet = new Set(), autoOpen = false, favs = [], tileF = {};
 let pwErr = false, PW = null, pwGot = 0, pwDate = '', pwOpen = new Set(), pwBusy = false;  // 11/13 繁忙日排位
 try { favs = JSON.parse(LS.get('favs', '[]')); } catch (e) {}
-if (tab === 'fav' && !favs.length) tab = 'all';
+if (tab === 'fav') tab = 'all';   // 11/19 用户：底栏「我的店」改成「📣 广告预约部」（gg.html，用户 11/19 定名）；☆ 收藏的店仍在「全部店」最上面
 
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const ST = { free: '空', used: '使用中', remind: '放题快结束', lo: 'L.O.', over: '放题超时', held: '预约留桌' };
@@ -789,6 +789,7 @@ function render() {
   document.getElementById('acBtn').style.display = D.owner ? '' : 'none';   // 11/18 会计：只给老板   // 繁忙日排位是集团的（レストランボード），三幸園店长不用
   // 11/16 运营部（pj.html：各平台评价・人事评价・卫生检查）是集团的，三幸園店长不显示
   document.getElementById('opsBtn').style.display = D.sk ? 'none' : '';
+  document.getElementById('ggBtn').style.display = D.sk ? 'none' : '';   // 11/19 广告预约部：老板・店长（三幸園店长不用）
   if (document.getElementById('salesView').style.display === 'block') renderSales();
   if (tab === 'pw') { patchList(document.getElementById('list'), pwView()); return; }
   // 列表
