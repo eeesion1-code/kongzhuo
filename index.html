@@ -461,6 +461,7 @@ button.svdlab{color:var(--ink);font-family:inherit;line-height:1.3}
 .svlinks button:disabled{opacity:.4}
 html{touch-action:manipulation;-webkit-tap-highlight-color:transparent}   /* 11/19 卡顿：去掉双击放大的等待，按下有反馈 */
 button:active,nav button:active,a:active{opacity:.6}
+.sno{display:inline-block;background:var(--ink);color:var(--bg);border-radius:6px;padding:0 5px;margin-right:5px;font-size:12px;font-weight:700;vertical-align:2px;line-height:1.5}
 </style>
 </head>
 <body>
@@ -580,7 +581,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
 })();
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v92';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v93';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -932,6 +933,11 @@ function pwView() {
   h += '<div class="foot">排位率＝已经指定桌号的预约组数 ÷ 全部预约组数（90% 以上算排好）。最大＝各店座位表格（11/13 老板发的）：席位数＝最多几组、人数＝最多几人（坐一轮；2 回转可以再多接）。<br>点店名看还没排的预约和「建议排法」——是程序按桌子大小、2 回转叠在同一张桌自动算的参考，请店长在 レストランボード 里自己确认后排桌。列表里没有的店＝那天还没有预约，或店名还没对上。</div>';
   return h;
 }
+// 11/19 用户：「店铺的 1-31 编号全部编辑进去」→ 按「全部店」的顺序（地区五十音、同地区按表格顺序）编 1〜31；立川两台收银算 1 家＝23；三幸園（コーズ经营，集团外）不编号。
+//   按店名对（去掉「（已结账）」这种后缀）；店名改了要在这里改。
+const SHOP_NO = {"奥羽本荘×京の里久×OOUHONSOU×KYONORIKYU赤坂見附": 1, "もてなし屋×京の里久 赤羽店": 2, "権兵衛×権兵衛のいろり屋 池袋店": 3, "団欒×団欒2×鈴の音 池袋店": 4, "夕凪x鳥一筋 池袋店": 5, "まとめ×いろり屋×権兵衛2×いろり屋2 上野店": 6, "まとめｘ八かい×ミート渦潮 上野店": 7, "稲ノ和×渦潮 上野店": 8, "上野商店 上野店": 9, "鳥一筋×夕凪 上野店": 10, "もてなし屋 上野店": 11, "権兵衛のいろり屋 大宮店 X 権兵衛 大宮店": 12, "稲ノ和 川越店": 13, "京の里久×もてなし屋ｘ京の里久2 川崎店": 14, "47都道府県の日本酒と炉端焼き 稲ノ和 川崎店": 15, "稲ノ和×渦潮 錦糸町店": 16, "渦潮": 17, "もてなし屋×もてなしや×京の里久1×京の里久2 渋谷店": 18, "鳥一筋×夕凪 新宿店": 19, "まとめｘ権兵衛×権兵衛のいろり屋 新橋店": 20, "まとめｘ鈴の音×団欒×だんらん 新橋店": 21, "稲の和×稲の和2×渦潮×渦潮2 新橋店": 22, "いなのわ×稲の和×渦潮 千葉店": 24, "まとめX腹ペコ本舗×鳥一筋 八王子店": 25, "炉端とおでんと野菜巻き 弥吉 船橋店": 26, "京の里久・もてなし屋 本厚木店": 27, "京の里久 町田店": 28, "権兵衛×いろり屋 町田店": 29, "いいとこ鷄×魚馬る 有楽町店": 30, "稲ノ和 有楽町店": 31};
+const shopNo = s => !s ? 0 : s.area === '立川' ? 23 : (SHOP_NO[String(s.name || '').replace(/（[^）]*）$/, '').trim()] || 0);
+const noTag = s => { const n = shopNo(s); return n ? `<b class="sno">No.${n}</b>` : ''; };
 function pwCard(x) {
   const r = x.r, s = x.s, c = x.c, id = r.date + '|' + r.key, open = pwOpen.has(id), fav = !!(s && favs.includes(s.label));
   const name = s ? s.name : r.store.replace(/[◆★]/g, '').trim();
@@ -958,7 +964,7 @@ function pwCard(x) {
   return `<div class="card">
     <div class="hd" onclick='pwToggle(${esc(JSON.stringify(id))})'>
       <span class="star${fav ? ' on' : ''}" aria-hidden="true">${fav ? '★' : ''}</span>
-      <div class="nm"><div class="area"><span class="stn">${esc(s ? s.area : '')}</span></div><div class="sn">${esc(name)}</div>
+      <div class="nm"><div class="area"><span class="stn">${esc(s ? s.area : '')}</span></div><div class="sn">${noTag(s)}${esc(name)}</div>
         <div class="area">预约 <b>${r.groups}</b> 组 <b>${r.people}</b> 人 ${capTxt}</div>
         <div class="area">${un ? '<span class="rr">没排桌 ' + un + ' 组</span>' : '<span class="g">全部排好</span>'}</div>
         ${bd.length ? '<div class="badges">' + bd.join('') + '</div>' : ''}</div>
@@ -2369,7 +2375,7 @@ function card(s) {
   return `<div class="card${s.status !== 'open' ? ' closed' : ''}">
     <div class="hd" onclick="toggleOpen(${L})">
       <button class="star${fav ? ' on' : ''}" onclick="toggleFav(event, ${L})" aria-label="设为我的店">${fav ? '★' : '☆'}</button>
-      <div class="nm"><div class="area"><span class="stn">${esc(s.area)}</span></div><div class="sn">${esc(s.name)}</div>
+      <div class="nm"><div class="area"><span class="stn">${esc(s.area)}</span></div><div class="sn">${noTag(s)}${esc(s.name)}</div>
         <div class="area">${sub}</div>${badges ? '<div class="badges">' + badges + '</div>' : ''}${seg}</div>
       <div class="big">${big}</div>
     </div>
