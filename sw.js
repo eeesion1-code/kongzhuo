@@ -2,7 +2,7 @@
 // 11/14 用户：网页卡 → 打开 APP 时先上网拿新网页，1.5 秒没拿到就先用手机里存的（网上那份照样存起来，下次就是新的）；
 //   换版本靠网页里的 checkUpdate（发现 sw.js 版本变了就重新载入）。
 //   kz-data＝网页自己存的营业额历史（换版本时不删）。
-const V = 'kongzhuo-v98';
+const V = 'kongzhuo-v99';
 const KEEP = ['kz-data'];
 const SHELL = ['./', './index.html', './pj.html', './gg.html', './kj.html', './vz.html', './sp.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 self.addEventListener('install', e => {
@@ -22,9 +22,7 @@ self.addEventListener('fetch', e => {
     return r;
   });
   e.waitUntil(net.then(() => {}, () => {}));
-  e.respondWith(caches.match(e.request, { ignoreSearch: true }).then(hit => {
-    const fallback = hit || caches.match('./index.html');
-    if (!hit) return net.catch(() => fallback);
-    return Promise.race([net.catch(() => hit), new Promise(res => setTimeout(() => res(hit), 1500))]);
-  }));
+  // 11/20 提速（用户：「速度越来越慢，17PRO 也卡」）：手机里有存的网页就马上用，不再等网络（以前最多干等 1.5 秒，每次切页面都要等）；
+  //   网上的新网页照样在后台存起来，下次打开就是新的；换版本还是靠网页里的 checkUpdate（sw.js 版本变了就重新载入）。
+  e.respondWith(caches.match(e.request, { ignoreSearch: true }).then(hit => hit || net.catch(() => caches.match('./index.html'))));
 });

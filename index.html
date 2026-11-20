@@ -584,7 +584,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
 })();
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v98';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v99';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -676,12 +676,16 @@ function load(manual) {
       if (d.error === 'device') { devBlocked(d); return; }
       devBlk = false;
       if (d.error) throw new Error(d.error);
+      // 11/20 提速：实时程序 8〜15 分钟才写一次，每分钟读回来的多半一样 → 一样就只换时间，不重画整页、不重写手机存储（重画 1500 多个格子会让正在滑的手机顿一下）
+      const same = D && !D.offline && D.got && d.stamp === D.stamp && d.rbStamp === D.rbStamp && JSON.stringify(d.stores) === JSON.stringify(D.stores);
+      const txt = same ? '' : JSON.stringify(d);
+      if (same) { D.now = d.now; D.got = Date.now(); hideKey(); if (tab === 'pw') loadPw(); return; }
       D = d; D.offline = false; D.got = Date.now();
-      LS.set('last', JSON.stringify(d));
+      LS.set('last', txt);
       hideKey();
       if (!svOpen()) renderSoon(); else if (svTab === 'ov') renderSoon(renderSales);   // 营业额页开着时不重画底下看不见的首页（关掉时再画）
       if (tab === 'pw') loadPw();
-      if ((D.owner || D.sk) && !SV) setTimeout(svPrefetch, 2000);   // 老板：先把营业额准备好，点开就有
+      if ((D.owner || D.sk) && !SV && !svPfT) svPfT = setTimeout(() => (window.requestIdleCallback || (f => f()))(svPrefetch, { timeout: 4000 }), 8000);   // 老板：先把营业额准备好，点开就有（11/20 提速：3MB 的历史晚 8 秒、手机空闲时再准备，不和刚打开时的滑动抢；点开营业额页会马上读）
     })
     .catch(() => {
       rf.classList.remove('spin');
@@ -860,7 +864,7 @@ function renderSoon(fn) {
   if (w > 0) { rsT = setTimeout(() => renderSoon(fn), w); return; }
   fn();
 }
-let qT = null;
+let qT = null, svPfT = null;   // svPfT：11/20 营业额历史预读只排一次
 function onSearch() { clearTimeout(qT); qT = setTimeout(render, 150); }
 
 // ===== 11/13 繁忙日排位：未来 14 天的周五・周六・祝日・12 月忙日，各店有没有提前把预约排到桌上（每天读 2 次）=====
@@ -2511,7 +2515,8 @@ function checkUpdate() {
     if (!v || v === APPV || LS.get('reloadFor', '') === v) return;
     LS.set('reloadFor', v);
     const reg = navigator.serviceWorker && navigator.serviceWorker.getRegistration ? navigator.serviceWorker.getRegistration() : Promise.resolve(null);
-    reg.then(r => r && r.update()).catch(() => {}).then(() => location.reload());
+    // 11/20 提速后网页先用手机里存的 → 等新版 sw 装好（新网页已经存进手机）再重新载入，最多等 8 秒
+    reg.then(r => r && r.update().then(() => new Promise(res => { const w = r.installing || r.waiting; if (!w) return res(); w.addEventListener('statechange', () => { if (w.state === 'activated' || w.state === 'redundant') res(); }); setTimeout(res, 8000); }))).catch(() => {}).then(() => location.reload());
   }).catch(() => {});
 }
 document.getElementById('nav').style.display = 'flex';
