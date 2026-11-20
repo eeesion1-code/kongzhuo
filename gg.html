@@ -178,6 +178,28 @@ async function setGgKey() {
   ['gp1', 'gp2'].forEach(i => { const e = $(i); if (e) e.value = ''; });
 }
 function setMonth(m) { month = m; LS.set('ggMonth', m); render(); }
+// 11/20 用户：「不能选当天的日子，和期间选择」→ 除了月份，加 今天・昨天・本周・📅 自选期间（起止同一天＝看某一天）；按预约日算
+const ymd = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+const md = s => +s.slice(5, 7) + '/' + +s.slice(8, 10);
+function period() {
+  const t = new Date(), today = ymd(t);
+  if (month === 'today') return { from: today, to: today, label: '今天（' + md(today) + '）' };
+  if (month === 'yday') { const y = ymd(new Date(t.getTime() - 864e5)); return { from: y, to: y, label: '昨天（' + md(y) + '）' }; }
+  if (month === 'week') { const m = ymd(new Date(t.getTime() - ((t.getDay() + 6) % 7) * 864e5)); return { from: m, to: today, label: '本周（' + md(m) + '〜' + md(today) + '）' }; }
+  if (month === 'range') {
+    let a = LS.get('ggFrom', '') || today, b = LS.get('ggTo', '') || a;
+    if (b < a) [a, b] = [b, a];
+    return { from: a, to: b, label: a === b ? md(a) : md(a) + '〜' + md(b) };
+  }
+  return { from: month + '-01', to: month + '-31', label: +month.slice(5) + '月' };
+}
+function setRange() {
+  const a = ($('nsFrom') || {}).value || '', b = ($('nsTo') || {}).value || '';
+  if (a) LS.set('ggFrom', a);
+  LS.set('ggTo', b || a);
+  if (b === '' && $('nsTo')) $('nsTo').value = a;
+  month = 'range'; LS.set('ggMonth', 'range'); render();
+}
 
 // 11/19 用户：「跳转不过去」——レストランボード 的预约详情页只能看当前选中的店，从外面跳不过去 → 电脑程序（rb配对.py，只读）把预约台账读下来，在 APP 里展开看
 const DET_F = [['店', '店'], ['日期', '日期'], ['时间', '时间'], ['名字', '名字（カナ）'], ['汉字', '名字（汉字）'], ['电话', '电话'], ['邮箱', '邮箱'], ['人数', '人数'], ['席', '席'],
@@ -198,7 +220,7 @@ function caseCard(o) {
     // 11/19 用户：「点击打开这，就是显示客人电话的预约台账页面」→ 电脑程序（rb配对.py，只读）配上 レストランボード 的这组预约；电话只给老板・广告预约部・会计部
     + (o['RB预约编号'] ? `<div class="m">📒 レストランボード：${esc(o['RB店'])}・<b style="color:${o['RB状态'] === '已取消' ? 'var(--good)' : 'var(--warn)'}">${esc(o['RB状态'])}</b>`
         + (o['电话'] ? `　📞 <a href="tel:${esc(o['电话'])}" style="color:var(--brand);font-weight:700">${esc(o['电话'])}</a>` : '')
-        + (o['RB详情'] ? `　<a class="undo" style="margin:0;color:var(--brand);font-weight:700" onclick="togDet('${id}')">📒 预约台账 ${detOpen.has(id) ? '▲' : '▼'}</a>` : '') + '</div>'
+        + (o['RB详情'] ? `　<a class="undo" style="margin:0;color:var(--brand);font-weight:700" onclick="togDet('${id}')">📒 ${detOpen.has(id) ? '收起预约台账 ▲' : '点开看预约台账 ▼'}</a>` : '') + '</div>'
         + (detOpen.has(id) ? detPanel(o) : '')
       : '<div class="m">📒 レストランボード里还没找到这组（电脑每天 10:30・18:00 再找）</div>');
   // ① 预约中心：预约系统里取消
@@ -415,16 +437,19 @@ function render() {
   if (!NS) { $('main').innerHTML = tabsHtml() + `<div class="empty">${busy ? '读取中…' : esc(err || '还没有数据')}</div>`; return; }
   const all = rowsObj(), months = [...new Set(all.map(o => o['预约日'].slice(0, 7)))].sort().reverse();
   const cur = new Date(), cm = cur.getFullYear() + '-' + String(cur.getMonth() + 1).padStart(2, '0');
-  if (!month || (!months.includes(month) && month !== cm)) month = months[0] || cm;
-  const ms = all.filter(o => o['预约日'].startsWith(month));
+  if (!month || (!['today', 'yday', 'week', 'range'].includes(month) && !months.includes(month) && month !== cm)) month = months[0] || cm;
+  const P = period(), PL = P.label;
+  const ms = all.filter(o => o['预约日'] >= P.from && o['预约日'] <= P.to);
   const sum = (a, f) => a.reduce((t, o) => t + (Number(o[f]) || 0), 0);
   const req = ms.filter(o => ASKED(o['联系・结果'])), got = sum(ms, '到账・金额'), rq = sum(req, '请求额');
   const pend = sum(req.filter(o => !o['到账・金额']), '请求额');
   let h = tabsHtml();
   if (err) h += `<div class="msg e">${esc(err)}</div>`;
   h += `<div class="card"><div class="ct">🚫 无断取消（Slack #经营汇报）</div><div class="note">各店在 Slack #经营汇报 发的无断取消，Claude 每天 10:00 读进来。每一单要：① 预约中心在预约系统取消并签名 → ② 打电话收取消料并签名 → ③ 会计部确认钱到账。</div></div>`;
-  h += '<div class="chips">' + months.map(m => `<button class="${m === month ? 'on' : ''}" onclick="setMonth('${m}')">${+m.slice(5)}月</button>`).join('') + '</div>';
-  h += `<div class="kp"><div><small>${+month.slice(5)}月 无断取消</small><b>${ms.length}</b> 组　<small style="display:inline">${sum(ms, '人数')} 名</small></div>`
+  h += '<div class="chips">' + [['today', '今天'], ['yday', '昨天'], ['week', '本周']].concat(months.map(m => [m, +m.slice(5) + '月']), [['range', '📅 自选期间']])
+    .map(([k, n]) => `<button class="${k === month ? 'on' : ''}" onclick="setMonth('${k}')">${n}</button>`).join('') + '</div>';
+  if (month === 'range') h += `<div class="row2" style="align-items:center"><input id="nsFrom" type="date" value="${esc(P.from)}" onchange="setRange()"><span>〜</span><input id="nsTo" type="date" value="${esc(P.to)}" onchange="setRange()"></div><div class="note">只看一天：起止选同一天。按预约日算。</div>`;
+  h += `<div class="kp"><div><small>${esc(PL)} 无断取消</small><b>${ms.length}</b> 组　<small style="display:inline">${sum(ms, '人数')} 名</small></div>`
     + `<div><small>预约合计（损失）</small><b>${yen(sum(ms, '合计'))}</b></div>`
     + `<div><small>向客人请求</small><b>${yen(rq)}</b></div>`
     + `<div class="g"><small>已收回（讨回来的钱）</small><b>${yen(got)}</b></div>`
@@ -433,8 +458,8 @@ function render() {
   const by = {};
   ms.forEach(o => { const k = o['公司'] + ' ' + o['店']; const b = by[k] || (by[k] = { n: 0, a: 0, q: 0, g: 0 }); b.n++; b.a += +o['合计'] || 0; if (ASKED(o['联系・结果'])) b.q += +o['请求额'] || 0; b.g += +o['到账・金额'] || 0; });
   const ks = Object.keys(by).sort((x, y) => by[y].n - by[x].n || by[y].a - by[x].a);
-  h += `<div class="card"><div class="ct">🏪 按店（${+month.slice(5)}月）</div>` + (ks.length ? '<table><tr><th>店</th><th>组数</th><th>预约合计</th><th>请求</th><th>已收回</th></tr>'
-    + ks.map(k => `<tr><td>${esc(k)}</td><td>${by[k].n}</td><td>${yen(by[k].a)}</td><td>${yen(by[k].q)}</td><td>${yen(by[k].g)}</td></tr>`).join('') + '</table>' : '<div class="note">这个月还没有。</div>') + '</div>';
+  h += `<div class="card"><div class="ct">🏪 按店（${esc(PL)}）</div>` + (ks.length ? '<table><tr><th>店</th><th>组数</th><th>预约合计</th><th>请求</th><th>已收回</th></tr>'
+    + ks.map(k => `<tr><td>${esc(k)}</td><td>${by[k].n}</td><td>${yen(by[k].a)}</td><td>${yen(by[k].q)}</td><td>${yen(by[k].g)}</td></tr>`).join('') + '</table>' : '<div class="note">这段期间没有无断取消。</div>') + '</div>';
   // 要处理（所有月份）
   const todo = all.filter(o => stOf(o) === 'todo').sort((a, b) => (b['预约日'] + b['时间']).localeCompare(a['预约日'] + a['时间']));
   const wait = all.filter(o => stOf(o) === 'wait').sort((a, b) => (b['预约日'] + b['时间']).localeCompare(a['预约日'] + a['时间']));
@@ -442,7 +467,7 @@ function render() {
   h += `<div class="sec">🔴 预约中心要处理（${todo.length}）</div>` + (todo.length ? todo.map(caseCard).join('') : '<div class="note">都处理完了。</div>');
   h += `<div class="sec">🟡 等会计部确认到账（${wait.length}）</div>` + (wait.length ? wait.map(caseCard).join('') : '<div class="note">没有。</div>');
   const done = ms.filter(o => stOf(o) === 'done');
-  h += `<details><summary>🟢 ${+month.slice(5)}月已完成（${done.length}）</summary>${done.map(caseCard).join('') || '<div class="note">没有。</div>'}</details>`;
+  h += `<details><summary>🟢 ${esc(PL)} 已完成（${done.length}）</summary>${done.map(caseCard).join('') || '<div class="note">没有。</div>'}</details>`;
   if (NS.role === 'gg') h += '<div class="foot"><a onclick="changeKey()">🔑 换密码</a></div>';
   if (NS.owner) h += `<div class="card"><div class="ct">🔐 广告预约部密码（只有老板看得到）</div><div class="note">给广告部・预约中心用的密码。用这个密码只能看这一页；最开始登录的 2 台手机・2 台电脑能用（第 3 台起挡住、发邮件给你）。至少 6 个字，不能和别的密码一样。</div>`
     + `<div class="row2"><input id="gp1" type="password" autocomplete="new-password" placeholder="新密码"><input id="gp2" type="password" autocomplete="new-password" placeholder="再输一次"></div>`
