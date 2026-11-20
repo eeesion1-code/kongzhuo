@@ -124,7 +124,7 @@ function render() {
   // 公司（入管来电通常先问：公司名・所在地・代表者・员工人数）
   h += '<div class="card co"><div class="ct">' + esc(ci['正式名'] || co) + '</div><dl>' +
     '<dt>所在地</dt><dd>' + esc(ci['地址'] || '待补') + '</dd><dt>电话</dt><dd>' + esc(ci['电话'] || '待补') + '</dd>' +
-    '<dt>代表者</dt><dd>' + esc(ci['代表者'] || '待补') + '</dd><dt>员工</dt><dd>在职 <b>' + (ci['在职'] ?? '—') + '</b> 人' + (ci['离职'] ? '・名簿上离职 ' + ci['离职'] + ' 人' : '') + '</dd>' +
+    '<dt>员工</dt><dd>在职 <b>' + (ci['在职'] ?? '—') + '</b> 人' + (ci['离职'] ? '・名簿上离职 ' + ci['离职'] + ' 人' : '') + '</dd>' +
     (ci['登録番号'] ? '<dt>登録番号</dt><dd>' + esc(ci['登録番号']) + '</dd>' : '') + '</dl>' +
     '<p class="note">名簿：会计部「' + esc(ci['文件'] || '') + '」' + (ci['文件更新'] ? '（' + esc(ci['文件更新']) + ' 改过）' : '') + '，每天自动读</p></div>';
   // 提醒：在留期限 3 个月内／已过；离职没报备
@@ -160,7 +160,12 @@ function openP(i) {
     '<div class="card"><dl class="kv">' +
     row('公司', esc(ci['正式名'] || p['公司'])) + row('社員コード', esc(p['编号'] || '')) +
     row('職務内容', esc(p['职务'] || '')) + row('入社日', p['入社'] ? esc(md(p['入社'])) + (p['在职年'] != null ? '（在职 ' + p['在职年'] + ' 年）' : '') : '') +
-    (p['店'] ? row('配属店舗', esc(p['店'])) : '') + '</dl></div>' +
+    (p['店'] ? row('配属店舗', esc(p['店'])) : '') + '</dl>' +
+    // 11/20 用户：「其他社员的工作内容，你用 AI 生成下，比如他的职务内容为营业，他的工作内容需要展开」→ 电脑 签证资料_工作内容.py 按名簿職務内容展开
+    '<div class="note" style="margin:8px 0 2px;font-weight:700;color:var(--ink)">工作内容（具体）</div>' +
+    ((p['工作内容'] || []).length ? '<ul style="margin:0;padding-left:1.2em;font-size:14px;line-height:1.6">' + p['工作内容'].map(x => '<li>' + esc(x) + '</li>').join('') + '</ul>' +
+      '<div class="note" style="margin-top:4px">根据名簿上的職務内容由 AI 展开的说明（参考，不是名簿原文）</div>'
+      : '<div class="note">名簿没写職務内容，无法展开（请会计部在名簿补上）</div>') + '</div>' +
     '<div class="card"><dl class="kv">' +
     row('在留資格', esc(p['在留资格'] || '')) + row('在留カード番号', esc(p['卡号'] || '')) +
     row('在留期限', p['在留期限'] ? esc(md(p['在留期限'])) + ' ' + expTag(p) : '') + row('国籍', esc(p['国籍'] || '')) + '</dl></div>' +
@@ -179,7 +184,7 @@ function closeP(fromPop) { if ($('mask').style.display !== 'flex') return; $('ma
 addEventListener('popstate', () => closeP(true));
 function copyP(i) {
   const p = P[i], ci = C[p['公司']] || {};
-  const t = [ci['正式名'] || p['公司'], '氏名：' + p['姓名'], '社員コード：' + (p['编号'] || ''), '職務内容：' + (p['职务'] || ''), '入社日：' + md(p['入社'] || ''),
+  const t = [ci['正式名'] || p['公司'], '氏名：' + p['姓名'], '社員コード：' + (p['编号'] || ''), '職務内容：' + (p['职务'] || ''), ...((p['工作内容'] || []).length ? ['業務内容：'].concat(p['工作内容'].map(x => '・' + x)) : []), '入社日：' + md(p['入社'] || ''),
     '在留資格：' + (p['在留资格'] || ''), '在留カード番号：' + (p['卡号'] || ''), '在留期限：' + md(p['在留期限'] || ''), '国籍：' + (p['国籍'] || ''),
     '生年月日：' + md(p['生日'] || ''), '住所：' + (p['住所'] || ''), '電話：' + (p['电话'] || '')].join('\n');
   (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => alert('已复制'), () => prompt('长按复制：', t));
