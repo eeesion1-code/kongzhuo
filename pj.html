@@ -285,7 +285,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
   addEventListener('touchcancel', () => { on = false; hide(); }, { passive: true });
 })();
 
-const APPV = 'yunying-v66';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v67';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);
 const PVST = IN_KZ && (localStorage.getItem('asRole') === 'staff' || localStorage.getItem('asStaff') === '1');   // 11/19 老板在空桌一览点「👀 运营部画面／店长画面」→ 按店长权限看
 function exitPreview() { ['asRole', 'asStaff', 'last', 'acrq'].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} }); location.href = './'; }
@@ -1091,12 +1091,16 @@ function renderSy() {
       return x + '</div>';
     }).join('') + '</div>';
   } else {
+    // v67（11/20 用户「10 月里面为什么没有分数，并修复」）：奖金表上店达成率不到 90% 的整行空着、评分也不填（10 月 58 人里 31 人）→
+    //   这种用「全店铺员工评分」（年涨评分表）那个月的分数补上（两表都有分的月份逐个对过一样），小字写「年涨评分表」
+    const yz = {}; D.sya.forEach(a => { const e = ((a['年涨'] || {})['月'] || {})[syMonth]; if (e && e.length) yz[a['名']] = Math.round(e.reduce((t, q) => t + q[2], 0) / e.length * 10) / 10; });
+    const sc = r => r['评分'] != null ? r['评分'] : (yz[r['名']] ?? null), fromZ = r => r['评分'] == null && yz[r['名']] != null;
     let L = D.sy.filter(r => r['月'] === syMonth).filter(hit);
-    const got = L.filter(r => r['有分']);
+    const got = L.filter(r => sc(r) != null);
     const st = D.hs[syMonth] || {};
-    h += '<div class="grid" style="margin-bottom:10px"><div class="card kpi"><small>' + +syMonth.slice(5) + ' 月 社员平均分</small><b>' + (got.length ? (got.reduce((a, r) => a + r['评分'], 0) / got.length).toFixed(1) : '—') + '</b><div class="d">' + got.length + ' / ' + L.length + ' 人有分（' + new Set(got.map(r => r['店'])).size + ' 家店）</div></div>' +
+    h += '<div class="grid" style="margin-bottom:10px"><div class="card kpi"><small>' + +syMonth.slice(5) + ' 月 社员平均分</small><b>' + (got.length ? (got.reduce((a, r) => a + sc(r), 0) / got.length).toFixed(1) : '—') + '</b><div class="d">' + got.length + ' / ' + L.length + ' 人有分（' + new Set(got.map(r => r['店'])).size + ' 家店）' + (got.some(fromZ) ? '・其中 ' + got.filter(fromZ).length + ' 人取自年涨评分表' : '') + '</div></div>' +
       '<div class="card kpi"><small>売上ボナース 合计</small><b>' + fmt(Math.round(L.reduce((a, r) => a + (r['奖金'] || 0), 0) / 1e4)) + '</b><span class="u">万円</span><div class="d">空着的＝店达成率不到 90%，没有奖金</div></div></div>';
-    L.sort(sySort === 'score' ? (a, b) => (b['评分'] ?? -1) - (a['评分'] ?? -1) : (a, b) => ord(a['店']) - ord(b['店']) || (b['评分'] ?? -1) - (a['评分'] ?? -1));
+    L.sort(sySort === 'score' ? (a, b) => (sc(b) ?? -1) - (sc(a) ?? -1) : (a, b) => ord(a['店']) - ord(b['店']) || (sc(b) ?? -1) - (sc(a) ?? -1));
     let last = '';
     h += '<div class="sylist">' + L.map((r, i) => {
       let x = '';
@@ -1107,10 +1111,10 @@ function renderSy() {
           (s && s['总分'] != null ? '<span style="margin-left:auto">①考核 <b style="font-size:13px">' + s['总分'] + '</b> ' + s['等级'] + '</span>' : '') + '</div>';
       }
       return x + '<div class="card" style="margin:0 0 6px;display:flex;align-items:center;gap:8px">' +
-        (sySort === 'score' ? '<span style="color:var(--sub);width:22px">' + (r['有分'] ? i + 1 : '') + '</span>' : '') +
+        (sySort === 'score' ? '<span style="color:var(--sub);width:22px">' + (sc(r) != null ? i + 1 : '') + '</span>' : '') +
         '<div style="flex:1;min-width:0"><b style="font-size:16px">' + esc(r['名']) + '</b>' + (sySort === 'score' ? ' <small style="color:var(--sub)">' + esc(r['店']) + '</small>' : '') +
         '<div style="font-size:12px;color:var(--sub)">' + (r['有分'] ? '百分比 ' + Math.round((r['百分比'] || 0) * 100) + '%・奖金 ' + fmt(r['奖金']) + ' 円' : esc(r['空因'] || '表上没填')) + (r['出勤天'] ? '・出勤 ' + r['出勤天'] + ' 天' : '') + '</div></div>' +
-        '<div style="font-size:24px;font-weight:800;color:' + scCol(r['评分']) + '">' + (r['评分'] ?? '—') + '</div></div>';
+        '<div style="text-align:right"><div style="font-size:24px;font-weight:800;color:' + scCol(sc(r)) + '">' + (sc(r) ?? '—') + '</div>' + (fromZ(r) ? '<div style="font-size:10.5px;color:var(--sub)">年涨评分表</div>' : '') + '</div></div>';
     }).join('') + '</div>';
   }
   h += '<div class="card" style="margin-top:12px"><b>奖金怎么算</b>（用 7〜10 月表上全部数字倒推验算，每一行都对得上）<table class="tbl" style="margin-top:6px">' +
