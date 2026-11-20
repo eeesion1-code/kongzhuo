@@ -285,7 +285,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
   addEventListener('touchcancel', () => { on = false; hide(); }, { passive: true });
 })();
 
-const APPV = 'yunying-v62';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v63';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);
 const PVST = IN_KZ && (localStorage.getItem('asRole') === 'staff' || localStorage.getItem('asStaff') === '1');   // 11/19 老板在空桌一览点「👀 运营部画面／店长画面」→ 按店长权限看
 function exitPreview() { ['asRole', 'asStaff', 'last', 'acrq'].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} }); location.href = './'; }
@@ -939,7 +939,7 @@ function renderHr() {
   const cnt = { S: 0, A: 0, B: 0, C: 0, D: 0 }; rows.forEach(r => r['等级'] && cnt[r['等级']]++);
   const tot = rows.filter(r => r['等级']).length || 1;
   const gc = { S: '#14532d', A: 'var(--good)', B: '#0369a1', C: 'var(--warn)', D: 'var(--bad)' };
-  h += '<div class="sec"><div class="grid"><div class="card kpi"><small>店长考核 平均分</small><b>' + (M['平均'] ?? '—') + '</b><span class="u">／100</span><div class="d">' + M['店数'] + ' 家打分' + (M['完整'] ? '' : '・数据到 ' + M['到'].slice(5).replace('-', '/')) + '</div></div>' +
+  h += '<div class="sec"><div class="grid"><div class="card kpi"><small>①考核 平均分</small><b>' + (M['平均'] ?? '—') + '</b><span class="u">／100</span><div class="d">' + M['店数'] + ' 家打分' + (M['完整'] ? '' : '・数据到 ' + M['到'].slice(5).replace('-', '/')) + '</div></div>' +
     '<div class="card kpi"><small>等级分布</small><div class="dist">' + Object.keys(cnt).filter(g => cnt[g]).map(g => '<span style="flex:' + cnt[g] + ';background:' + gc[g] + '">' + g + ' ' + cnt[g] + '</span>').join('') + '</div><div class="d">S≥85 A≥75 B≥60 C≥45 D</div></div></div>';
   if (M['缺'] && M['缺'].length) h += '<p class="note wn">这个月还缺：' + M['缺'].map(esc).join('；') + '。缺的项不算分，按其余项折成 100 分。</p>';
   h += '</div>';
@@ -964,7 +964,7 @@ function renderHr() {
     }).join('') + '</div><p class="note">「登记」是各店报在云端「各店评价业绩成本指标」里的数；「实际」是平台页面上读到的：Google＝店铺页这个月真正多了几条；HPG 真客人差评＝ホットペッパー 上 1〜2 星（订过位的客人才能写，最能反映真实服务）。实际比登记多，说明差评没有如实登记。</p></div>';
   }
   // 排名
-  h += '<div class="sec"><h2>店长考核排名<small>点店看每一项</small></h2><div class="card rows">' + rows.map(r => hrRow(r, prev[r['店']], D.he[hrMonth] && D.he[hrMonth][r['店']], M)).join('') + '</div></div>';
+  h += '<div class="sec"><h2>①考核排名<small>点店看每一项</small></h2><div class="card rows">' + rows.map(r => hrRow(r, prev[r['店']], D.he[hrMonth] && D.he[hrMonth][r['店']], M)).join('') + '</div></div>';
   // 规则
   h += '<div class="sec"><h2>怎么打分<small>试行，权重可以改</small></h2><div class="card"><table class="tbl">' +
     Object.entries(M['权重']).map(([k, w]) => '<tr><td style="white-space:nowrap;vertical-align:top"><b>' + k + '</b> ' + w + '</td><td style="text-align:left;color:var(--sub)">' + esc((M['规则'] || {})[k] || '') + '</td></tr>').join('') +
@@ -1001,6 +1001,8 @@ function hrRow(r, p, staff, M) {
 function tgHr(k) { hrOpen.has(k) ? hrOpen.delete(k) : hrOpen.add(k); render(); }
 
 // ================= 👤 社员评分 =================
+// v63（11/20 用户）：人事・社员页不写「店长」「料理长」，改成 ①（对应店长）・②（对应料理长）；旧数据里的名称也在这里换掉
+const RN = x => ({ '店长': '①', '料理长': '②' })[x] || x;
 const zAvg = r => (r['年涨'] && r['年涨']['综合'] != null) ? r['年涨']['综合'] : null;   // 11/17 用户：全年视图的分数＝年涨综合分数（有分的月份平均）
 // 数据：公司「売上ボナース计算表」每人每月的评分（k=sy）和全年汇总（k=sya）；出勤＝指纹打卡天数
 function syParse() {
@@ -1041,15 +1043,15 @@ function renderSy() {
       if (sySort === 'store' && r['店'] !== last) { last = r['店']; x += '<div class="syst"><b>' + esc(r['店']) + '</b></div>'; }
       const key = 'y|' + r['名'], open = syOpen.has(key);
       // 11/17 用户：右上角＝年涨综合分数的平均；姓名下面那排＝每月年涨综合分数（1〜10 月），奖金表每月评分（7〜10 月）挪到点开后的方框里（两块对调）
-      const Z = r['年涨'], role = Z ? Z['职位'] : '', cur = r['店'];
+      const Z = r['年涨'], role = Z ? RN(Z['职位']) : '', cur = r['店'];
       const zCells = Z ? Array.from({ length: 10 }, (_, k) => '2026-' + String(k + 1).padStart(2, '0')).map(m => { const e = (Z['月'] || {})[m]; const v = e ? Math.round(e.reduce((a, q) => a + q[2], 0) / e.length * 10) / 10 : null;
-        const rl = q => /^(店长|料理长)$/.test(q[1]) ? q[1] : '';   // 换过店或职位的月份：写出那个月的店・职位
+        const rl = q => /^(①|②)$/.test(RN(q[1])) ? RN(q[1]) : '';   // 换过店或职位的月份：写出那个月的店・职位
         const other = e && (e.length > 1 || e[0][0] !== cur || (rl(e[0]) && rl(e[0]) !== role)) ? e.map(q => esc(q[0]) + (rl(q) ? ' ' + esc(rl(q)) : '') + (e.length > 1 ? ' ' + q[2] : '')).join('・') : '';
         return '<span class="mcell" title="' + (e ? e.map(q => esc(q[0] + ' ' + q[1] + ' ' + q[2])).join('、') : '没有分') + '">' + +m.slice(5) + '月<b style="color:' + scCol(v) + '">' + (v == null ? '—' : v) + '</b>' + (other ? '<small style="display:block;font-size:9.5px;color:var(--sub)">' + other + '</small>' : '') + '</span>'; }).join('') : '';
       const bCells = r['各月'].map(m => '<span class="mcell">' + +m[0].slice(5) + '月<b style="color:' + scCol(m[1]) + '">' + (m[1] == null ? '—' : m[1]) + '</b></span>').join('');
       x += '<div class="card' + (open ? ' open' : '') + '" style="margin:0 0 6px;cursor:pointer" onclick="tgSy(\'' + esc(key) + '\')"><div style="display:flex;align-items:center;gap:8px">' +
         (sySort === 'score' ? '<span style="color:var(--sub);width:22px">' + (i + 1) + '</span>' : '') +
-        '<div style="flex:1;min-width:0"><b style="font-size:16px">' + esc(r['名']) + '</b> ' + (/^(店长|料理长)$/.test(role || '') ? '<span style="font-size:11px;font-weight:700;color:var(--brand);border:1px solid var(--brand);border-radius:6px;padding:0 5px;margin-right:4px">' + esc(role) + '</span>' : '') + '<small style="color:var(--sub)">' + esc(r['店历'].join('→')) + '</small><div style="margin-top:4px">' +
+        '<div style="flex:1;min-width:0"><b style="font-size:16px">' + esc(r['名']) + '</b> ' + (/^(①|②)$/.test(role || '') ? '<span style="font-size:11px;font-weight:700;color:var(--brand);border:1px solid var(--brand);border-radius:6px;padding:0 5px;margin-right:4px">' + esc(role) + '</span>' : '') + '<small style="color:var(--sub)">' + esc(r['店历'].join('→')) + '</small><div style="margin-top:4px">' +
         (Z ? zCells : '<small style="color:var(--sub)">没有年涨分数・奖金表评分：</small>' + bCells) + '</div></div>' +
         '<div style="text-align:right"><div style="font-size:24px;font-weight:800;color:' + scCol(zAvg(r)) + '">' + (zAvg(r) ?? '—') + '</div><div style="font-size:11px;color:var(--sub)">' + (Z ? '年涨综合平均・' + Z['月数'] + ' 个月' : '没有年涨分数') + '</div></div></div>';
       if (open) {
@@ -1061,8 +1063,8 @@ function renderSy() {
         x += '<div style="margin-top:10px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--soft)">' +
           '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><b style="font-size:14px">📋 奖金表评分<small style="font-weight:400;color:var(--sub)">（売上ボナース计算表）</small></b><span style="text-align:right"><span style="font-size:24px;font-weight:800;color:' + scCol(r['平均']) + '">' + (r['平均'] ?? '—') + '</span><br><small style="color:var(--sub)">全年平均・' + r['月数'] + ' 个月</small></span></div>' +
           '<div style="font-size:12px;font-weight:700;margin:4px 0 2px">每月评分</div><div>' + bCells + '</div></div>' +
-          (Z ? '<p class="note" style="margin:6px 0 0">📈 年涨综合分数' + (/^(店长|料理长)$/.test(role || '') ? '（' + esc(role) + '）' : '') + '：右上角 ' + Z['综合'] + '＝姓名下面每月年涨综合分数的平均（有分的 ' + Z['月数'] + ' 个月）・全员 ' + Z['人数'] + ' 人中第 ' + Z['排名'] + ' 名・近 3 个月 ' + Z['近3月'] + '・最高 ' + Z['最高'] + '・最低 ' + Z['最低'] +
-            '。来源：公司「全店铺员工评分」（' + esc(Z['文件'] || '') + '）——表上每个月写的「分数」就是那个月的年涨综合分数，原样显示；职称＝表上店长・料理长那一栏（最近一个月）。一个月管两家店的，那个月取两家平均。7〜10 月和奖金表的评分逐个对过，一样。</p>' : '');
+          (Z ? '<p class="note" style="margin:6px 0 0">📈 年涨综合分数' + (/^(①|②)$/.test(role || '') ? '（' + esc(role) + '）' : '') + '：右上角 ' + Z['综合'] + '＝姓名下面每月年涨综合分数的平均（有分的 ' + Z['月数'] + ' 个月）・全员 ' + Z['人数'] + ' 人中第 ' + Z['排名'] + ' 名・近 3 个月 ' + Z['近3月'] + '・最高 ' + Z['最高'] + '・最低 ' + Z['最低'] +
+            '。来源：公司「全店铺员工评分」（' + esc(Z['文件'] || '') + '）——表上每个月写的「分数」就是那个月的年涨综合分数，原样显示；①・②＝表上每家店第一个・第二个人那一栏（最近一个月）。一个月管两家店的，那个月取两家平均。7〜10 月和奖金表的评分逐个对过，一样。</p>' : '');
       }
       return x + '</div>';
     }).join('') + '</div>';
@@ -1080,7 +1082,7 @@ function renderSy() {
         last = r['店'];
         const s = st[r['店']];
         x += '<div class="syst"><b>' + esc(r['店']) + '</b>' + (r['达成率'] != null ? '<span>达成率 ' + Math.round(r['达成率'] * 100) + '%</span>' : '') + ((r['T'] || r['G']) ? '<span>T ' + (r['T'] || 0) + '・G ' + (r['G'] || 0) + '</span>' : '') +
-          (s && s['总分'] != null ? '<span style="margin-left:auto">店长考核 <b style="font-size:13px">' + s['总分'] + '</b> ' + s['等级'] + '</span>' : '') + '</div>';
+          (s && s['总分'] != null ? '<span style="margin-left:auto">①考核 <b style="font-size:13px">' + s['总分'] + '</b> ' + s['等级'] + '</span>' : '') + '</div>';
       }
       return x + '<div class="card" style="margin:0 0 6px;display:flex;align-items:center;gap:8px">' +
         (sySort === 'score' ? '<span style="color:var(--sub);width:22px">' + (r['有分'] ? i + 1 : '') + '</span>' : '') +
