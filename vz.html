@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>签证资料</title>
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#f5f6f8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1115" media="(prefers-color-scheme: dark)">
+<meta name="robots" content="noindex">
+<style>
+/* 11/20 用户：老板页「📱 登录手机」下面加「🛂 签证资料」——HCL・HSW・千聖・三金・世界村 5 个按键，读各公司従業員名簿，
+   点社员看全部信息（名簿上登记的原样），入管打电话给社长时马上能对应。老板视角、简单明了。
+   另：在留卡期限（到期前 3 个月提醒）・国籍、各公司所在地・代表者・人数、离职的人（14 天内要向入管报备）。
+   数据：会计部 G:\マイドライブ\会计部\従業員名簿 → 电脑 人事评价\签证资料.py 每天 6:00・9:00・12:00 → 后台 what=hr（只给老板密码）k=vz/vzc。
+   这页不把员工资料存进手机（不写 localStorage），每次打开现读。 */
+:root{--bg:#f5f6f8;--card:#fff;--ink:#16181d;--sub:#6b7280;--faint:#9ca3af;--line:#e6e8ec;--soft:#f0f2f5;--brand:#1d4ed8;
+  --good:#15803d;--goodBg:#ecfdf3;--warn:#b45309;--warnBg:#fef3c7;--bad:#dc2626;--badBg:#fee2e2;--shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.08)}
+@media (prefers-color-scheme: dark){:root{--bg:#0f1115;--card:#181b21;--ink:#eceef2;--sub:#a1a7b3;--faint:#6b7280;--line:#2a2f38;--soft:#20242c;--brand:#3b82f6;
+  --good:#22c55e;--goodBg:#11281a;--warn:#facc15;--warnBg:#2f2a10;--bad:#f87171;--badBg:#361515;--shadow:none}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink)}
+html{touch-action:manipulation}
+body{font:15px/1.5 -apple-system,BlinkMacSystemFont,"Hiragino Sans","PingFang SC","Noto Sans CJK SC","Microsoft YaHei",sans-serif;-webkit-text-size-adjust:100%}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer}
+button:active,a:active{opacity:.6}
+header{position:sticky;top:0;z-index:5;background:var(--bg);padding:calc(8px + env(safe-area-inset-top)) 16px 8px;border-bottom:1px solid var(--line)}
+.top{display:flex;align-items:center;gap:8px;max-width:760px;margin:0 auto}
+.top a.back{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:6px 10px;font-size:14px;color:var(--ink);text-decoration:none}
+.top h1{flex:1;margin:0;font-size:19px}.top small{font-size:12px;color:var(--sub)}
+main{max-width:760px;margin:0 auto;padding:10px 16px 40px}
+.empty{padding:40px 10px;text-align:center;color:var(--sub)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:12px 14px;margin:10px 0}
+.ct{font-weight:700;font-size:16px;margin-bottom:4px}
+.note{font-size:12.5px;color:var(--sub);line-height:1.6;margin:4px 0 0}
+.cos{display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin:4px 0 8px}
+.cos button{border:1px solid var(--line);background:var(--card);border-radius:12px;padding:8px 2px;font-weight:700;font-size:15px;position:relative;box-shadow:var(--shadow)}
+.cos button small{display:block;font-weight:400;font-size:11.5px;color:var(--sub)}
+.cos button.on{background:var(--brand);border-color:var(--brand);color:#fff}.cos button.on small{color:#dbe4ff}
+.cos .dot{position:absolute;top:-5px;right:-4px;background:var(--bad);color:#fff;border-radius:9px;font-size:11px;padding:0 5px;line-height:17px}
+.alert{border-radius:12px;padding:9px 12px;margin:8px 0;font-size:14px}
+.alert.r{background:var(--badBg)}.alert.y{background:var(--warnBg)}
+.alert b{display:block;margin-bottom:2px}
+.alert div{padding:2px 0;cursor:pointer}
+.co dl{display:grid;grid-template-columns:78px 1fr;gap:3px 8px;margin:4px 0 0;font-size:14px}
+.co dt{color:var(--sub)}.co dd{margin:0;word-break:break-all}
+.q{width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);font-size:16px;margin:6px 0}
+.p{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:9px 12px;margin:6px 0;cursor:pointer;box-shadow:var(--shadow)}
+.p .h{display:flex;align-items:baseline;gap:8px}.p .h b{font-size:16px}.p .h span{margin-left:auto;font-size:12.5px;white-space:nowrap}
+.p .m{font-size:12.5px;color:var(--sub);margin-top:1px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.p.left{opacity:.7}
+.tag{display:inline-block;border-radius:6px;padding:0 6px;font-size:12px;font-weight:700}
+.tag.r{background:var(--badBg);color:var(--bad)}.tag.y{background:var(--warnBg);color:var(--warn)}.tag.g{background:var(--goodBg);color:var(--good)}.tag.n{background:var(--soft);color:var(--sub)}
+.sec{font-weight:700;font-size:14px;color:var(--sub);margin:14px 0 2px}
+.mask{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:20;display:none;align-items:flex-end;justify-content:center}
+.sheet{background:var(--bg);width:100%;max-width:760px;max-height:92vh;overflow:auto;border-radius:16px 16px 0 0;padding:12px 16px calc(20px + env(safe-area-inset-bottom))}
+.sheet h3{display:flex;align-items:center;gap:8px;margin:0 0 6px;font-size:18px}
+.sheet h3 button{margin-left:auto;border:1px solid var(--line);background:var(--card);border-radius:10px;padding:4px 10px}
+.kv{display:grid;grid-template-columns:96px 1fr;gap:5px 10px;font-size:14.5px}
+.kv dt{color:var(--sub)}.kv dd{margin:0;word-break:break-all}
+.kv dd a{color:var(--brand)}
+.btn{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:7px 12px;font-weight:600}
+@media (min-width:700px){.cos{gap:10px}}
+</style>
+</head>
+<body>
+<header><div class="top"><a class="back" href="./">‹ 空桌一览</a><h1>🛂 签证资料</h1><small id="at"></small></div></header>
+<main id="main"><div class="empty">读取中…</div></main>
+<div class="mask" id="mask" onclick="if(event.target===this)closeP()"><div class="sheet" id="sheet"></div></div>
+<script>
+const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
+const LS = { get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const K = LS.get('k', '');
+const DV = (() => { let v = LS.get('dv', ''); if (!/^[0-9a-f]{32}$/.test(v)) { const a = new Uint8Array(16); crypto.getRandomValues(a); v = Array.from(a, b => b.toString(16).padStart(2, '0')).join(''); LS.set('dv', v); } return v; })();
+const DVUA = (() => { const u = navigator.userAgent, st = (navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) ? '主屏幕APP' : '浏览器'; let m;
+  if ((m = u.match(/iPhone OS ([\d_]+)/))) return `iPhone iOS ${m[1].replace(/_/g, '.')}・${st}`;
+  if ((m = u.match(/iPad.*? OS ([\d_]+)/))) return `iPad iOS ${m[1].replace(/_/g, '.')}・${st}`;
+  if ((m = u.match(/Android ([\d.]+); ([^;)]+)/))) return `Android ${m[1]} ${m[2].trim()}・${st}`;
+  return `${(u.match(/Windows NT|Macintosh|Android|Linux/) || ['其他'])[0]}・${st}`; })();
+const PV = () => (['staff', 'gg'].includes(LS.get('asRole', '')) ? LS.get('asRole', '') : LS.get('asStaff', '') === '1' ? 'staff' : '');
+const api = q => fetch(API + '?fmt=json' + q + '&k=' + encodeURIComponent(K) + '&dv=' + DV + '&ua=' + encodeURIComponent(DVUA) + (PV() ? '&as=' + PV() : ''), { cache: 'no-store' }).then(r => r.json());
+
+const COS = ['HCL', 'HSW', '千聖', '三金', '世界村'];
+let P = [], C = {}, AT = '', co = sessionStorage.getItem('vzCo') || 'HCL', q = '', showLeft = false;
+const md = d => d ? d.replace(/^(\d{4})-0?(\d+)-0?(\d+)$/, '$1/$2/$3') : '';
+// 在留期限：已过／90 天内（3 个月）提醒
+const expTag = p => p['剩天'] == null ? (p['在留期限'] ? '' : '<span class="tag n">期限没填</span>')
+  : p['剩天'] < 0 ? '<span class="tag r">已过期 ' + (-p['剩天']) + ' 天</span>' : p['剩天'] <= 90 ? '<span class="tag y">还剩 ' + p['剩天'] + ' 天</span>' : '<span class="tag g">' + md(p['在留期限']) + '</span>';
+// 离职报备：离职后 14 天内要向入管报备（「契約機関に関する届出」）；名簿「入管届出日」填了＝已报
+const repTag = p => p['入管届出'] ? '<span class="tag g">已报备 ' + md(p['入管届出']) + '</span>'
+  : p['离职天'] == null ? '<span class="tag y">没写退职日・没写报备</span>'
+  : p['离职天'] <= 14 ? '<span class="tag y">还剩 ' + (14 - p['离职天']) + ' 天要报备</span>' : '<span class="tag r">已超过 14 天，没写报备</span>';
+const left = p => !!p['退职'];
+const needRep = p => left(p) && !p['入管届出'];
+const expWarn = p => !left(p) && p['剩天'] != null && p['剩天'] <= 90;
+
+async function load() {
+  if (!K) { $('main').innerHTML = '<div class="empty">请先在空桌一览用老板密码登录</div>'; return; }
+  if (PV()) { $('main').innerHTML = '<div class="empty">现在是「看店长画面」预览，签证资料只给老板看。<br><br><a href="./">‹ 回空桌一览</a></div>'; return; }
+  try {
+    const d = await api('&what=hr');
+    if (d && Array.isArray(d.rows)) {
+      P = d.rows.filter(r => r.k === 'vz'); C = {}; d.rows.filter(r => r.k === 'vzc').forEach(r => C[r['公司']] = r); AT = d.at || '';
+      if (!P.length && !Object.keys(C).length) { $('main').innerHTML = '<div class="empty">还没有签证资料（电脑每天 6:00・9:00・12:00 上传）</div>'; return; }
+      render();
+    } else if (d && d.error === 'owner') $('main').innerHTML = '<div class="empty">🔒 签证资料只给老板密码看</div>';
+    else if (d && d.error === 'device') $('main').innerHTML = '<div class="empty">🔒 这台手机还没登记，不能使用</div>';
+    else $('main').innerHTML = '<div class="empty">读不到（' + esc((d && d.error) || '') + '），请稍后再开</div>';
+  } catch (e) { $('main').innerHTML = '<div class="empty">网络不通，请稍后再开</div>'; }
+}
+function setCo(c) { co = c; q = ''; showLeft = false; sessionStorage.setItem('vzCo', c); render(); scrollTo(0, 0); }
+function onQ(v) { q = v; renderList(); }
+function render() {
+  $('at').textContent = AT ? AT.slice(5) + ' 更新' : '';
+  let h = '<div class="cos">' + COS.map(c => { const n = P.filter(p => p['公司'] === c && (expWarn(p) || needRep(p))).length, ci = C[c] || {};
+    return '<button class="' + (c === co ? 'on' : '') + '" onclick="setCo(\'' + c + '\')">' + c + '<small>' + (ci['在职'] != null ? ci['在职'] + ' 人' : '—') + '</small>' + (n ? '<i class="dot">' + n + '</i>' : '') + '</button>'; }).join('') + '</div>';
+  const ci = C[co] || {}, L = P.filter(p => p['公司'] === co);
+  if (ci['错']) h += '<div class="alert r"><b>⚠ ' + esc(ci['错']) + '</b></div>';
+  // 公司（入管来电通常先问：公司名・所在地・代表者・员工人数）
+  h += '<div class="card co"><div class="ct">' + esc(ci['正式名'] || co) + '</div><dl>' +
+    '<dt>所在地</dt><dd>' + esc(ci['地址'] || '待补') + '</dd><dt>电话</dt><dd>' + esc(ci['电话'] || '待补') + '</dd>' +
+    '<dt>代表者</dt><dd>' + esc(ci['代表者'] || '待补') + '</dd><dt>员工</dt><dd>在职 <b>' + (ci['在职'] ?? '—') + '</b> 人' + (ci['离职'] ? '・名簿上离职 ' + ci['离职'] + ' 人' : '') + '</dd>' +
+    (ci['登録番号'] ? '<dt>登録番号</dt><dd>' + esc(ci['登録番号']) + '</dd>' : '') + '</dl>' +
+    '<p class="note">名簿：会计部「' + esc(ci['文件'] || '') + '」' + (ci['文件更新'] ? '（' + esc(ci['文件更新']) + ' 改过）' : '') + '，每天自动读</p></div>';
+  // 提醒：在留期限 3 个月内／已过；离职没报备
+  const ex = L.filter(expWarn).sort((a, b) => a['剩天'] - b['剩天']), rp = L.filter(needRep).sort((a, b) => (b['离职天'] ?? -1) - (a['离职天'] ?? -1));
+  if (ex.length) h += '<div class="alert ' + (ex.some(p => p['剩天'] < 0) ? 'r' : 'y') + '"><b>⏰ 在留卡 3 个月内到期（' + ex.length + ' 人）</b>' +
+    ex.map(p => '<div onclick="openP(' + P.indexOf(p) + ')">' + esc(p['姓名']) + '・' + esc(p['在留资格'] || '') + ' ' + expTag(p) + '</div>').join('') + '</div>';
+  if (rp.length) h += '<div class="alert ' + (rp.some(p => (p['离职天'] ?? 99) > 14) ? 'r' : 'y') + '"><b>📮 离职的人要在 14 天内向入管报备（' + rp.length + ' 人没写报备日期）</b>' +
+    rp.map(p => '<div onclick="openP(' + P.indexOf(p) + ')">' + esc(p['姓名']) + '・退职 ' + esc(md(p['退职']) || '') + ' ' + repTag(p) + '</div>').join('') +
+    '<div style="cursor:default;font-size:12.5px;color:var(--sub)">报了以后请会计部在名簿「入管届出日」填上日期，这里就不再提醒</div></div>';
+  const ms = ci['缺'] || {}, gaps = [['在留期限', '在留卡期限'], ['国籍', '国籍'], ['卡号', '在留卡号'], ['在留资格', '在留资格']].filter(([k]) => ms[k]).map(([k, n]) => n + ' ' + ms[k] + ' 人');
+  if (gaps.length) h += '<div class="alert y"><b>📝 名簿还没填全</b><div style="cursor:default">' + gaps.join('・') + '（请会计部在名簿里补上；在留卡期限填了才能提前 3 个月提醒）</div></div>';
+  if (ci['消失'] && ci['消失'].length) h += '<div class="alert y"><b>👀 以前在名簿上、现在不见了（' + ci['消失'].length + ' 人）</b><div style="cursor:default">' +
+    ci['消失'].map(x => esc(x['姓名']) + '（' + md(x['最后']) + ' 还在）').join('、') + ' —— 如果是离职，请确认 14 天内向入管报备了</div></div>';
+  h += '<input class="q" placeholder="🔍 搜姓名・职务・在留资格" value="' + esc(q) + '" oninput="onQ(this.value)"><div id="list"></div>';
+  $('main').innerHTML = h;
+  renderList();
+}
+function pRow(p) {
+  return '<div class="p' + (left(p) ? ' left' : '') + '" onclick="openP(' + P.indexOf(p) + ')"><div class="h"><b>' + esc(p['姓名']) + '</b>' +
+    '<small style="color:var(--sub)">' + esc(p['在留资格'] || '在留资格没填') + '</small><span>' + (left(p) ? repTag(p) : expTag(p)) + '</span></div>' +
+    '<div class="m">' + esc(p['职务'] || '') + '</div></div>';
+}
+function renderList() {
+  const t = q.trim(), hit = p => !t || [p['姓名'], p['职务'], p['在留资格'], p['编号'], p['国籍']].some(x => String(x || '').includes(t));
+  const L = P.filter(p => p['公司'] === co && hit(p)), cur = L.filter(p => !left(p)), gone = L.filter(left);
+  $('list').innerHTML = '<div class="sec">在职 ' + cur.length + ' 人（点名字看全部信息）</div>' + (cur.map(pRow).join('') || '<div class="empty">没有</div>') +
+    (gone.length ? '<div class="sec" style="cursor:pointer" onclick="showLeft=!showLeft;renderList()">' + (showLeft || t ? '▾' : '▸') + ' 名簿上已离职 ' + gone.length + ' 人</div>' + (showLeft || t ? gone.map(pRow).join('') : '') : '');
+}
+function openP(i) {
+  const p = P[i], ci = C[p['公司']] || {}, row = (k, v) => v ? '<dt>' + k + '</dt><dd>' + v + '</dd>' : '<dt>' + k + '</dt><dd style="color:var(--faint)">名簿没填</dd>';
+  const tel = p['电话'] ? '<a href="tel:' + esc(String(p['电话']).replace(/[^\d+]/g, '')) + '">' + esc(p['电话']) + '</a>' : '';
+  $('sheet').innerHTML = '<h3>' + esc(p['姓名']) + (left(p) ? ' <span class="tag n">已离职</span>' : '') + '<button onclick="closeP()">✕</button></h3>' +
+    '<div class="card"><dl class="kv">' +
+    row('公司', esc(ci['正式名'] || p['公司'])) + row('社員コード', esc(p['编号'] || '')) +
+    row('職務内容', esc(p['职务'] || '')) + row('入社日', p['入社'] ? esc(md(p['入社'])) + (p['在职年'] != null ? '（在职 ' + p['在职年'] + ' 年）' : '') : '') +
+    (p['店'] ? row('配属店舗', esc(p['店'])) : '') + '</dl></div>' +
+    '<div class="card"><dl class="kv">' +
+    row('在留資格', esc(p['在留资格'] || '')) + row('在留カード番号', esc(p['卡号'] || '')) +
+    row('在留期限', p['在留期限'] ? esc(md(p['在留期限'])) + ' ' + expTag(p) : '') + row('国籍', esc(p['国籍'] || '')) + '</dl></div>' +
+    '<div class="card"><dl class="kv">' +
+    row('性別', esc(p['性别'] || '')) + row('生年月日', p['生日'] ? esc(md(p['生日'])) + (p['年龄'] != null ? '（' + p['年龄'] + ' 岁）' : '') : '') +
+    row('住所', esc(p['住所'] || '')) + row('電話', tel) + '</dl></div>' +
+    (left(p) ? '<div class="card"><dl class="kv">' + row('退職日', esc(md(p['退职']) || p['退职'])) + row('入管届出日', esc(md(p['入管届出'] || ''))) +
+      (p['退职备注'] ? row('名簿备注', esc(p['退职备注'])) : '') + '</dl><p class="note">' + repTag(p) + '　离职后 14 天内要向入管报备（契約機関に関する届出）</p></div>' : '') +
+    (p['其他'] && p['其他'].length ? '<div class="card"><div class="note" style="margin:0 0 4px">名簿上其他几栏（没写栏名，原样）</div>' + p['其他'].map(esc).join('<br>') + '</div>' : '') +
+    '<p class="note">以上都是会计部名簿上登记的内容（原样）。要改请改名簿，第二天 APP 跟着变。</p>' +
+    '<div style="display:flex;gap:8px;margin-top:8px"><button class="btn" onclick="copyP(' + i + ')">📋 复制这个人的信息</button></div>';
+  $('mask').style.display = 'flex';
+  history.pushState({ vz: 1 }, '');
+}
+function closeP(fromPop) { if ($('mask').style.display !== 'flex') return; $('mask').style.display = 'none'; if (!fromPop) history.back(); }
+addEventListener('popstate', () => closeP(true));
+function copyP(i) {
+  const p = P[i], ci = C[p['公司']] || {};
+  const t = [ci['正式名'] || p['公司'], '氏名：' + p['姓名'], '社員コード：' + (p['编号'] || ''), '職務内容：' + (p['职务'] || ''), '入社日：' + md(p['入社'] || ''),
+    '在留資格：' + (p['在留资格'] || ''), '在留カード番号：' + (p['卡号'] || ''), '在留期限：' + md(p['在留期限'] || ''), '国籍：' + (p['国籍'] || ''),
+    '生年月日：' + md(p['生日'] || ''), '住所：' + (p['住所'] || ''), '電話：' + (p['电话'] || '')].join('\n');
+  (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(() => alert('已复制'), () => prompt('长按复制：', t));
+}
+load();
+addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && $('mask').style.display !== 'flex') load(); });
+</script>
+</body>
+</html>

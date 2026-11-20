@@ -285,7 +285,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
   addEventListener('touchcancel', () => { on = false; hide(); }, { passive: true });
 })();
 
-const APPV = 'yunying-v61';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v62';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);
 const PVST = IN_KZ && (localStorage.getItem('asRole') === 'staff' || localStorage.getItem('asStaff') === '1');   // 11/19 老板在空桌一览点「👀 运营部画面／店长画面」→ 按店长权限看
 function exitPreview() { ['asRole', 'asStaff', 'last', 'acrq'].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} }); location.href = './'; }
@@ -348,7 +348,8 @@ async function load() {
   } else pjErr = '网络不通，显示的是上次的数据';
   if (b.status === 'fulfilled') {
     const d = b.value;
-    if (d && Array.isArray(d.rows)) { HR = d; owner = true; hrErr = ''; cachePut('hr', d); }
+    // v62：人事数据里带着空桌一览「🛂 签证资料」的员工名簿（k=vz/vzc：在留卡号・住所・电话），运营部用不到 → 去掉，不进内存也不存进手机
+    if (d && Array.isArray(d.rows)) { d.rows = d.rows.filter(r => r.k !== 'vz' && r.k !== 'vzc'); HR = d; owner = true; hrErr = ''; cachePut('hr', d); }
     else if (d && d.error === 'owner') { HR = null; owner = false; LS.del('pjc_hr'); }
     else if (owner || (d && !d.error)) hrErr = '读不到人事评价（后台还没部署新版本）';
   }

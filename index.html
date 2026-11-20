@@ -581,7 +581,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
 })();
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v94';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v95';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -764,7 +764,7 @@ function render() {
   const rbStale = rbT && nowT && nowT - rbT > 45 * 60000 && nowT.getHours() >= 14, rbHm = rbT ? `${rbT.getHours()}:${String(rbT.getMinutes()).padStart(2, '0')}` : '—';
   rh.style.display = D.owner && !D.offline ? 'flex' : 'none';
   rh.className = rbStale ? 'warn' : '';
-  if (D.owner) rh.innerHTML = `<span>${rbStale ? `⚠ 预约 ${rbHm} 以后没读到（多半是 AirID 掉线）` : `📒 预约 ${rbHm} 更新`}</span><button onclick="openRelogin()">🖥️ 让电脑重新登录</button><button onclick="openDev()">📱 登录手机</button>`;
+  if (D.owner) rh.innerHTML = `<span>${rbStale ? `⚠ 预约 ${rbHm} 以后没读到（多半是 AirID 掉线）` : `📒 预约 ${rbHm} 更新`}</span><button onclick="openRelogin()">🖥️ 让电脑重新登录</button><button onclick="openDev()">📱 登录手机</button><button onclick="location.href='vz.html'">🛂 签证资料</button>`;
   // 合计
   // 11/15 三幸園（コーズ，另一个账号）：桌位照常列出来，但集团的空桌合计・营业中家数不算它
   const isSk = s => !D.sk && s.name === '三幸園';   // 11/16：三幸園店长密码（D.sk）只有这一家，照常算
