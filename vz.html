@@ -148,7 +148,7 @@ function render() {
   renderList();
 }
 function pRow(p) {
-  return '<div class="p' + (left(p) ? ' left' : '') + '" onclick="openP(' + P.indexOf(p) + ')"><div class="h"><b>' + esc(p['姓名']) + '</b>' + (p['读法'] ? '<small style="font-weight:400;color:var(--sub);margin-left:6px">' + esc(p['读法']) + '</small>' : '') +
+  return '<div class="p' + (left(p) ? ' left' : '') + '" onclick="openP(' + P.indexOf(p) + ')"><div class="h"><b>' + esc(p['姓名']) + '</b>' + (p['读法'] ? '<small style="font-weight:400;color:var(--sub);margin-left:6px">' + esc(p['读法']) + '</small>' : '') + (p['签证中'] ? ' <span class="tag y">签证办理中</span>' : '') +
     '<small style="color:var(--sub)">' + esc(p['在留资格'] || '在留资格没填') + '</small><span>' + (left(p) ? repTag(p) : expTag(p)) + '</span></div>' +
     '<div class="m">' + esc(p['职务'] || '') + '</div></div>';
 }
@@ -179,7 +179,7 @@ function zlHtml(z) {
 function openP(i) {
   const p = P[i], ci = C[p['公司']] || {}, row = (k, v) => v ? '<dt>' + k + '</dt><dd>' + v + '</dd>' : '<dt>' + k + '</dt><dd style="color:var(--faint)">名簿没填</dd>';
   const tel = p['电话'] ? '<a href="tel:' + esc(String(p['电话']).replace(/[^\d+]/g, '')) + '">' + esc(p['电话']) + '</a>' : '';
-  $('sheet').innerHTML = '<h3>' + esc(p['姓名']) + (p['读法'] ? '<small style="font-weight:400;color:var(--sub);margin-left:6px">' + esc(p['读法']) + '</small>' : '') + (left(p) ? ' <span class="tag n">已离职</span>' : '') + '<button onclick="closeP()">✕</button></h3>' +
+  $('sheet').innerHTML = '<h3>' + esc(p['姓名']) + (p['读法'] ? '<small style="font-weight:400;color:var(--sub);margin-left:6px">' + esc(p['读法']) + '</small>' : '') + (p['签证中'] ? ' <span class="tag y">签证办理中</span>' : '') + (left(p) ? ' <span class="tag n">已离职</span>' : '') + '<button onclick="closeP()">✕</button></h3>' +
     '<div class="card"><dl class="kv">' +
     row('公司', esc(ci['正式名'] || p['公司'])) + row('社員コード', esc(p['编号'] || '')) +
     row('職務内容', esc(p['职务'] || '')) + row('入社日', p['入社'] ? esc(md(p['入社'])) + (p['在职年'] != null ? '（在职 ' + p['在职年'] + ' 年）' : '') : '') +
