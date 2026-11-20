@@ -155,8 +155,13 @@ function pRow(p) {
 function renderList() {
   const t = q.trim(), hit = p => !t || [p['姓名'], p['职务'], p['在留资格'], p['编号'], p['国籍']].some(x => String(x || '').includes(t));
   const L = P.filter(p => p['公司'] === co && hit(p)), cur = L.filter(p => !left(p)), gone = L.filter(left);
-  $('list').innerHTML = '<div class="sec">在职 ' + cur.length + ' 人（点名字看全部信息）</div>' + (cur.map(pRow).join('') || '<div class="empty">没有</div>') +
-    (gone.length ? '<div class="sec" style="cursor:pointer" onclick="showLeft=!showLeft;renderList()">' + (showLeft || t ? '▾' : '▸') + ' 名簿上已离职 ' + gone.length + ' 人</div>' + (showLeft || t ? gone.map(pRow).join('') : '') : '');
+  // 11/20 用户：「红色底都是辞职的，可以做一个辞职键，然后辞职的人都放到里面去」→ 在职／辞职 两个按键切换
+  const tb = (on, label, n, v) => '<button onclick="showLeft=' + v + ';renderList()" style="flex:1;padding:9px 6px;border-radius:10px;font-weight:700;font-size:14.5px;border:1px solid ' +
+    (on ? 'var(--brand,#1d4ed8);background:var(--brand,#1d4ed8);color:#fff' : 'var(--line,#e5e7eb);background:var(--card,#fff);color:var(--ink,#111)') + '">' + label + ' ' + n + ' 人</button>';
+  $('list').innerHTML = '<div style="display:flex;gap:8px;margin:10px 0 6px">' + tb(!showLeft, '👥 在职', cur.length, 'false') + tb(showLeft, '🚪 辞职', gone.length, 'true') + '</div>' +
+    (showLeft
+      ? '<div class="note" style="margin:0 2px 4px">名簿上标红色（或写了退職日）的人。点名字看信息。</div>' + (gone.map(pRow).join('') || '<div class="empty">没有</div>')
+      : '<div class="note" style="margin:0 2px 4px">点名字看全部信息</div>' + (cur.map(pRow).join('') || '<div class="empty">没有</div>'));
 }
 // 11/20 用户：「会计部 従業員名簿 里面有工作内容资料，读取里面的信息，套用到他们的工作内容，显示到对称的其他公司的社员上；之前生成的可以保留和合并」
 //   电脑 签证资料_工作内容.py：入管提出的職務内容説明書（PDF→工作内容资料.json，原文）→ 本人的直接显示；别人按名簿職務找同类职务的一份当参考
