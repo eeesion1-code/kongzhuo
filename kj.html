@@ -88,7 +88,7 @@ textarea{min-height:120px;resize:vertical}
 // 11/18 用户：「单独的会计部键这个 APP 也做出来，因为给会计部看，然后让他们说有什么想更新的」。
 // 数据接口和「空桌一览」同一个后台（Apps Script）；会计部密码（或老板密码）才看得到。只有登记过的手机能用（手机编号 dv）。
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kuaiji-v13';
+const APPV = 'kuaiji-v14';
 // 11/19 自检：提需求「测试版 → 老板确认 → 正式版」流程跑通（这一行就是自检时上线的改动）
 const TEST = /\/test\//.test(location.pathname);
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 11/19 用户：「会计部跟运营部一样，不是 2 个网页」→ 空桌一览「🧾 会计」打开的是这份网页的副本 kongzhuo/kj.html（内容完全一样）   // 11/19 测试版（kuaiji/test/）：Claude 按需求改好先放这里，老板确认后才换成正式版   // 版本号：和 sw.js 的 V 一起改
@@ -169,7 +169,7 @@ function render() {
       + `<button class="btn sub" onclick="ask('${tab}')">💬 对这一页提意见</button></div>`;
   }
   $('body').innerHTML = h;
-  $('foot').innerHTML = `只有会计部密码和老板密码看得到。<br><a onclick="changeKey()">🔑 换密码</a>　版本 ${APPV.replace('kuaiji-v', '')}`;
+  $('foot').innerHTML = `只有会计部密码和股东密码看得到。<br><a onclick="changeKey()">🔑 换密码</a>　版本 ${APPV.replace('kuaiji-v', '')}`;
 }
 
 // ===== 11/19 📋 事项汇报（GitHub kuaiji《事项汇报模块_指令.md》）=====
@@ -303,8 +303,8 @@ async function sxAdd() {
 // 💡 提需求：员工写 → Claude 每天 19:00 做成测试版（kuaiji/test/）→ 老板在这里看测试版、按 ✅ 上线 / ↩ 退回 → 电脑脚本换成正式版。
 // 11/20 改：电脑每 5 分钟查、一提就做 →「部门确认中」部门先看（满意交老板 act=dok／还要改 act=dback）→ 老板・副社长在这里或空桌一览「✅ 上线审批」上线。
 // 数据在后台（what=acreq），云端表格「会计部意见」工作表。碰到 营业额谁能看・密码登录・删数据・改后台 的需求，Claude 不自己做，放「等老板定」。
-const RQ_PILL = { '新': ['p0', '已收到，等处理'], '处理中': ['p2', 'Claude 在做'], '部门确认中': ['p3', '测试版做好了，请部门看'], '做好待确认': ['p2', '部门满意，等老板上线'], '要问你': ['p3', '要你补充'], '等老板定': ['p2', '等老板决定'],
-  '退回修改': ['p2', '退回，Claude 重新改'], '上线中': ['p1', '老板同意，马上上线'], '已上线': ['p1', '✓ 已上线'], '不做': ['p0', '这次不做'] };
+const RQ_PILL = { '新': ['p0', '已收到，等处理'], '处理中': ['p2', 'Claude 在做'], '部门确认中': ['p3', '测试版做好了，请部门看'], '做好待确认': ['p2', '部门满意，等股东上线'], '要问你': ['p3', '要你补充'], '等老板定': ['p2', '等股东决定'],
+  '退回修改': ['p2', '退回，Claude 重新改'], '上线中': ['p1', '股东同意，马上上线'], '已上线': ['p1', '✓ 已上线'], '不做': ['p0', '这次不做'] };
 let rqDb = false;   // 11/20 部门「还要改」输入框
 let RQ = (() => { try { return JSON.parse(LS.get('acrq', 'null')); } catch (e) { return null; } })(), rqBusy = false, rqErr = '', rqAt = 0, rqOpen = '', rqMsg = '', rqBack = false;
 async function loadRq() {
@@ -319,7 +319,7 @@ async function loadRq() {
 async function rqDo(q, okText) {
   sendMsg = ''; rqMsg = '<div class="note">保存中…</div>'; render();   // 上一次的提示先清掉
   try {
-    const d = await api('&what=acreq' + q + '&who=' + encodeURIComponent(LS.get('acWho', '') || (RQ && RQ.owner ? '老板' : '')));
+    const d = await api('&what=acreq' + q + '&who=' + encodeURIComponent(LS.get('acWho', '') || (RQ && RQ.owner ? '股东' : '')));
     if (d.error) throw new Error(d.error === 'device' ? '这台手机没登记' : d.error);
     RQ = d; LS.set('acrq', JSON.stringify(d)); rqOpen = ''; rqBack = false; rqMsg = `<div class="ok">✓ ${okText}</div>`;
   } catch (e) { rqMsg = `<div class="err">没保存：${esc(e.message)}</div>`; }
@@ -327,14 +327,14 @@ async function rqDo(q, okText) {
 }
 function rqOk() { rqDo('&act=ok', '已同意上线：电脑 10 分钟内换成正式版，大家手机自动更新。'); }
 function rqBackGo() { const w = ($('rqwhy') || {}).value || ''; if (!w.trim()) { rqMsg = '<div class="err">请写退回的原因（哪里不对、要怎么改）</div>'; return render(); } rqDo('&act=back&why=' + encodeURIComponent(w.trim()), '已退回，Claude 下次按你写的重新改。'); }
-function rqDok() { rqDo('&act=dok', '已交给老板・副社长：他们按「上线」后大家手机自动更新。'); }
+function rqDok() { rqDo('&act=dok', '已交给股东：他们按「上线」后大家手机自动更新。'); }
 function rqDbackGo() { const w = ($('rqdwhy') || {}).value || ''; if (!w.trim()) { rqMsg = '<div class="err">请写还要改哪里、怎么改</div>'; return render(); } rqDb = false; rqDo('&act=dback&why=' + encodeURIComponent(w.trim()), '收到，Claude 一般 30 分钟内接着改，改好再请你们看。'); }
 function rqYes(id, yes) { rqDo('&act=' + (yes ? 'yes' : 'no') + '&id=' + id, yes ? '同意做，Claude 下次处理。' : '这条不做了。'); }
 function rqReply(id) { const v = ($('rqr_' + id) || {}).value || ''; if (!v.trim()) return; rqDo('&act=reply&id=' + id + '&v=' + encodeURIComponent(v.trim()), '补充好了，Claude 下次一起处理。'); }
 function rqToggle(id) { rqOpen = rqOpen === id ? '' : id; rqMsg = ''; render(); }
 function renderRq() {
   let h = `<div class="card"><div class="ct">💡 想改什么、想加什么，直接写</div><div class="note">例：「事项汇报想加一个“明天提醒我”」「要付的钱想提前 7 天提醒」。<br>`
-    + `提了以后：<b>Claude 一般 30 分钟内做好</b>，先放<b>测试版</b> → <b>你们先看</b>，还要改就写意见、满意就按「交老板」 → <b>老板・副社长按「上线」</b> → 大家手机自动更新。写不清楚的，Claude 会在下面问你。</div>`
+    + `提了以后：<b>Claude 一般 30 分钟内做好</b>，先放<b>测试版</b> → <b>你们先看</b>，还要改就写意见、满意就按「交股东」 → <b>股东按「上线」</b> → 大家手机自动更新。写不清楚的，Claude 会在下面问你。</div>`
     + `<input id="mw" placeholder="你的名字（例：王）" value="${esc(LS.get('acWho', ''))}" maxlength="20">`
     + `<textarea id="mv" placeholder="写在这里（最多 1000 字）：哪一页、想改成什么样" maxlength="1000">${esc(draft)}</textarea>`
     + `<button class="btn" id="msend" onclick="send()">发送</button>${sendMsg}</div>`;
@@ -346,9 +346,9 @@ function renderRq() {
     h += `<div class="card" style="border:2px solid #2563eb"><div class="ct">🧪 测试版做好了：请先看（${dept.length} 条）</div>`
       + dept.map(r => `<div class="row"><b>${esc(r.id)}</b>　<small>${esc(r.who)}　${esc(r.t.slice(5))}</small><div>${esc(r.v)}</div>${r.note ? `<div class="note">🛠 Claude：${esc(r.note)}</div>` : ''}</div>`).join('')
       + `<a class="btn sub" style="text-align:center;text-decoration:none" href="${esc(url)}" target="_blank">🧪 打开测试版看看</a>`
-      + `<div class="bt3" style="grid-template-columns:1fr 1fr"><button class="b1" onclick="rqDok()">👍 满意，交老板</button><button class="b3" onclick="rqDb=!rqDb;rqMsg='';render()">✏️ 还要改</button></div>`
+      + `<div class="bt3" style="grid-template-columns:1fr 1fr"><button class="b1" onclick="rqDok()">👍 满意，交股东</button><button class="b3" onclick="rqDb=!rqDb;rqMsg='';render()">✏️ 还要改</button></div>`
       + (rqDb ? `<div class="stk"><textarea id="rqdwhy" placeholder="还要改哪里、改成什么样（必填）" maxlength="500"></textarea><button class="btn" onclick="rqDbackGo()">交给 Claude 接着改</button></div>` : '')
-      + `<div class="note">在测试版里可以随便看；按的按钮会真的记下来。${RQ.owner ? '你是老板：也可以在空桌一览「✅ 上线审批」直接上线。' : ''}</div>${wait.length ? '' : rqMsg}</div>`;
+      + `<div class="note">在测试版里可以随便看；按的按钮会真的记下来。${RQ.owner ? '你是股东：也可以在空桌一览「✅ 上线审批」直接上线。' : ''}</div>${wait.length ? '' : rqMsg}</div>`;
   }
   if (RQ.owner && wait.length) {
     const url = (wait.find(r => r.test) || {}).test || '../kuaiji/test/';
@@ -496,7 +496,7 @@ function renderNs() {
   const ms = Object.keys(byM).sort().reverse();
   if (ms.length) h += `<div class="grp">📅 每月讨回来的钱</div><div class="card">` + ms.map(m => { const b = byM[m];
     return `<div class="row"><b>${m.slice(0, 4)}年${+m.slice(5)}月</b>　` + (b.h ? `收回 <b>${yen(b.h)}</b><br><small>${Object.entries(b.co).sort((x, y) => y[1] - x[1]).map(([c, v]) => esc(c) + ' ' + yen(v)).join('・')}</small>` : `请求 ${yen(b.q)}　已到账 <b>${yen(b.g)}</b>`) + '</div>'; }).join('')
-    + `<div class="note">2〜10 月是老板给的「お客様から返金」表（各公司合计）；11 月起是 APP 里一单一单确认的。</div></div>`;
+    + `<div class="note">2〜10 月是股东给的「お客様から返金」表（各公司合计）；11 月起是 APP 里一单一单确认的。</div></div>`;
   return h;
 }
 async function send() {
@@ -506,13 +506,13 @@ async function send() {
   try {
     const d = await api('&what=acmsg&who=' + encodeURIComponent(who) + '&v=' + encodeURIComponent(v));
     if (d.error) throw new Error(d.error === 'device' ? '这台手机没登记' : d.error);
-    AC = d; LS.set('acc', JSON.stringify(d)); draft = ''; sendMsg = '<div class="ok">✓ 收到了。Claude 一般 30 分钟内做好测试版，你们先看，满意了交老板上线。进度看下面。</div>'; rqAt = 0; loadRq();
+    AC = d; LS.set('acc', JSON.stringify(d)); draft = ''; sendMsg = '<div class="ok">✓ 收到了。Claude 一般 30 分钟内做好测试版，你们先看，满意了交股东上线。进度看下面。</div>'; rqAt = 0; loadRq();
   } catch (e) { sendMsg = `<div class="err">没发出去：${esc(e.message)}。内容还在，等一下再按一次。</div>`; }
   render();
 }
 if (!TEST && !IN_KZ && 'serviceWorker' in navigator && location.protocol === 'https:') navigator.serviceWorker.register('sw.js').catch(() => {});
 if (IN_KZ) $('kzback').style.display = '';
-if (PVAC) document.body.insertAdjacentHTML('afterbegin', '<div id="pvbar" style="position:sticky;top:0;z-index:60;background:#facc15;color:#422006;font-size:14px;font-weight:700;padding:calc(8px + env(safe-area-inset-top)) 12px 8px;display:flex;align-items:center;gap:8px"><span style="flex:1">👀 正在看会计部画面（会计部的人看到的样子）</span><button onclick="exitPreview()" style="border:0;border-radius:999px;background:#422006;color:#fff;padding:6px 12px;font-weight:700">回到老板画面</button></div>');
+if (PVAC) document.body.insertAdjacentHTML('afterbegin', '<div id="pvbar" style="position:sticky;top:0;z-index:60;background:#facc15;color:#422006;font-size:14px;font-weight:700;padding:calc(8px + env(safe-area-inset-top)) 12px 8px;display:flex;align-items:center;gap:8px"><span style="flex:1">👀 正在看会计部画面（会计部的人看到的样子）</span><button onclick="exitPreview()" style="border:0;border-radius:999px;background:#422006;color:#fff;padding:6px 12px;font-weight:700">回到股东画面</button></div>');
 if (TEST) document.body.insertAdjacentHTML('afterbegin', '<div class="testbar">🧪 测试版（还没上线）　在这里按的按钮会真的记下来　<a href="./">回正式版</a></div>');
 async function checkUpdate() {
   if (TEST || IN_KZ) return;

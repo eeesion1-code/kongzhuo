@@ -69,12 +69,12 @@ const PILL = { '新': ['', '新需求，等 Claude 做'], '处理中': ['b', 'Cl
   '等老板定': ['w', '等你决定'], '退回修改': ['b', '退回，Claude 重新改'], '上线中': ['g', '已同意，10 分钟内上线'] };
 let D = null, err = '', busy = false, msg = {}, backOpen = '';
 async function load() {
-  if (!K) { $('main').innerHTML = '<div class="empty">请先在空桌一览用老板・副社长密码登录。<br><a href="./">去空桌一览</a></div>'; return; }
+  if (!K) { $('main').innerHTML = '<div class="empty">请先在空桌一览用股东密码登录。<br><a href="./">去空桌一览</a></div>'; return; }
   busy = true; $('at').textContent = '读取中…';
   try {
     const d = await api('&act=all');
     if (d && d.apps) { D = d; err = ''; }
-    else err = d && d.error === 'owner' ? '这一页只有老板・副社长密码能看' : d && d.error === 'device' ? '这台设备还没登记' : d && d.rows ? '后台还没更新到多部门版' : '读不到（' + ((d && d.error) || '') + '）';
+    else err = d && d.error === 'owner' ? '这一页只有股东密码能看' : d && d.error === 'device' ? '这台设备还没登记' : d && d.rows ? '后台还没更新到多部门版' : '读不到（' + ((d && d.error) || '') + '）';
   } catch (e) { err = '读不到（' + e.message + '）'; }
   busy = false; render();
 }
@@ -100,7 +100,7 @@ function render() {
   let h = err ? `<div class="msg e">${esc(err)}（显示的是上次读到的）</div>` : '';
   h += `<div class="sum"><div class="w"><small>等你上线（部门已满意）</small><b>${n(['做好待确认'])}</b></div><div class="w"><small>等你决定</small><b>${n(['等老板定'])}</b></div>`
     + `<div><small>部门在看测试版</small><b>${n(['部门确认中'])}</b></div><div><small>Claude 在做・在问员工</small><b>${n(['新', '处理中', '退回修改', '要问你'])}</b></div></div>`;
-  h += '<div class="note">你和副社长谁按都可以。每个部门同一时间只有一个测试版：几条需求一起上线；只想要其中几条，就退回写「第几条不要」。</div>';
+  h += '<div class="note">股东谁按都可以。每个部门同一时间只有一个测试版：几条需求一起上线；只想要其中几条，就退回写「第几条不要」。</div>';
   apps.forEach(a => {
     const ready = a.rows.filter(r => r.st === '做好待确认'), look = a.rows.filter(r => r.st === '部门确认中'), boss = a.rows.filter(r => r.st === '等老板定');
     const other = a.rows.filter(r => !['做好待确认', '部门确认中', '等老板定'].includes(r.st)), m = msg[a.app];

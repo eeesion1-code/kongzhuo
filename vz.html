@@ -103,15 +103,15 @@ const needRep = p => left(p) && !p['入管届出'] && !oldLeft(p);
 const expWarn = p => !left(p) && p['剩天'] != null && p['剩天'] <= 90;
 
 async function load() {
-  if (!K) { $('main').innerHTML = '<div class="empty">请先在空桌一览用老板密码登录</div>'; return; }
-  if (PV()) { $('main').innerHTML = '<div class="empty">现在是「看店长画面」预览，签证资料只给老板看。<br><br><a href="./">‹ 回空桌一览</a></div>'; return; }
+  if (!K) { $('main').innerHTML = '<div class="empty">请先在空桌一览用股东密码登录</div>'; return; }
+  if (PV()) { $('main').innerHTML = '<div class="empty">现在是「看店长画面」预览，签证资料只给股东看。<br><br><a href="./">‹ 回空桌一览</a></div>'; return; }
   try {
     const d = await api('&what=hr');
     if (d && Array.isArray(d.rows)) {
       P = d.rows.filter(r => r.k === 'vz'); C = {}; d.rows.filter(r => r.k === 'vzc').forEach(r => C[r['公司']] = r); AT = d.at || '';
       if (!P.length && !Object.keys(C).length) { $('main').innerHTML = '<div class="empty">还没有签证资料（电脑每天 6:00・9:00・12:00 上传）</div>'; return; }
       render();
-    } else if (d && d.error === 'owner') $('main').innerHTML = '<div class="empty">🔒 签证资料只给老板密码看</div>';
+    } else if (d && d.error === 'owner') $('main').innerHTML = '<div class="empty">🔒 签证资料只给股东密码看</div>';
     else if (d && d.error === 'device') $('main').innerHTML = '<div class="empty">🔒 这台手机还没登记，不能使用</div>';
     else $('main').innerHTML = '<div class="empty">读不到（' + esc((d && d.error) || '') + '），请稍后再开</div>';
   } catch (e) { $('main').innerHTML = '<div class="empty">网络不通，请稍后再开</div>'; }

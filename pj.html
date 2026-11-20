@@ -285,7 +285,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
   addEventListener('touchcancel', () => { on = false; hide(); }, { passive: true });
 })();
 
-const APPV = 'yunying-v64';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v65';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);
 const PVST = IN_KZ && (localStorage.getItem('asRole') === 'staff' || localStorage.getItem('asStaff') === '1');   // 11/19 老板在空桌一览点「👀 运营部画面／店长画面」→ 按店长权限看
 function exitPreview() { ['asRole', 'asStaff', 'last', 'acrq'].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} }); location.href = './'; }
@@ -379,7 +379,7 @@ function blockDevice(d) {
 }
 let LOADING = false;
 function showKey(msg) {
-  $('main').innerHTML = '<div class="keybox"><img src="icon-192.png" alt="" style="width:64px;height:64px;border-radius:14px"><p>请输入密码（和空桌一览同一个）<br><span class="note">老板密码看得到人事评价・卫生检查；店长密码只看评价；人事部密码只看人事</span></p><input id="kin" type="password" autocomplete="off"><button onclick="saveKey()">确定</button><p class="note" style="color:var(--bad)">' + esc(msg || '') + '</p></div>';
+  $('main').innerHTML = '<div class="keybox"><img src="icon-192.png" alt="" style="width:64px;height:64px;border-radius:14px"><p>请输入密码（和空桌一览同一个）<br><span class="note">股东密码看得到人事评价・卫生检查；店长密码只看评价；人事部密码只看人事</span></p><input id="kin" type="password" autocomplete="off"><button onclick="saveKey()">确定</button><p class="note" style="color:var(--bad)">' + esc(msg || '') + '</p></div>';
 }
 function saveKey() { const v = $('kin').value.trim(); if (!v) return; K = v; LS.set('k', K); try { Object.keys(localStorage).filter(k => k.indexOf('pjc_') === 0).forEach(k => localStorage.removeItem(k)); } catch (e) {} LS.del('pjRole'); HRONLY = false; PJ = HR = XQ = null; owner = false; load(); }   // 11/20 换密码（例：人事部↔店长）时清掉全部 pjc_ 缓存
 function changeKey() { showKey(''); }
@@ -399,7 +399,7 @@ function render() {
   $('at').textContent = (at ? at.slice(5).replace('-', '/') + ' 更新' : '') + (tab === 'rk' ? (rkBusy ? '・读取最新中…' : '') : tab === 'qr' ? (qrBusy ? '・读取最新中…' : '') : LOADING ? '・读取最新中…' : (pjErr && tab !== 'hr' && tab !== 'sy' && tab !== 'hy') ? '・⚠ 没读到最新（显示的是上次的）' : '');
   { const sb = tab !== 'hr' && tab !== 'sy' && tab !== 'hy' && tab !== 'xq' ? selBar() : '', sh = $('selh'); if (sh && sh.innerHTML !== sb && !(document.activeElement && sh.contains(document.activeElement))) sh.innerHTML = sb; }   // v55：店铺选择放进顶上固定栏，往下滑也一直在
   patchMain((tab === 'hr' ? renderHr() : tab === 'sy' ? renderSy() : tab === 'hy' ? renderHy() : tab === 'ty' ? renderTy() : tab === 'yc' ? renderYc() : tab === 'qr' ? renderQr() : tab === 'rk' ? renderRk() : tab === 'cl' ? renderCl() : tab === 'xq' ? renderXq() : renderPj()) +
-    '<div class="foot"><a onclick="changeKey()">🔑 换密码（老板 / 店长 / 人事部）</a>' + (IN_KZ ? '' : '　版本 ' + APPV.replace('yunying-v', '')) + '</div>');
+    '<div class="foot"><a onclick="changeKey()">🔑 换密码（股东 / 店长 / 人事部）</a>' + (IN_KZ ? '' : '　版本 ' + APPV.replace('yunying-v', '')) + '</div>');
 }
 const stars = s => s == null ? '' : '<span class="stars">' + '★'.repeat(Math.round(s)) + '<span style="opacity:.25">' + '★'.repeat(5 - Math.round(s)) + '</span></span>';
 function brandShort(n) {
@@ -440,11 +440,11 @@ function trendCard(T) {
 //   → 老板在这里看测试版、按 ✅ 上线 / ↩ 退回 → 电脑脚本换成正式版。后台 what=acreq&app=yy，云端表格「运营部需求」工作表。
 //   碰到 营业额谁能看・密码登录・删数据・改后台 的需求，Claude 不自己做，放「等老板定」。
 // 11/20 改：电脑每 5 分钟查、一提就做 →「部门确认中」部门先看（满意交老板 act=dok／还要改 act=dback）→ 老板・副社长在这里或空桌一览「✅ 上线审批」上线。
-const XQ_PILL = { '新': ['p0', '已收到，等处理'], '处理中': ['p2', 'Claude 在做'], '部门确认中': ['p3', '测试版做好了，请你们看'], '做好待确认': ['p2', '部门满意，等老板上线'], '要问你': ['p3', '要你补充'], '等老板定': ['p2', '等老板决定'],
-  '退回修改': ['p2', '退回，Claude 重新改'], '上线中': ['p1', '老板同意，马上上线'], '已上线': ['p1', '✓ 已上线'], '不做': ['p0', '这次不做'] };
+const XQ_PILL = { '新': ['p0', '已收到，等处理'], '处理中': ['p2', 'Claude 在做'], '部门确认中': ['p3', '测试版做好了，请你们看'], '做好待确认': ['p2', '部门满意，等股东上线'], '要问你': ['p3', '要你补充'], '等老板定': ['p2', '等股东决定'],
+  '退回修改': ['p2', '退回，Claude 重新改'], '上线中': ['p1', '股东同意，马上上线'], '已上线': ['p1', '✓ 已上线'], '不做': ['p0', '这次不做'] };
 let XQ = cacheGet('xq'), xqBusy = false, xqErr = '', xqAt = 0, xqOpen = '', xqMsg = '', xqBack = false, xqDb = false;
 const xqApp = () => HRONLY || /\/test-hr\//.test(location.pathname) ? 'hr' : 'yy';   // 11/20 人事部的需求单独一张表（编号 H）
-const xqApi = q => api('acreq&app=' + xqApp() + q + '&who=' + encodeURIComponent(LS.get('xqWho', '') || (XQ && XQ.owner ? '老板' : '')));
+const xqApi = q => api('acreq&app=' + xqApp() + q + '&who=' + encodeURIComponent(LS.get('xqWho', '') || (XQ && XQ.owner ? '股东' : '')));
 async function loadXq(force) {
   if (xqBusy || (!force && Date.now() - xqAt < 20000)) return; xqBusy = true; xqAt = Date.now();
   try {
@@ -468,18 +468,18 @@ function xqSend() {
   const v = ($('xqv') || {}).value || '', who = ($('xqw') || {}).value || '';
   if (!v.trim()) { xqMsg = '<div class="err">内容还是空的</div>'; return render(); }
   LS.set('xqWho', who.trim());
-  xqDo('&act=add&v=' + encodeURIComponent(v.trim()), '收到了。Claude 一般 30 分钟内做好测试版，你们先看，满意了交老板上线。进度看下面。', () => { const e = $('xqv'); if (e) e.value = ''; });
+  xqDo('&act=add&v=' + encodeURIComponent(v.trim()), '收到了。Claude 一般 30 分钟内做好测试版，你们先看，满意了交股东上线。进度看下面。', () => { const e = $('xqv'); if (e) e.value = ''; });
 }
 function xqOk() { xqDo('&act=ok', '已同意上线：电脑 10 分钟内换成正式版，大家手机自动更新。'); }
 function xqBackGo() { const w = ($('xqwhy') || {}).value || ''; if (!w.trim()) { xqMsg = '<div class="err">请写退回的原因（哪里不对、要怎么改）</div>'; return render(); } xqDo('&act=back&why=' + encodeURIComponent(w.trim()), '已退回，Claude 下次按你写的重新改。'); }
-function xqDok() { xqDo('&act=dok', '已交给老板・副社长：他们按「上线」后大家手机自动更新。'); }
+function xqDok() { xqDo('&act=dok', '已交给股东：他们按「上线」后大家手机自动更新。'); }
 function xqDbGo() { const w = ($('xqdwhy') || {}).value || ''; if (!w.trim()) { xqMsg = '<div class="err">请写还要改哪里、怎么改</div>'; return render(); } xqDb = false; xqDo('&act=dback&why=' + encodeURIComponent(w.trim()), '收到，Claude 一般 30 分钟内接着改，改好再请你们看。'); }
 function xqYes(id, yes) { xqDo('&act=' + (yes ? 'yes' : 'no') + '&id=' + id, yes ? '同意做，Claude 下次处理。' : '这条不做了。'); }
 function xqReply(id) { const v = ($('xqr_' + id) || {}).value || ''; if (!v.trim()) return; xqDo('&act=reply&id=' + id + '&v=' + encodeURIComponent(v.trim()), '补充好了，Claude 下次一起处理。'); }
 function xqToggle(id) { xqOpen = xqOpen === id ? '' : id; xqMsg = ''; render(); }
 function renderXq() {
   let h = `<div class="xq"><div class="card"><div class="ct">💡 想改什么、想加什么，直接写</div><div class="note">例：「评价页想按店长分开看」「预约异常想早上 9 点推送」。<br>`
-    + `提了以后：<b>Claude 一般 30 分钟内做好</b>，先放<b>测试版</b> → <b>你们先看</b>，还要改就写意见、满意就按「交老板」 → <b>老板・副社长按「上线」</b> → 大家手机自动更新。写不清楚的，Claude 会在下面问你。</div>`
+    + `提了以后：<b>Claude 一般 30 分钟内做好</b>，先放<b>测试版</b> → <b>你们先看</b>，还要改就写意见、满意就按「交股东」 → <b>股东按「上线」</b> → 大家手机自动更新。写不清楚的，Claude 会在下面问你。</div>`
     + `<input id="xqw" placeholder="你的名字・店名（例：上野 王）" value="${esc(LS.get('xqWho', ''))}" maxlength="20">`
     + `<textarea id="xqv" placeholder="写在这里（最多 1000 字）：哪一页、想改成什么样" maxlength="1000"></textarea>`
     + `<button class="xbtn" onclick="xqSend()">发送</button>${xqOpen ? '' : xqMsg}</div>`;
@@ -491,9 +491,9 @@ function renderXq() {
     h += `<div class="card" style="border:2px solid #2563eb"><div class="ct">🧪 测试版做好了：请先看（${dept.length} 条）</div>`
       + dept.map(r => `<div class="row"><b>${esc(r.id)}</b>　<small>${esc(r.who)}　${esc(r.t.slice(5))}</small><div style="white-space:pre-wrap">${esc(r.v)}</div>${r.note ? `<div class="note">🛠 Claude：${esc(r.note)}</div>` : ''}</div>`).join('')
       + `<a class="xbtn sub" href="${esc(url)}" target="_blank">🧪 打开测试版看看</a>`
-      + `<div class="two"><button class="g" onclick="xqDok()">👍 满意，交老板</button><button class="r" onclick="xqDb=!xqDb;xqMsg='';render()">✏️ 还要改</button></div>`
+      + `<div class="two"><button class="g" onclick="xqDok()">👍 满意，交股东</button><button class="r" onclick="xqDb=!xqDb;xqMsg='';render()">✏️ 还要改</button></div>`
       + (xqDb ? `<textarea id="xqdwhy" placeholder="还要改哪里、改成什么样（必填）" maxlength="500"></textarea><button class="xbtn" onclick="xqDbGo()">交给 Claude 接着改</button>${xqMsg}` : '')
-      + `<div class="note">在测试版里可以随便看；按的按钮会真的记下来。${XQ.owner ? '你是老板：也可以在空桌一览「✅ 上线审批」直接上线。' : ''}</div></div>`;
+      + `<div class="note">在测试版里可以随便看；按的按钮会真的记下来。${XQ.owner ? '你是股东：也可以在空桌一览「✅ 上线审批」直接上线。' : ''}</div></div>`;
   }
   if (XQ.owner && wait.length) {
     const url = (wait.find(r => r.test) || {}).test || 'test/';
@@ -1735,7 +1735,7 @@ function tgHy(k) { hyOpen.has(k) ? hyOpen.delete(k) : hyOpen.add(k); render(); }
 
 // 独立 APP：显示图标、注册 sw.js（加到主屏幕用）、打开或切回来时看 sw.js 版本号，变了就重新载入一次
 if (IN_KZ) $('back').style.display = ''; else $('logo').style.display = '';
-if (PVST) document.body.insertAdjacentHTML('afterbegin', '<div id="pvbar" style="position:sticky;top:0;z-index:60;background:#facc15;color:#422006;font-size:14px;font-weight:700;padding:calc(8px + env(safe-area-inset-top)) 12px 8px;display:flex;align-items:center;gap:8px"><span style="flex:1">👀 正在看运营部画面（店长看到的样子）</span><button onclick="exitPreview()" style="border:0;border-radius:999px;background:#422006;color:#fff;padding:6px 12px;font-weight:700">回到老板画面</button></div>');
+if (PVST) document.body.insertAdjacentHTML('afterbegin', '<div id="pvbar" style="position:sticky;top:0;z-index:60;background:#facc15;color:#422006;font-size:14px;font-weight:700;padding:calc(8px + env(safe-area-inset-top)) 12px 8px;display:flex;align-items:center;gap:8px"><span style="flex:1">👀 正在看运营部画面（店长看到的样子）</span><button onclick="exitPreview()" style="border:0;border-radius:999px;background:#422006;color:#fff;padding:6px 12px;font-weight:700">回到股东画面</button></div>');
 if (!IN_KZ && !LOCAL && !TEST && 'serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
 if (TEST) document.body.insertAdjacentHTML('afterbegin', '<div class="testbar">🧪 测试版（还没上线）　在这里按的按钮会真的记下来　<a href="./">回正式版</a></div>');
 async function checkUpdate() {

@@ -584,7 +584,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
 })();
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v97';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v98';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -609,7 +609,7 @@ const KQ = () => '&k=' + encodeURIComponent(K) + '&dv=' + DV + '&ua=' + encodeUR
 function previewAs(r, page) { LS.set('asRole', r); ['asStaff', 'last', 'acrq'].forEach(k => LS.del(k)); if (page) location.href = page; else location.reload(); }
 function previewStaff() { previewAs('staff'); }
 function exitPreview() { ['asRole', 'asStaff', 'last', 'acrq'].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} }); location.href = './'; }
-if (ASSTAFF) document.body.insertAdjacentHTML('afterbegin', '<div id="pvbar" style="position:sticky;top:0;z-index:60;background:#facc15;color:#422006;font-size:14px;font-weight:700;padding:calc(8px + env(safe-area-inset-top)) 12px 8px;display:flex;align-items:center;gap:8px"><span style="flex:1">👀 正在看店长画面（店长・预约中心看到的样子）</span><button onclick="exitPreview()" style="border:0;border-radius:999px;background:#422006;color:#fff;padding:6px 12px;font-weight:700">回到老板画面</button></div>');
+if (ASSTAFF) document.body.insertAdjacentHTML('afterbegin', '<div id="pvbar" style="position:sticky;top:0;z-index:60;background:#facc15;color:#422006;font-size:14px;font-weight:700;padding:calc(8px + env(safe-area-inset-top)) 12px 8px;display:flex;align-items:center;gap:8px"><span style="flex:1">👀 正在看店长画面（店长・预约中心看到的样子）</span><button onclick="exitPreview()" style="border:0;border-radius:999px;background:#422006;color:#fff;padding:6px 12px;font-weight:700">回到股东画面</button></div>');
 // 密码：网址里的 #k=… 或 ?k=…，第一次带进来就记在这台手机上（加到主屏幕后 iPhone 要在 APP 里再输一次）
 const fromUrl = (location.hash.match(/k=([^&]+)/) || location.search.match(/[?&]k=([^&]+)/) || [])[1];
 if (fromUrl) { K = decodeURIComponent(fromUrl); LS.set('k', K); history.replaceState(null, '', location.pathname); }
@@ -633,7 +633,7 @@ function saveKey() {
 // 11/13 换密码（老板 / 店长）：iPhone 加到主屏幕的 APP 记着旧密码，只能在这里换
 function changeKey() {
   document.getElementById('kin').value = '';
-  document.getElementById('ktip').textContent = '输入新密码（老板密码可以看集团总营业额）';
+  document.getElementById('ktip').textContent = '输入新密码（股东密码可以看集团总营业额）';
   showKey('');
   document.getElementById('kcancel').style.display = D ? 'block' : 'none';
 }
@@ -825,7 +825,7 @@ function render() {
   if (!list.length) h += `<div id="msg">${tab === 'fav' ? '还没有「我的店」。在店名左边点 ☆ 就能加进来。' : tab === 'free' ? '现在没有空桌的店' : '没有符合的店'}</div>`;
   h += '<div class="legend">' + [['free', '空桌'], ['used', '使用中'], ['remind', '放题快结束'], ['lo', 'L.O.'], ['over', '放题超时'], ['held', '预约留桌（不算空桌）']]
     .map(([c, t]) => `<span><i style="background:${c === 'used' ? 'var(--usedBg);border:1px solid var(--line)' : COLOR[c]}"></i>${t}</span>`).join('') + '</div>';
-  h += '<div class="foot">桌子格子：桌号、人数、坐了多久（从开台算）。点格子看详细。营业额和预约客人姓名不显示。<br>每分钟自动更新；数据来自实时桌位程序，约每 8 分钟读一次收银台。<br><a class="keylink" onclick="changeKey()">🔑 换密码（老板 / 店长）</a>' + (D.owner ? '　<a class="keylink" onclick="openRelogin()">🖥️ 让电脑重新登录</a>' : '') + '　版本 ' + APPV.replace('kongzhuo-v', '') + '</div>';
+  h += '<div class="foot">桌子格子：桌号、人数、坐了多久（从开台算）。点格子看详细。营业额和预约客人姓名不显示。<br>每分钟自动更新；数据来自实时桌位程序，约每 8 分钟读一次收银台。<br><a class="keylink" onclick="changeKey()">🔑 换密码（股东 / 店长）</a>' + (D.owner ? '　<a class="keylink" onclick="openRelogin()">🖥️ 让电脑重新登录</a>' : '') + '　版本 ' + APPV.replace('kongzhuo-v', '') + '</div>';
   patchList(document.getElementById('list'), h);
 }
 // 11/14 用户：手机上不丝滑 → 以前每 30 秒、每点一下都把整页（晚上 32 家・600 多张桌子、约 1,500 个元素）全部重画，手机上一次 40〜70 毫秒。
@@ -933,7 +933,7 @@ function pwView() {
     + `还没排好的店 <b class="${bad ? 'rr' : 'g'}">${bad}</b> 家　大团（8 人以上）没排 <b class="${big ? 'rr' : 'g'}">${big}</b> 组${clash ? `　撞桌 <b class="rr">${clash}</b> 处` : ''}</div>`;
   if (!list.length) h += '<div id="msg">这一天没有符合的店（或还没有预约）</div>';
   h += '<div class="grid">' + list.map(pwCard).join('') + '</div>';
-  h += '<div class="foot">排位率＝已经指定桌号的预约组数 ÷ 全部预约组数（90% 以上算排好）。最大＝各店座位表格（11/13 老板发的）：席位数＝最多几组、人数＝最多几人（坐一轮；2 回转可以再多接）。<br>点店名看还没排的预约和「建议排法」——是程序按桌子大小、2 回转叠在同一张桌自动算的参考，请店长在 レストランボード 里自己确认后排桌。列表里没有的店＝那天还没有预约，或店名还没对上。</div>';
+  h += '<div class="foot">排位率＝已经指定桌号的预约组数 ÷ 全部预约组数（90% 以上算排好）。最大＝各店座位表格（11/13 股东发的）：席位数＝最多几组、人数＝最多几人（坐一轮；2 回转可以再多接）。<br>点店名看还没排的预约和「建议排法」——是程序按桌子大小、2 回转叠在同一张桌自动算的参考，请店长在 レストランボード 里自己确认后排桌。列表里没有的店＝那天还没有预约，或店名还没对上。</div>';
   return h;
 }
 // 11/19 用户：「店铺的 1-31 编号全部编辑进去」→ 按「全部店」的顺序（地区五十音、同地区按表格顺序）编 1〜31；立川两台收银算 1 家＝23；三幸園（コーズ经营，集团外）不编号。
@@ -1012,7 +1012,7 @@ function svFetch() {
     .then(r => r.text())
     .then(txt => {
       svBusy = false; const d = JSON.parse(txt);
-      if (d.error) throw new Error(d.error === 'owner' ? '要用老板密码' : d.error);
+      if (d.error) throw new Error(d.error === 'owner' ? '要用股东密码' : d.error);
       if (!d.days) throw new Error('后台还没部署新版本');
       svGot = Date.now(); svCachePut(txt);
       if (!SVG || SVG.at !== d.at || SVG.raw !== d.days.length) { svUse(d); if (svOpen()) renderSales(); }
@@ -1876,7 +1876,7 @@ function svTabLabSk() {
     + R.slice().reverse().map((r, i, a) => `<tr><td>${+r.m.slice(5, 7)} 月${r.n < r.nd ? `<small>（${r.n} 天）</small>` : ''}</td><td>${man(r.S)}</td><td>${man(r.K.pay)}</td><td><span class="${svLabCls(r.rate, r.ln)}">${svPctS(r.rate)}</span></td><td>${a[i + 1] ? svLabPt(r.rate, a[i + 1].rate) : '—'}</td></tr>`).join('') + '</table>'
     + `<div class="svnote">${ms[0] ? `G 盘里最早的三幸園工资表是 ${+ms[0].slice(5, 7)} 月，更早的月份没有工资表，算不了。` : ''}</div></div>`;
   h += `<div class="svcard"><div class="svct">每天・每个钟头・本月预算</div><div class="svnote"><b>数据源无</b>——集团这几项靠指纹打卡（每个人几点上下班）。三幸園没有用指纹打卡，工资表只有整月合计，所以算不出每天人工、每个钟头几人在班，也做不了本月预算。三幸園要是以后也用指纹打卡（或给出每天的排班表），就能补上。</div></div>`;
-  return h + `<div class="svnote">工资＝G 盘「2026給料明細／月份／${esc(L.K.f || '三幸園工资表')}」那个月的页「支給合計」全員合計（和集团同一口径：不含公司负担的社保）。营业额＝三幸園 ダイニー 后台（含税，含外卖）。这一页只有老板密码看得到。</div>`;
+  return h + `<div class="svnote">工资＝G 盘「2026給料明細／月份／${esc(L.K.f || '三幸園工资表')}」那个月的页「支給合計」全員合計（和集团同一口径：不含公司负担的社保）。营业额＝三幸園 ダイニー 后台（含税，含外卖）。这一页只有股东密码看得到。</div>`;
 }
 function svTabLab() {
   const ms = Object.keys(SV.lab || {}).filter(m => SV.lab[m].st).sort();
@@ -2101,7 +2101,7 @@ let SKSO = null, skSoBusy = false, skSoGot = 0, skSoErr = '', svSoMon = '', svSo
 function skSoFetch() {
   if (skSoBusy || !K) return; skSoBusy = true;
   fetch(API + '?fmt=json&what=skso' + KQ(), { cache: 'no-store' }).then(r => r.json()).then(d => {
-    skSoBusy = false; if (d.error) throw new Error(d.error === 'owner' ? '要用老板或三幸園密码' : d.error);
+    skSoBusy = false; if (d.error) throw new Error(d.error === 'owner' ? '要用股东或三幸園密码' : d.error);
     SKSO = d; skSoGot = Date.now(); skSoErr = ''; if (svOpen() && svTab === 'so') renderSales();
   }).catch(e => { skSoBusy = false; skSoErr = String(e.message || e); if (svOpen() && svTab === 'so') renderSales(); });
 }
@@ -2223,7 +2223,7 @@ function openRelogin() {
   document.getElementById('rlView').style.display = 'flex';
   rlShow('读取中…');
   rlApi().then(st => {
-    if (st.error) throw new Error(st.error === 'owner' ? '要用老板密码' : st.error);
+    if (st.error) throw new Error(st.error === 'owner' ? '要用股东密码' : st.error);
     if (!('req' in st)) throw new Error('后台还没部署新版本');
     rlShow(rlStatus(st) + '<p class="rlnote">电脑会用自己保存的账号密码，重新登录レストランボード、Airレジ、预约副账号（有楽町・川崎）和 三幸園 ダイニー。<b>密码改过的话，要先在电脑上双击「保存登录密码.bat」存新密码</b>，不然多点几次会把账号锁住。3 分钟内重复点只算一次。</p>'
       + '<button class="rlgo" onclick="rlGo()">🖥️ 让电脑现在重新登录</button>'
@@ -2301,7 +2301,7 @@ function rlWait(req) {
   tick(); rlTimer = setInterval(tick, 10000);
 }
 // ---- 11/18 老板：登录手机名单（用户：「17 个人用，只能在这 17 台手机登录，其他手机不能登录；有被登录的时候显示异常，单独用邮件发给我」）----
-const DV_ROLE = { owner: '老板密码', staff: '店长密码', sk: '三幸園店长密码', ac: '会计部密码', gg: '广告预约部密码' };
+const DV_ROLE = { owner: '股东密码', staff: '店长密码', sk: '三幸園店长密码', ac: '会计部密码', gg: '广告预约部密码' };
 let DVL = null;
 function openDev() { if (!D || !D.owner) return; navPush('dv', closeDev); document.getElementById('dvView').style.display = 'flex'; devShow('<div class="rlst">读取中…</div>'); devDo(''); }
 function closeDev() { navDone('dv'); document.getElementById('dvView').style.display = 'none'; }
@@ -2309,7 +2309,7 @@ function devShow(h) { document.getElementById('dvBody').innerHTML = h; }
 function devDo(q, ask) {
   if (ask && !confirm(ask)) return;
   fetch(API + '?fmt=json&what=dev' + KQ() + (q || ''), { cache: 'no-store' }).then(r => r.json())
-    .then(d => { if (d.error) throw new Error(d.error === 'owner' ? '要用老板密码' : d.error === 'device' ? '这台手机没登记' : d.error); DVL = d; devRender(); })
+    .then(d => { if (d.error) throw new Error(d.error === 'owner' ? '要用股东密码' : d.error === 'device' ? '这台手机没登记' : d.error); DVL = d; devRender(); })
     .catch(e => devShow(`<div class="rlres">读不到：${esc(e.message)}</div><button class="rlgo" onclick="devDo('')">再试一次</button>`));
 }
 function devName(i) { const x = DVL.list[i], v = prompt('给这台手机起个名字（例：上野店长 王）', x.n || ''); if (v != null) devDo('&act=name&id=' + x.id + '&v=' + encodeURIComponent(v.trim())); }
@@ -2329,7 +2329,7 @@ function devRender() {
   h += d.list.map((x, i) => `<div class="dvrow"><div><b>${i + 1}. ${esc(x.n || '（还没起名）')}</b>${x.me ? ' <span class="dvme">这台</span>' : ''}${x.pc ? ' <span class="dvme">电脑・不占名额</span>' : ''}${[['m', '空桌手机', '#2563eb'], ['pcw', '空桌电脑', '#0f766e'], ['yp', '运营部手机', '#c2410c'], ['yc', '运营部电脑', '#9a3412'], ['ac', '会计部手机', '#6d28d9'], ['acw', '会计部电脑', '#4c1d95'], ['gp', '广告预约部手机', '#b45309'], ['gw', '广告预约部电脑', '#92400e']].filter(t => x[t[0]]).map(t => ` <span class="dvme" style="background:${t[2]}">${t[1]}</span>`).join('')}<small>${esc(DV_ROLE[x.r] || x.r)}・${esc(x.ua)}<br>登记 ${esc(x.a)}　最后用 ${esc(x.t)}</small></div>`
     + `<span><button onclick="devName(${i})">改名</button>${x.me ? '' : `<button class="del" onclick="devDel(${i})">删</button>`}</span></div>`).join('') || '<div class="rlnote">还没有登记的手机</div>';
   if (d.bad.length) h += '<div class="svsub2" style="margin-top:12px">⚠ 最近被挡住的手机</div>' + d.bad.map(x => `<div class="dvbad">${esc(x.t)}　${esc(DV_ROLE[x.r] || x.r)}・${esc(x.ua)}　编号 ${esc(x.id || '—')}<br>${esc(x.why)}</div>`).join('');
-  h += '<p class="rlnote">编号还绑定设备种类（iPhone・Android・Windows・Mac）：就算有人把登记过的编号抄到别的设备上，种类不对也会被挡、发邮件给你。<br>手机编号存在这台手机的 APP 里。删掉 APP、清除浏览器数据、或换个浏览器打开，都会变成「新手机」，要重新登记——请大家都用「加到主屏幕」的 APP。<br>被挡住的手机、1 小时内连续输错 3 次密码，都会发邮件到你的 Gmail。名单只有老板密码看得到。</p>';
+  h += '<p class="rlnote">编号还绑定设备种类（iPhone・Android・Windows・Mac）：就算有人把登记过的编号抄到别的设备上，种类不对也会被挡、发邮件给你。<br>手机编号存在这台手机的 APP 里。删掉 APP、清除浏览器数据、或换个浏览器打开，都会变成「新手机」，要重新登记——请大家都用「加到主屏幕」的 APP。<br>被挡住的手机、1 小时内连续输错 3 次密码，都会发邮件到你的 Gmail。名单只有股东密码看得到。</p>';
   devShow(h);
 }
 // ---- 11/18 用户：「APP 里面加入一个会计的键」；内容选了 资金余额・要付的钱・月度损益——「先有这些键，数据先不跑」----

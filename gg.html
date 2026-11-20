@@ -175,7 +175,7 @@ async function setGgKey() {
   msgs.__gg = ['', '保存中…']; render();
   try {
     const r = await fetch(API, { method: 'POST', body: JSON.stringify({ k: K, what: 'setgg', v: a }) }).then(x => x.json());
-    if (!r.ok) throw new Error(r.error === 'owner' ? '要用老板密码' : (r.error || '后台没回答'));
+    if (!r.ok) throw new Error(r.error === 'owner' ? '要用股东密码' : (r.error || '后台没回答'));
     msgs.__gg = ['s', '✓ 广告预约部密码已启用，把下面的链接和密码发给广告部・预约中心'];
   } catch (e) { msgs.__gg = ['e', '没保存：' + e.message]; }
   render();
@@ -256,7 +256,7 @@ function caseCard(o) {
     : o['联系・结果'] === '请求中' ? '<span class="note">—（客人还没回复）</span>' : o['联系・结果'] ? '<span class="note">不用收</span>' : '<span class="note">—（先做完 ②）</span>') + '</div>';
   if (NS.owner) h += offOpen === id
     ? `<div class="row2"><input id="o_${esc(id)}" placeholder="为什么不算（例：重复、店里搞错）" maxlength="100"><button class="go" style="background:var(--bad)" onclick="offGo('${id}')">不算这单</button></div>`
-    : `<div class="note"><a class="undo" style="margin:0" onclick="offOpen='${id}';render()">（老板）这单不算</a></div>`;
+    : `<div class="note"><a class="undo" style="margin:0" onclick="offOpen='${id}';render()">（股东）这单不算</a></div>`;
   if (m) h += `<div class="msg ${m[0]}">${esc(m[1])}</div>`;
   return h + '</div>';
 }
@@ -441,8 +441,8 @@ function renderWc() {
 // 员工写（选 预约中心／广告部）→ 电脑每 5 分钟查、Claude 做成测试版（kongzhuo/test/gg.html）→「部门确认中」部门先看：👍 满意交老板（act=dok）／✏️ 还要改（act=dback）
 // → 老板・副社长在空桌一览「✅ 上线审批」上线。后台 what=acreq&app=gg（多部门需求.gs），工作表「广告预约部需求」，编号 G。
 const TEST = /\/test\//.test(location.pathname);
-const XQ_PILL = { '新': ['', '已收到，等处理'], '处理中': ['b', 'Claude 在做'], '部门确认中': ['w', '测试版做好了，请你们看'], '做好待确认': ['b', '部门满意，等老板上线'], '要问你': ['w', '要你补充'],
-  '等老板定': ['b', '等老板决定'], '退回修改': ['b', '退回，Claude 重新改'], '上线中': ['g', '老板同意，马上上线'], '已上线': ['g', '✓ 已上线'], '不做': ['', '这次不做'] };
+const XQ_PILL = { '新': ['', '已收到，等处理'], '处理中': ['b', 'Claude 在做'], '部门确认中': ['w', '测试版做好了，请你们看'], '做好待确认': ['b', '部门满意，等股东上线'], '要问你': ['w', '要你补充'],
+  '等老板定': ['b', '等股东决定'], '退回修改': ['b', '退回，Claude 重新改'], '上线中': ['g', '股东同意，马上上线'], '已上线': ['g', '✓ 已上线'], '不做': ['', '这次不做'] };
 let XQ = (() => { try { return JSON.parse(LS.get('ggxq', 'null')); } catch (e) { return null; } })(), xqBusy = false, xqErr = '', xqMsg = '', xqDb = false, xqOpen = '';
 function xqBadge() { return XQ && XQ.rows ? XQ.rows.filter(r => r.st === '部门确认中' || r.st === '要问你').length : 0; }
 async function loadXq() {
@@ -474,9 +474,9 @@ function xqSend() {
   const v = (($('xqv') || {}).value || '').trim();
   if (!v) { xqMsg = '<div class="msg e">请先写要改什么</div>'; return render(); }
   if (!(($('xqd') || {}).value || '')) { xqMsg = '<div class="msg e">请选是预约中心还是广告部</div>'; return render(); }
-  xqDo('&act=add&v=' + encodeURIComponent(v), '收到了。Claude 一般 30 分钟内做好测试版，你们先看，满意了交老板上线。', () => { const e = $('xqv'); if (e) e.value = ''; });
+  xqDo('&act=add&v=' + encodeURIComponent(v), '收到了。Claude 一般 30 分钟内做好测试版，你们先看，满意了交股东上线。', () => { const e = $('xqv'); if (e) e.value = ''; });
 }
-function xqDok() { xqDo('&act=dok', '已交给老板・副社长：他们按「上线」后大家自动更新。'); }
+function xqDok() { xqDo('&act=dok', '已交给股东：他们按「上线」后大家自动更新。'); }
 function xqDbGo() {
   const w = (($('xqwhy') || {}).value || '').trim();
   if (!w) { xqMsg = '<div class="msg e">请写还要改哪里、怎么改</div>'; return render(); }
@@ -488,7 +488,7 @@ function renderXq() {
   const dp = LS.get('ggDept', '');
   let h = tabsHtml();
   h += `<div class="card"><div class="ct">💡 想改什么、想加什么，直接写</div><div class="note">例：「无断取消想按公司分开看」「网页检查想加一个只看谷歌的按钮」。<br>`
-    + `提了以后：<b>Claude 一般 30 分钟内做好</b>，先放<b>测试版</b> → <b>你们先看</b>，还要改就写意见、满意就按「交老板」 → <b>老板・副社长按「上线」</b> → 大家自动更新。写不清楚的，Claude 会在下面问你。</div>`
+    + `提了以后：<b>Claude 一般 30 分钟内做好</b>，先放<b>测试版</b> → <b>你们先看</b>，还要改就写意见、满意就按「交股东」 → <b>股东按「上线」</b> → 大家自动更新。写不清楚的，Claude 会在下面问你。</div>`
     + `<div class="row2"><select id="xqd" style="flex:0 0 auto;padding:9px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);font-size:16px"><option value="">选部门</option>${['预约中心', '广告部'].map(x => `<option${x === dp ? ' selected' : ''}>${x}</option>`).join('')}</select>`
     + `<input id="xqw" placeholder="你的名字" maxlength="14" value="${esc(LS.get('ggWho', ''))}"></div>`
     + `<textarea id="xqv" class="xqta" placeholder="写在这里（最多 1000 字）：哪一页、想改成什么样" maxlength="1000"></textarea>`
@@ -501,9 +501,9 @@ function renderXq() {
     h += `<div class="card" style="border:2px solid #2563eb"><div class="ct">🧪 测试版做好了：请先看（${dept.length} 条）</div>`
       + dept.map(r => `<div class="xqr"><b>${esc(r.id)}</b>　<small>${esc(r.who)}　${esc(r.t.slice(5))}</small><div style="white-space:pre-wrap">${esc(r.v)}</div>${r.note ? `<div class="note">🛠 Claude：${esc(r.note)}</div>` : ''}</div>`).join('')
       + `<div class="xbtn" style="grid-template-columns:1fr"><a href="${esc(url)}" target="_blank" style="background:var(--soft);color:var(--ink)">🧪 打开测试版看看</a></div>`
-      + `<div class="xbtn"><button style="background:var(--good)" onclick="xqDok()">👍 满意，交老板</button><button style="background:var(--bad)" onclick="xqDb=!xqDb;xqMsg='';render()">✏️ 还要改</button></div>`
+      + `<div class="xbtn"><button style="background:var(--good)" onclick="xqDok()">👍 满意，交股东</button><button style="background:var(--bad)" onclick="xqDb=!xqDb;xqMsg='';render()">✏️ 还要改</button></div>`
       + (xqDb ? `<textarea id="xqwhy" class="xqta" placeholder="还要改哪里、改成什么样（必填）" maxlength="500"></textarea><div class="row2"><button class="go" style="flex:1" onclick="xqDbGo()">交给 Claude 接着改</button></div>${xqMsg}` : '')
-      + `<div class="note">在测试版里可以随便看；按的按钮会真的记下来。${XQ.owner ? '你是老板：也可以在空桌一览「✅ 上线审批」直接上线。' : ''}</div></div>`;
+      + `<div class="note">在测试版里可以随便看；按的按钮会真的记下来。${XQ.owner ? '你是股东：也可以在空桌一览「✅ 上线审批」直接上线。' : ''}</div></div>`;
   }
   h += `<div class="card"><div class="ct">全部需求（${rows.length} 条）</div>` + (rows.length ? rows.map(r => {
     const [pc, pt] = XQ_PILL[r.st] || ['', r.st], ask = r.st === '要问你';
@@ -515,7 +515,7 @@ function renderXq() {
         : (r.st !== '不做' && r.st !== '已上线' ? `<div class="note"><a onclick="xqOpen='${r.id}';xqMsg='';render()" style="color:var(--brand);cursor:pointer">➕ 补充</a></div>` : ''))
       + '</div>';
   }).join('') : '<div class="note">还没有。</div>') + '</div>';
-  if (XQ.owner) h += `<div class="note" style="text-align:center;margin:10px">老板・副社长：所有部门等上线的都在 <a href="./sp.html" style="color:var(--brand);font-weight:700">✅ 上线审批</a></div>`;
+  if (XQ.owner) h += `<div class="note" style="text-align:center;margin:10px">股东：所有部门等上线的都在 <a href="./sp.html" style="color:var(--brand);font-weight:700">✅ 上线审批</a></div>`;
   paint(h);
 }
 if (TEST) document.body.insertAdjacentHTML('afterbegin', '<div class="testbar">🧪 测试版（还没上线）　在这里按的按钮会真的记下来　<a href="./gg.html">回正式版</a></div>');
@@ -562,13 +562,13 @@ function render() {
   const done = ms.filter(o => stOf(o) === 'done');
   h += `<details><summary>🟢 ${esc(PL)} 已完成（${done.length}）</summary>${done.map(caseCard).join('') || '<div class="note">没有。</div>'}</details>`;
   if (NS.role === 'gg') h += '<div class="foot"><a onclick="changeKey()">🔑 换密码</a></div>';
-  if (NS.owner) h += `<div class="card"><div class="ct">🔐 广告预约部密码（只有老板看得到）</div><div class="note">给广告部・预约中心用的密码。用这个密码只能看这一页；最开始登录的 2 台手机・2 台电脑能用（第 3 台起挡住、发邮件给你）。至少 6 个字，不能和别的密码一样。</div>`
+  if (NS.owner) h += `<div class="card"><div class="ct">🔐 广告预约部密码（只有股东看得到）</div><div class="note">给广告部・预约中心用的密码。用这个密码只能看这一页；最开始登录的 2 台手机・2 台电脑能用（第 3 台起挡住、发邮件给你）。至少 6 个字，不能和别的密码一样。</div>`
     + `<div class="row2"><input id="gp1" type="password" autocomplete="new-password" placeholder="新密码"><input id="gp2" type="password" autocomplete="new-password" placeholder="再输一次"></div>`
     + `<div class="row2"><button class="go" onclick="setGgKey()">保存</button></div>${msgs.__gg ? `<div class="msg ${msgs.__gg[0]}">${msgs.__gg[1]}</div>` : ''}`
     + `<div class="note">发给广告部・预约中心的链接：<br><b>${esc(location.origin + location.pathname)}</b>　<a class="undo" style="margin:0" onclick="navigator.clipboard && navigator.clipboard.writeText(location.origin + location.pathname).then(() => { msgs.__gg = ['s', '✓ 链接已复制']; render(); })">复制链接</a></div></div>`;
   paint(h);   // 重画时保留已经写的字・选的结果（签名失败提示时不用重写）
 }
-if (PV()) document.body.insertAdjacentHTML('afterbegin', '<div id="pvbar" style="position:sticky;top:0;z-index:60;background:#facc15;color:#422006;font-size:14px;font-weight:700;padding:calc(8px + env(safe-area-inset-top)) 12px 8px;display:flex;align-items:center;gap:8px"><span style="flex:1">👀 正在看' + (PV() === 'gg' ? '广告预约部画面（广告部・预约中心看到的样子）' : '店长画面') + '</span><button onclick="exitPreview()" style="border:0;border-radius:999px;background:#422006;color:#fff;padding:6px 12px;font-weight:700">回到老板画面</button></div>');
+if (PV()) document.body.insertAdjacentHTML('afterbegin', '<div id="pvbar" style="position:sticky;top:0;z-index:60;background:#facc15;color:#422006;font-size:14px;font-weight:700;padding:calc(8px + env(safe-area-inset-top)) 12px 8px;display:flex;align-items:center;gap:8px"><span style="flex:1">👀 正在看' + (PV() === 'gg' ? '广告预约部画面（广告部・预约中心看到的样子）' : '店长画面') + '</span><button onclick="exitPreview()" style="border:0;border-radius:999px;background:#422006;color:#fff;padding:6px 12px;font-weight:700">回到股东画面</button></div>');
 render();
 load();
 loadXq();   // 11/20 提需求的待看数显示在标签上
