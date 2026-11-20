@@ -222,7 +222,11 @@ function caseCard(o) {
         + (o['电话'] ? `　📞 <a href="tel:${esc(o['电话'])}" style="color:var(--brand);font-weight:700">${esc(o['电话'])}</a>` : '')
         + (o['RB详情'] ? `　<a class="undo" style="margin:0;color:var(--brand);font-weight:700" onclick="togDet('${id}')">📒 ${detOpen.has(id) ? '收起预约台账 ▲' : '点开看预约台账 ▼'}</a>` : '') + '</div>'
         + (detOpen.has(id) ? detPanel(o) : '')
-      : '<div class="m">📒 レストランボード里还没找到这组（电脑每天 10:30・18:00 再找）</div>');
+      : '<div class="m">📒 レストランボード里还没找到这组（电脑每天 10:30・18:00 再找）</div>')
+    // 11/20 用户：「查一下能不能跳到台账」→ 实测：レストランボード 不能从外面指定店（选的店不存网址也不存 storage，详情页跨店会报错），
+    //   能做到的是网址带日期 from/to＝那天，打开「他店舗予約リスト」，再在店铺下拉选店、点客人＝原页面
+    + `<div class="m"><a href="https://restaurant-board.com/CLP/view/otherStoreReserveListWeb/?from=${o['预约日'].replace(/-/g, '')}&to=${o['预约日'].replace(/-/g, '')}" target="_blank" rel="noopener" style="color:var(--brand);font-weight:700">↗ 去レストランボード（${esc(d)} 他店舗予約リスト）</a>`
+    + `<div class="note">打开后在店铺下拉选「${esc(o['RB店'] || o['店'])}」→ 点「${esc(o['客人'])} 様」。要先在这台手机／电脑登录过レストランボード（HCL@888）。</div></div>`;
   // ① 预约中心：预约系统里取消
   h += '<div class="step"><div class="t">① 预约中心：在预约系统里取消这组</div>' + (o['取消・谁']
     ? `<span class="ok">✓ 已取消</span>　${esc(o['取消・谁'])}　<small>${esc(o['取消・时间'].slice(5))}</small><a class="undo" onclick="undo('${id}','yc')">撤销</a>`
