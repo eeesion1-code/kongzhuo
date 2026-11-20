@@ -495,7 +495,7 @@ function renderXq() {
     + `<input id="xqw" placeholder="你的名字" maxlength="14" value="${esc(LS.get('ggWho', ''))}"></div>`
     + `<textarea id="xqv" class="xqta" placeholder="写在这里（最多 1000 字）：哪一页、想改成什么样" maxlength="1000"></textarea>`
     + `<div class="row2"><button class="go" style="flex:1" onclick="xqSend()">发送</button></div>${xqMsg && !xqDb ? xqMsg : ''}</div>`;
-  if (!XQ) return paint(h + `<div class="card"><div class="note">${xqBusy ? '读取中…' : esc(xqErr || '还没有数据')}</div></div><div class="note" style="text-align:center;margin:10px;font-size:12px">这是测试版自检。</div>`);
+  if (!XQ) return paint(h + `<div class="card"><div class="note">${xqBusy ? '读取中…' : esc(xqErr || '还没有数据')}</div></div>`);
   if (xqErr) h += `<div class="msg e">${esc(xqErr)}（显示的是上次读到的）</div>`;
   const rows = XQ.rows || [], dept = rows.filter(r => r.st === '部门确认中');
   if (dept.length) {
@@ -518,7 +518,6 @@ function renderXq() {
       + '</div>';
   }).join('') : '<div class="note">还没有。</div>') + '</div>';
   if (XQ.owner) h += `<div class="note" style="text-align:center;margin:10px">老板・副社长：所有部门等上线的都在 <a href="./sp.html" style="color:var(--brand);font-weight:700">✅ 上线审批</a></div>`;
-  h += `<div class="note" style="text-align:center;margin:10px;font-size:12px">这是测试版自检。</div>`;
   paint(h);
 }
 if (TEST) document.body.insertAdjacentHTML('afterbegin', '<div class="testbar">🧪 测试版（还没上线）　在这里按的按钮会真的记下来　<a href="./gg.html">回正式版</a></div>');
