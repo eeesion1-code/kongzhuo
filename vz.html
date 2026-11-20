@@ -160,7 +160,7 @@ function openP(i) {
     '<div class="card"><dl class="kv">' +
     row('公司', esc(ci['正式名'] || p['公司'])) + row('社員コード', esc(p['编号'] || '')) +
     row('職務内容', esc(p['职务'] || '')) + row('入社日', p['入社'] ? esc(md(p['入社'])) + (p['在职年'] != null ? '（在职 ' + p['在职年'] + ' 年）' : '') : '') +
-    '</dl>' +   // 11/20 用户：「这配属删除」→ 不显示配属店舗（电脑也不再上传这栏）
+    (p['店'] ? row('配属店舗', esc(p['店'])) : '') + '</dl>' +
     // 11/20 用户：「其他社员的工作内容，你用 AI 生成下，比如他的职务内容为营业，他的工作内容需要展开」→ 电脑 签证资料_工作内容.py 按名簿職務内容展开
     '<div class="note" style="margin:8px 0 2px;font-weight:700;color:var(--ink)">工作内容（具体）</div>' +
     ((p['工作内容'] || []).length ? '<ul style="margin:0;padding-left:1.2em;font-size:14px;line-height:1.6">' + p['工作内容'].map(x => '<li>' + esc(x) + '</li>').join('') + '</ul>' +
