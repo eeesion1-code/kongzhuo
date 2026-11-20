@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>上线审批</title>
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#f5f6f8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1115" media="(prefers-color-scheme: dark)">
+<style>
+/* 11/20 用户：「会计部，预约中心，广告部，人事部参与进来开发…但最终上线我和副社长会定下来后用APP点击更新」「副社长是股东，跟我一样的角色」。
+   这页只给老板・副社长密码：4 个部门 APP（会计部・运营部・广告预约部・人事部）等上线的测试版一起看 → ✅ 上线／↩ 退回；等老板定的 → 同意做／不做。
+   后台 what=acreq&act=all（读）、app=..&act=ok/back/yes/no（写），多部门需求.gs。按 ✅ 后电脑 测试版.py promote 10 分钟内换成正式版。 */
+:root{--bg:#f5f6f8;--card:#fff;--ink:#16181d;--sub:#6b7280;--line:#e6e8ec;--soft:#f0f2f5;--brand:#1d4ed8;
+  --good:#15803d;--goodBg:#ecfdf3;--warn:#b45309;--warnBg:#fef3c7;--bad:#dc2626;--badBg:#fee2e2;--shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.08)}
+@media (prefers-color-scheme: dark){:root{--bg:#0f1115;--card:#181b21;--ink:#eceef2;--sub:#a1a7b3;--line:#2a2f38;--soft:#20242c;--brand:#3b82f6;
+  --good:#22c55e;--goodBg:#11281a;--warn:#facc15;--warnBg:#2f2a10;--bad:#f87171;--badBg:#361515;--shadow:none}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink)}
+body{font:15px/1.5 -apple-system,BlinkMacSystemFont,"Hiragino Sans","PingFang SC","Noto Sans CJK SC","Microsoft YaHei",sans-serif;-webkit-text-size-adjust:100%}
+button,input,textarea{font:inherit;color:inherit}
+button{cursor:pointer}button:active,a:active{opacity:.6}
+header{position:sticky;top:0;z-index:5;background:var(--bg);padding:calc(8px + env(safe-area-inset-top)) 16px 8px;border-bottom:1px solid var(--line)}
+.top{display:flex;align-items:center;gap:8px;max-width:760px;margin:0 auto}
+.top a.back{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:6px 10px;font-size:14px;color:var(--ink);text-decoration:none}
+.top h1{flex:1;margin:0;font-size:19px}.top small{font-size:12px;color:var(--sub)}
+main{max-width:760px;margin:0 auto;padding:10px 16px 40px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:12px 14px;margin:10px 0}
+.card.hot{border:2px solid var(--warn)}
+.ct{font-weight:800;font-size:16px;display:flex;align-items:center;gap:8px}.ct span{flex:1}
+.note{font-size:12.5px;color:var(--sub);line-height:1.6;margin:4px 0 0}
+.sum{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:6px 0}
+.sum div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;box-shadow:var(--shadow)}
+.sum small{display:block;color:var(--sub);font-size:12.5px}.sum b{font-size:26px}
+.sum .w b{color:var(--warn)}
+.r{border-top:1px solid var(--line);padding:8px 0}.r:first-child{border-top:0}
+.r .v{white-space:pre-wrap;word-break:break-word}
+.p{display:inline-block;border-radius:999px;padding:1px 9px;font-size:12px;font-weight:700;background:var(--soft);color:var(--sub)}
+.p.w{background:var(--warnBg);color:var(--warn)}.p.b{background:#dbeafe;color:#1d4ed8}.p.g{background:var(--goodBg);color:var(--good)}
+.sub{font-size:13.5px;font-weight:700;color:var(--sub);margin:10px 0 2px}
+.bt{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}
+.bt button,.bt a{border:0;border-radius:10px;padding:11px 6px;font-weight:700;font-size:15px;color:#fff;text-align:center;text-decoration:none;display:block}
+.bt .ok{background:var(--good)}.bt .no{background:var(--bad)}.bt .lk{background:var(--soft);color:var(--ink);grid-column:1/-1}
+textarea{width:100%;min-height:70px;padding:9px;border:1px solid var(--line);border-radius:10px;background:var(--card);font-size:16px;margin-top:6px}
+.msg{font-size:13.5px;margin:6px 0}.msg.e{color:var(--bad)}.msg.s{color:var(--good)}
+.empty{text-align:center;color:var(--sub);padding:40px 8px}
+details summary{cursor:pointer;color:var(--sub);font-weight:700;font-size:13.5px;padding:6px 0}
+</style>
+</head>
+<body>
+<header><div class="top"><a class="back" href="./">‹ 空桌一览</a><h1>✅ 上线审批</h1><small id="at"></small></div></header>
+<main id="main"><div class="empty">读取中…</div></main>
+<script>
+const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
+const LS = { get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const K = LS.get('k', '');   // 空桌一览的密码（老板・副社长）
+const DV = (() => { let v = LS.get('dv', ''); if (!/^[0-9a-f]{32}$/.test(v)) { const a = new Uint8Array(16); crypto.getRandomValues(a); v = Array.from(a, b => b.toString(16).padStart(2, '0')).join(''); LS.set('dv', v); } return v; })();
+const DVUA = (() => { const u = navigator.userAgent, st = (navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) ? '主屏幕APP' : '浏览器'; let m;
+  if ((m = u.match(/iPhone OS ([\d_]+)/))) return `iPhone iOS ${m[1].replace(/_/g, '.')}・${st}`;
+  if ((m = u.match(/iPad.*? OS ([\d_]+)/))) return `iPad iOS ${m[1].replace(/_/g, '.')}・${st}`;
+  if ((m = u.match(/Android ([\d.]+); ([^;)]+)/))) return `Android ${m[1]} ${m[2].trim()}・${st}`;
+  return `${(u.match(/Windows NT|Macintosh|Android|Linux/) || ['其他'])[0]}・${st}`; })();
+const api = q => fetch(API + '?fmt=json&what=acreq' + q + '&k=' + encodeURIComponent(K) + '&dv=' + DV + '&ua=' + encodeURIComponent(DVUA), { cache: 'no-store' }).then(r => r.json());
+const PILL = { '新': ['', '新需求，等 Claude 做'], '处理中': ['b', 'Claude 在做'], '部门确认中': ['w', '部门在看测试版'], '做好待确认': ['w', '部门满意，等你上线'], '要问你': ['', '在问员工'],
+  '等老板定': ['w', '等你决定'], '退回修改': ['b', '退回，Claude 重新改'], '上线中': ['g', '已同意，10 分钟内上线'] };
+let D = null, err = '', busy = false, msg = {}, backOpen = '';
+async function load() {
+  if (!K) { $('main').innerHTML = '<div class="empty">请先在空桌一览用老板・副社长密码登录。<br><a href="./">去空桌一览</a></div>'; return; }
+  busy = true; $('at').textContent = '读取中…';
+  try {
+    const d = await api('&act=all');
+    if (d && d.apps) { D = d; err = ''; }
+    else err = d && d.error === 'owner' ? '这一页只有老板・副社长密码能看' : d && d.error === 'device' ? '这台设备还没登记' : d && d.rows ? '后台还没更新到多部门版' : '读不到（' + ((d && d.error) || '') + '）';
+  } catch (e) { err = '读不到（' + e.message + '）'; }
+  busy = false; render();
+}
+async function act(app, q, okText) {
+  msg[app] = ['', '保存中…']; render();
+  try {
+    const d = await api('&app=' + app + q);
+    if (d.error) throw new Error(d.error === 'device' ? '这台设备没登记' : d.error);
+    msg[app] = ['s', '✓ ' + okText]; backOpen = '';
+  } catch (e) { msg[app] = ['e', '没保存：' + e.message]; }
+  await load();
+}
+function ok(app, cn) { if (confirm(`${cn}：确定上线这一版？\n电脑 10 分钟内换成正式版，大家手机自动更新。`)) act(app, '&act=ok', '已同意上线：电脑 10 分钟内换成正式版。'); }
+function back(app) { const w = (($('why_' + app) || {}).value || '').trim(); if (!w) { msg[app] = ['e', '请写退回的原因（哪里不对、要怎么改）']; return render(); } act(app, '&act=back&why=' + encodeURIComponent(w), '已退回，Claude 会按你写的重新改。'); }
+function yes(app, id, y) { act(app, '&act=' + (y ? 'yes' : 'no') + '&id=' + id, y ? '同意做，Claude 下一轮处理。' : '这条不做了。'); }
+const row = r => { const [c, t] = PILL[r.st] || ['', r.st];
+  return `<div class="r"><span class="p ${c}">${esc(t)}</span>　<small>${esc(r.id)}　${esc(r.who)}　${esc((r.t || '').slice(5))}</small><div class="v">${esc(r.v)}</div>`
+    + (r.note ? `<div class="note">🛠 Claude：${esc(r.note)}</div>` : '') + (r.back ? `<div class="note">意见：${esc(r.back)}</div>` : '') + '</div>'; };
+function render() {
+  if (!D) { $('main').innerHTML = `<div class="empty">${busy ? '读取中…' : esc(err || '还没有数据')}</div>`; return; }
+  $('at').textContent = (D.now || '').slice(5) + (busy ? ' 读取中…' : ' 更新');
+  const apps = D.apps || [], n = st => apps.reduce((t, a) => t + a.rows.filter(r => st.includes(r.st)).length, 0);
+  let h = err ? `<div class="msg e">${esc(err)}（显示的是上次读到的）</div>` : '';
+  h += `<div class="sum"><div class="w"><small>等你上线（部门已满意）</small><b>${n(['做好待确认'])}</b></div><div class="w"><small>等你决定</small><b>${n(['等老板定'])}</b></div>`
+    + `<div><small>部门在看测试版</small><b>${n(['部门确认中'])}</b></div><div><small>Claude 在做・在问员工</small><b>${n(['新', '处理中', '退回修改', '要问你'])}</b></div></div>`;
+  h += '<div class="note">你和副社长谁按都可以。每个部门同一时间只有一个测试版：几条需求一起上线；只想要其中几条，就退回写「第几条不要」。</div>';
+  apps.forEach(a => {
+    const ready = a.rows.filter(r => r.st === '做好待确认'), look = a.rows.filter(r => r.st === '部门确认中'), boss = a.rows.filter(r => r.st === '等老板定');
+    const other = a.rows.filter(r => !['做好待确认', '部门确认中', '等老板定'].includes(r.st)), m = msg[a.app];
+    const live = ready.length || look.length, hot = ready.length || boss.length;
+    h += `<div class="card${hot ? ' hot' : ''}"><div class="ct"><span>${esc(a.cn)}</span>${hot ? '🟡' : live ? '🔵' : '⚪'}</div>`;
+    if (!a.rows.length) h += '<div class="note">没有进行中的需求。</div>';
+    if (ready.length) h += `<div class="sub">部门满意了，等你上线（${ready.length}）</div>` + ready.map(row).join('');
+    if (look.length) h += `<div class="sub">部门还在看测试版（${look.length}）：你也可以直接上线或退回</div>` + look.map(row).join('');
+    if (live) h += `<div class="bt"><a class="lk" href="${esc(a.test)}" target="_blank">🧪 打开测试版看看</a><button class="ok" onclick="ok('${a.app}','${esc(a.cn)}')">✅ 上线这一版</button><button class="no" onclick="backOpen=backOpen==='${a.app}'?'':'${a.app}';render()">↩ 退回</button></div>`
+      + (backOpen === a.app ? `<textarea id="why_${a.app}" placeholder="哪里不对、要怎么改（必填）" maxlength="300"></textarea><div class="bt"><button class="no" style="grid-column:1/-1" onclick="back('${a.app}')">退回给 Claude</button></div>` : '');
+    if (boss.length) h += `<div class="sub">等你决定（${boss.length}）：营业额谁能看・密码登录・删数据・改后台，Claude 不自己做</div>`
+      + boss.map(r => row(r) + `<div class="bt"><button class="ok" onclick="yes('${a.app}','${r.id}',1)">同意做</button><button class="no" onclick="yes('${a.app}','${r.id}',0)">不做</button></div>`).join('');
+    if (other.length) h += `<details><summary>进行中（${other.length}）</summary>${other.map(row).join('')}</details>`;
+    if (m) h += `<div class="msg ${m[0]}">${esc(m[1])}</div>`;
+    h += '</div>';
+  });
+  const keep = {}; $('main').querySelectorAll('textarea[id]').forEach(e => keep[e.id] = e.value);
+  $('main').innerHTML = h;
+  Object.keys(keep).forEach(k => { const e = $(k); if (e) e.value = keep[k]; });
+}
+load();
+setInterval(() => { if (!document.hidden && !busy && !backOpen) load(); }, 60000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
+</script>
+</body>
+</html>

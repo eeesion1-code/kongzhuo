@@ -73,6 +73,10 @@ details summary{cursor:pointer;color:var(--sub);font-size:14px;margin:12px 2px}
 .tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:4px 0 6px}
 .tabs button{border:1px solid var(--line);background:var(--card);border-radius:12px;padding:10px 6px;font-weight:700;font-size:15px;box-shadow:var(--shadow)}
 .tabs button.on{background:var(--brand);border-color:var(--brand);color:#fff}
+.testbar{position:sticky;top:0;z-index:70;background:#fde047;color:#422006;font-size:13.5px;font-weight:700;padding:calc(7px + env(safe-area-inset-top)) 12px 7px;text-align:center}.testbar a{color:#1d4ed8}
+.xqta{width:100%;min-height:96px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);font-size:16px;font-family:inherit;margin-top:6px;box-sizing:border-box}
+.xqr{border-top:1px solid var(--line);padding:9px 0}.xqr:first-of-type{border-top:0}.xqp{display:inline-block;border-radius:999px;padding:1px 9px;font-size:12px;font-weight:700;background:var(--soft);color:var(--sub)}.xqp.b{background:#dbeafe;color:#1d4ed8}.xqp.g{background:var(--goodBg);color:var(--good)}.xqp.w{background:var(--warnBg);color:var(--warn)}
+.xbtn{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}.xbtn button,.xbtn a{border:0;border-radius:10px;padding:11px 6px;font-weight:700;font-size:15px;color:#fff;text-align:center;text-decoration:none}
 .tabs button .bd{display:inline-block;min-width:20px;padding:0 6px;margin-left:4px;border-radius:999px;background:var(--bad);color:#fff;font-size:12px;line-height:20px}
 .wcs .wi{border-top:1px dashed var(--line);margin-top:8px;padding-top:8px}
 .wcs .wf{font-weight:700;font-size:14.5px}.wcs .wf small{font-weight:400;color:var(--faint);margin-left:6px}
@@ -313,18 +317,18 @@ function renderChk() {
 // 用户：「在广告预约部 APP 点击进去后多一个按键，网页检查的键生成更新上传；检查这些网页的信息内容一致性，不同的需要标注，然后需要签名这个，说已经更改完成」
 // 电脑 广告部\网页检查\网页检查.py 每天 9 点后查一次（APP 按「🔄 现在检查」也会查）：各店 食べログ・ホットペッパー・ぐるなび・谷歌 店铺页的
 //   住所・电话・营业时间・定休日・席数・最大宴会人数 互相比 → 上传后台（what=wc 读・wcdo 签名／请求检查）。
-let tab = ['wc', 'chk'].includes(LS.get('ggTab', 'ns')) ? LS.get('ggTab', 'ns') : 'ns';
+let tab = ['wc', 'chk', 'xq'].includes(LS.get('ggTab', 'ns')) ? LS.get('ggTab', 'ns') : 'ns';
 let WC = (() => { try { return JSON.parse(LS.get('ggwc', 'null')); } catch (e) { return null; } })(), wcErr = '', wcBusy = false, wcField = '', wcOpen = new Set();
 const WCP = { T: '食べログ', H: 'ホットペッパー', R: 'ぐるなび', G: '谷歌' };
 const WCF = ['住所', '电话', '营业时间', '定休日', '席数', '最大宴会人数'];
-function setTab(t) { tab = t; LS.set('ggTab', t); render(); load(); window.scrollTo(0, 0); }
+function setTab(t) { tab = t; LS.set('ggTab', t); render(); if (t === 'xq') loadXq(); else load(); window.scrollTo(0, 0); }
 function tabsHtml() {
   const nBad = WC ? wcObjs().filter(o => wcTodo(o)).length : 0;
-  return `<div class="tabs"><button class="${tab === 'ns' ? 'on' : ''}" onclick="setTab('ns')">🚫 无断取消</button><button class="${tab === 'chk' ? 'on' : ''}" onclick="setTab('chk')">📋 每日上报${chkTodo() ? `<span class="bd">${chkTodo()}</span>` : ''}</button><button class="${tab === 'wc' ? 'on' : ''}" onclick="setTab('wc')">🔍 网页检查${nBad ? `<span class="bd">${nBad}</span>` : ''}</button></div>`;
+  return `<div class="tabs"><button class="${tab === 'ns' ? 'on' : ''}" onclick="setTab('ns')">🚫 无断取消</button><button class="${tab === 'chk' ? 'on' : ''}" onclick="setTab('chk')">📋 每日上报${chkTodo() ? `<span class="bd">${chkTodo()}</span>` : ''}</button><button class="${tab === 'wc' ? 'on' : ''}" onclick="setTab('wc')">🔍 网页检查${nBad ? `<span class="bd">${nBad}</span>` : ''}</button><button class="${tab === 'xq' ? 'on' : ''}" onclick="setTab('xq')">💡 提需求${xqBadge() ? `<span class="bd">${xqBadge()}</span>` : ''}</button></div>`;
 }
 function paint(h) {   // 重画时保留已经写的字・选的结果
   const keep = {}, picked = {};
-  $('main').querySelectorAll('input[id]').forEach(e => keep[e.id] = e.value);
+  $('main').querySelectorAll('input[id],textarea[id]').forEach(e => keep[e.id] = e.value);   // 11/20 提需求的输入框也保留
   $('main').querySelectorAll('input[type=radio]:checked').forEach(e => picked[e.name] = e.value);
   $('main').innerHTML = h;
   Object.keys(keep).forEach(k => { const e = $(k); if (e) e.value = keep[k]; });
@@ -432,11 +436,96 @@ function renderWc() {
   paint(h);
 }
 
+// ================= 11/20 「💡 提需求」 =================
+// 用户：「会计部，预约中心，广告部，人事部参与进来开发…生成副本APP他们观看他们调整，但最终上线我和副社长会定下来后用APP点击更新」
+// 员工写（选 预约中心／广告部）→ 电脑每 5 分钟查、Claude 做成测试版（kongzhuo/test/gg.html）→「部门确认中」部门先看：👍 满意交老板（act=dok）／✏️ 还要改（act=dback）
+// → 老板・副社长在空桌一览「✅ 上线审批」上线。后台 what=acreq&app=gg（多部门需求.gs），工作表「广告预约部需求」，编号 G。
+const TEST = /\/test\//.test(location.pathname);
+const XQ_PILL = { '新': ['', '已收到，等处理'], '处理中': ['b', 'Claude 在做'], '部门确认中': ['w', '测试版做好了，请你们看'], '做好待确认': ['b', '部门满意，等老板上线'], '要问你': ['w', '要你补充'],
+  '等老板定': ['b', '等老板决定'], '退回修改': ['b', '退回，Claude 重新改'], '上线中': ['g', '老板同意，马上上线'], '已上线': ['g', '✓ 已上线'], '不做': ['', '这次不做'] };
+let XQ = (() => { try { return JSON.parse(LS.get('ggxq', 'null')); } catch (e) { return null; } })(), xqBusy = false, xqErr = '', xqMsg = '', xqDb = false, xqOpen = '';
+function xqBadge() { return XQ && XQ.rows ? XQ.rows.filter(r => r.st === '部门确认中' || r.st === '要问你').length : 0; }
+async function loadXq() {
+  if (!K) return;
+  xqBusy = true; if (tab === 'xq') render();
+  try {
+    const d = await api('&what=acreq&app=gg');
+    if (d && d.rows && d.app === 'gg') { XQ = d; xqErr = ''; LS.set('ggxq', JSON.stringify(d)); }
+    else xqErr = d && d.error === 'device' ? '这台设备还没登记' : d && d.error === 'owner' ? '这个密码不能提需求' : d && d.rows ? '后台还没更新' : '读不到（' + ((d && d.error) || '') + '）';
+  } catch (e) { xqErr = '读不到（' + e.message + '）'; }
+  xqBusy = false; if (tab === 'xq') render();
+}
+function xqWho() {
+  const w = (($('xqw') || {}).value || LS.get('ggWho', '')).trim(), dp = (($('xqd') || {}).value || LS.get('ggDept', '')).trim();
+  if (w) LS.set('ggWho', w);
+  if (dp) LS.set('ggDept', dp);
+  return ((dp ? dp + ' ' : '') + w).trim();
+}
+async function xqDo(q, okText, after) {
+  xqMsg = '<div class="msg">保存中…</div>'; render();
+  try {
+    const d = await api('&what=acreq&app=gg' + q + '&who=' + encodeURIComponent(xqWho()));
+    if (d.error) throw new Error(d.error === 'device' ? '这台设备没登记' : d.error);
+    XQ = d; LS.set('ggxq', JSON.stringify(d)); xqDb = false; xqOpen = ''; xqMsg = `<div class="msg s">✓ ${okText}</div>`; if (after) after();
+  } catch (e) { xqMsg = `<div class="msg e">没保存：${esc(e.message)}</div>`; }
+  render();
+}
+function xqSend() {
+  const v = (($('xqv') || {}).value || '').trim();
+  if (!v) { xqMsg = '<div class="msg e">请先写要改什么</div>'; return render(); }
+  if (!(($('xqd') || {}).value || '')) { xqMsg = '<div class="msg e">请选是预约中心还是广告部</div>'; return render(); }
+  xqDo('&act=add&v=' + encodeURIComponent(v), '收到了。Claude 一般 30 分钟内做好测试版，你们先看，满意了交老板上线。', () => { const e = $('xqv'); if (e) e.value = ''; });
+}
+function xqDok() { xqDo('&act=dok', '已交给老板・副社长：他们按「上线」后大家自动更新。'); }
+function xqDbGo() {
+  const w = (($('xqwhy') || {}).value || '').trim();
+  if (!w) { xqMsg = '<div class="msg e">请写还要改哪里、怎么改</div>'; return render(); }
+  xqDo('&act=dback&why=' + encodeURIComponent(w), '收到，Claude 一般 30 分钟内接着改，改好再请你们看。');
+}
+function xqReply(id) { const v = (($('xqr_' + id) || {}).value || '').trim(); if (!v) return; xqDo('&act=reply&id=' + id + '&v=' + encodeURIComponent(v), '补充好了，Claude 下一轮一起处理。'); }
+function renderXq() {
+  $('at').textContent = XQ ? (xqBusy ? '读取中…' : XQ.now.slice(5) + ' 更新') : '';
+  const dp = LS.get('ggDept', '');
+  let h = tabsHtml();
+  h += `<div class="card"><div class="ct">💡 想改什么、想加什么，直接写</div><div class="note">例：「无断取消想按公司分开看」「网页检查想加一个只看谷歌的按钮」。<br>`
+    + `提了以后：<b>Claude 一般 30 分钟内做好</b>，先放<b>测试版</b> → <b>你们先看</b>，还要改就写意见、满意就按「交老板」 → <b>老板・副社长按「上线」</b> → 大家自动更新。写不清楚的，Claude 会在下面问你。</div>`
+    + `<div class="row2"><select id="xqd" style="flex:0 0 auto;padding:9px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);font-size:16px"><option value="">选部门</option>${['预约中心', '广告部'].map(x => `<option${x === dp ? ' selected' : ''}>${x}</option>`).join('')}</select>`
+    + `<input id="xqw" placeholder="你的名字" maxlength="14" value="${esc(LS.get('ggWho', ''))}"></div>`
+    + `<textarea id="xqv" class="xqta" placeholder="写在这里（最多 1000 字）：哪一页、想改成什么样" maxlength="1000"></textarea>`
+    + `<div class="row2"><button class="go" style="flex:1" onclick="xqSend()">发送</button></div>${xqMsg && !xqDb ? xqMsg : ''}</div>`;
+  if (!XQ) return paint(h + `<div class="card"><div class="note">${xqBusy ? '读取中…' : esc(xqErr || '还没有数据')}</div></div>`);
+  if (xqErr) h += `<div class="msg e">${esc(xqErr)}（显示的是上次读到的）</div>`;
+  const rows = XQ.rows || [], dept = rows.filter(r => r.st === '部门确认中');
+  if (dept.length) {
+    const url = (dept.find(r => r.test) || {}).test || XQ.test || './test/gg.html';
+    h += `<div class="card" style="border:2px solid #2563eb"><div class="ct">🧪 测试版做好了：请先看（${dept.length} 条）</div>`
+      + dept.map(r => `<div class="xqr"><b>${esc(r.id)}</b>　<small>${esc(r.who)}　${esc(r.t.slice(5))}</small><div style="white-space:pre-wrap">${esc(r.v)}</div>${r.note ? `<div class="note">🛠 Claude：${esc(r.note)}</div>` : ''}</div>`).join('')
+      + `<div class="xbtn" style="grid-template-columns:1fr"><a href="${esc(url)}" target="_blank" style="background:var(--soft);color:var(--ink)">🧪 打开测试版看看</a></div>`
+      + `<div class="xbtn"><button style="background:var(--good)" onclick="xqDok()">👍 满意，交老板</button><button style="background:var(--bad)" onclick="xqDb=!xqDb;xqMsg='';render()">✏️ 还要改</button></div>`
+      + (xqDb ? `<textarea id="xqwhy" class="xqta" placeholder="还要改哪里、改成什么样（必填）" maxlength="500"></textarea><div class="row2"><button class="go" style="flex:1" onclick="xqDbGo()">交给 Claude 接着改</button></div>${xqMsg}` : '')
+      + `<div class="note">在测试版里可以随便看；按的按钮会真的记下来。${XQ.owner ? '你是老板：也可以在空桌一览「✅ 上线审批」直接上线。' : ''}</div></div>`;
+  }
+  h += `<div class="card"><div class="ct">全部需求（${rows.length} 条）</div>` + (rows.length ? rows.map(r => {
+    const [pc, pt] = XQ_PILL[r.st] || ['', r.st], ask = r.st === '要问你';
+    return `<div class="xqr"${ask ? ' style="background:var(--warnBg);border-radius:10px;padding:8px"' : ''}><span class="xqp ${pc}">${esc(pt)}</span>　<small>${esc(r.id)}　${esc(r.who)}　${esc(r.t.slice(5))}</small>`
+      + `<div style="white-space:pre-wrap;word-break:break-word">${esc(r.v)}</div>`
+      + (r.note ? `<div class="note">${ask ? '❓ Claude 问：' : '🛠 Claude：'}${esc(r.note)}</div>` : '')
+      + (r.back ? `<div class="note">意见：${esc(r.back)}</div>` : '')
+      + (ask || xqOpen === r.id ? `<div class="row2"><input id="xqr_${r.id}" placeholder="${ask ? '回答 Claude 的问题' : '补充一句'}" maxlength="500"><button class="go" onclick="xqReply('${r.id}')">补充</button></div>`
+        : (r.st !== '不做' && r.st !== '已上线' ? `<div class="note"><a onclick="xqOpen='${r.id}';xqMsg='';render()" style="color:var(--brand);cursor:pointer">➕ 补充</a></div>` : ''))
+      + '</div>';
+  }).join('') : '<div class="note">还没有。</div>') + '</div>';
+  if (XQ.owner) h += `<div class="note" style="text-align:center;margin:10px">老板・副社长：所有部门等上线的都在 <a href="./sp.html" style="color:var(--brand);font-weight:700">✅ 上线审批</a></div>`;
+  paint(h);
+}
+if (TEST) document.body.insertAdjacentHTML('afterbegin', '<div class="testbar">🧪 测试版（还没上线）　在这里按的按钮会真的记下来　<a href="./gg.html">回正式版</a></div>');
+
 function render() {
   if (!K) return showKey('');
   $('back').style.display = (NS || WC) && (NS || WC).role !== 'gg' ? '' : 'none';   // 广告预约部密码只看这一页，不显示「‹ 空桌一览」
   if (tab === 'wc') return renderWc();
   if (tab === 'chk') return renderChk();
+  if (tab === 'xq') return renderXq();
   $('at').textContent = NS ? NS.at.slice(5) + (busy ? ' 读取中…' : ' 更新') : '';
   if (!NS) { $('main').innerHTML = tabsHtml() + `<div class="empty">${busy ? '读取中…' : esc(err || '还没有数据')}</div>`; return; }
   const all = rowsObj(), months = [...new Set(all.map(o => o['预约日'].slice(0, 7)))].sort().reverse();
@@ -482,7 +571,8 @@ function render() {
 if (PV()) document.body.insertAdjacentHTML('afterbegin', '<div id="pvbar" style="position:sticky;top:0;z-index:60;background:#facc15;color:#422006;font-size:14px;font-weight:700;padding:calc(8px + env(safe-area-inset-top)) 12px 8px;display:flex;align-items:center;gap:8px"><span style="flex:1">👀 正在看' + (PV() === 'gg' ? '广告预约部画面（广告部・预约中心看到的样子）' : '店长画面') + '</span><button onclick="exitPreview()" style="border:0;border-radius:999px;background:#422006;color:#fff;padding:6px 12px;font-weight:700">回到老板画面</button></div>');
 render();
 load();
-document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
+loadXq();   // 11/20 提需求的待看数显示在标签上
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { load(); loadXq(); } });
 </script>
 </body>
 </html>
