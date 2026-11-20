@@ -89,7 +89,7 @@ const COS = ['HCL', 'HSW', '千聖', '三金', '世界村'];
 let P = [], C = {}, AT = '', co = sessionStorage.getItem('vzCo') || 'HCL', q = '', showLeft = false;
 const md = d => d ? d.replace(/^(\d{4})-0?(\d+)-0?(\d+)$/, '$1/$2/$3') : '';
 // 在留期限：已过／90 天内（3 个月）提醒
-const expTag = p => p['剩天'] == null ? (p['在留期限'] ? '' : '<span class="tag n">期限没填</span>')
+const expTag = p => p['签证已更新'] ? '<span class="tag g">签证已更新</span>' : p['剩天'] == null ? (p['在留期限'] ? '' : '<span class="tag n">期限没填</span>')
   : p['剩天'] < 0 ? '<span class="tag r">已过期 ' + (-p['剩天']) + ' 天</span>' : p['剩天'] <= 90 ? '<span class="tag y">还剩 ' + p['剩天'] + ' 天</span>' : '<span class="tag g">' + md(p['在留期限']) + '</span>';
 // 离职报备：离职后 14 天内要向入管报备（「契約機関に関する届出」）；名簿「入管届出日」填了＝已报
 // 11/20 用户：（2022〜2024 年离职那些）「这是不需要再汇报了」→ 只提醒最近 30 天内离职的人；以前离职的、没写退职日的不再提醒
@@ -99,7 +99,7 @@ const repTag = p => p['入管届出'] ? '<span class="tag g">已报备 ' + md(p[
   : oldLeft(p) ? '<span class="tag n">以前离职（不再提醒）</span>'
   : p['离职天'] <= 14 ? '<span class="tag y">还剩 ' + (14 - p['离职天']) + ' 天要报备</span>' : '<span class="tag r">已超过 14 天，没写报备</span>';
 const left = p => !!p['退职'];
-const needRep = p => left(p) && !p['入管届出'] && !oldLeft(p);
+const needRep = p => false;   // 11/20 用户：「这个异常都不要了」→ 不再提醒离职入管报备（个人页仍显示报备日期）
 const expWarn = p => !left(p) && p['剩天'] != null && p['剩天'] <= 90;
 
 async function load() {
@@ -108,7 +108,7 @@ async function load() {
   try {
     const d = await api('&what=hr');
     if (d && Array.isArray(d.rows)) {
-      P = d.rows.filter(r => r.k === 'vz'); C = {}; d.rows.filter(r => r.k === 'vzc').forEach(r => C[r['公司']] = r); AT = d.at || '';
+      P = d.rows.filter(r => r.k === 'vz'); VZT = (d.rows.find(r => r.k === 'vzt') || {}).templates || {}; C = {}; d.rows.filter(r => r.k === 'vzc').forEach(r => C[r['公司']] = r); AT = d.at || '';
       if (!P.length && !Object.keys(C).length) { $('main').innerHTML = '<div class="empty">还没有签证资料（电脑每天 6:00・9:00・12:00 上传）</div>'; return; }
       render();
     } else if (d && d.error === 'owner') $('main').innerHTML = '<div class="empty">🔒 签证资料只给股东密码看</div>';
@@ -165,6 +165,9 @@ function renderList() {
 }
 // 11/20 用户：「会计部 従業員名簿 里面有工作内容资料，读取里面的信息，套用到他们的工作内容，显示到对称的其他公司的社员上；之前生成的可以保留和合并」
 //   电脑 签证资料_工作内容.py：入管提出的職務内容説明書（PDF→工作内容资料.json，原文）→ 本人的直接显示；别人按名簿職務找同类职务的一份当参考
+// 11/20 提速：资料全文只传一份（k=vzt），每人 p['职务资料'] 只有 {id, 本人}
+let VZT = {};
+const zl = p => p['职务资料'] ? Object.assign({}, VZT[p['职务资料'].id] || {}, p['职务资料']) : null;
 function zlHtml(z) {
   if (!z) return '';
   // 11/20 用户：「每位社员把这个隐藏」→ 不显示「同类职务参考：〇〇 的入管申请资料…」来源行；「职业内容改成中文版本」→ 显示中文，日文原文可展开
@@ -185,7 +188,7 @@ function openP(i) {
     row('職務内容', esc(p['职务'] || '')) + row('入社日', p['入社'] ? esc(md(p['入社'])) + (p['在职年'] != null ? '（在职 ' + p['在职年'] + ' 年）' : '') : '') +
     (p['店'] ? row('配属店舗', esc(p['店'])) : '') + '</dl>' +
     // 11/20 用户：「其他社员的工作内容，你用 AI 生成下，比如他的职务内容为营业，他的工作内容需要展开」→ 电脑 签证资料_工作内容.py 按名簿職務内容展开
-    '<div class="note" style="margin:8px 0 2px;font-weight:700;color:var(--ink)">工作内容（具体）</div>' + zlHtml(p['职务资料']) +
+    '<div class="note" style="margin:8px 0 2px;font-weight:700;color:var(--ink)">工作内容（具体）</div>' + zlHtml(zl(p)) +
     ((p['工作内容'] || []).length ? (p['职务资料'] ? '<div class="note" style="margin:8px 0 2px;font-weight:700">补充（AI 按名簿職務内容展开）</div>' : '') +
       '<ul style="margin:0;padding-left:1.2em;font-size:14px;line-height:1.6">' + (p['工作内容_zh'] || p['工作内容']).map(x => '<li>' + esc(x) + '</li>').join('') + '</ul>' +
       '<details style="margin-top:2px"><summary class="note" style="cursor:pointer">日语原文</summary><ul style="margin:0;padding-left:1.2em;font-size:13px;line-height:1.6;color:var(--sub)">' + p['工作内容'].map(x => '<li>' + esc(x) + '</li>').join('') + '</ul></details>' +
@@ -209,7 +212,7 @@ function closeP(fromPop) { if ($('mask').style.display !== 'flex') return; $('ma
 addEventListener('popstate', () => closeP(true));
 function copyP(i) {
   const p = P[i], ci = C[p['公司']] || {};
-  const t = [ci['正式名'] || p['公司'], '氏名：' + p['姓名'] + (p['读法'] ? '（' + p['读法'] + '）' : ''), '社員コード：' + (p['编号'] || ''), '職務内容：' + (p['职务'] || ''), ...(p['职务资料'] ? ['業務内容' + (p['职务资料']['本人'] ? '（入管提出）' : '（同類職務参考）') + '：'].concat(...p['职务资料'].sections.map(s => ['【' + s.title + (s.pct ? '（' + s.pct + '）' : '') + '】'].concat(s.items.map(x => '・' + x)))) : []),
+  const t = [ci['正式名'] || p['公司'], '氏名：' + p['姓名'] + (p['读法'] ? '（' + p['读法'] + '）' : ''), '社員コード：' + (p['编号'] || ''), '職務内容：' + (p['职务'] || ''), ...(p['职务资料'] ? ['業務内容' + (zl(p)['本人'] ? '（入管提出）' : '（同類職務参考）') + '：'].concat(...zl(p).sections.map(s => ['【' + s.title + (s.pct ? '（' + s.pct + '）' : '') + '】'].concat(s.items.map(x => '・' + x)))) : []),
     ...((p['工作内容'] || []).length ? [p['职务资料'] ? '補足：' : '業務内容：'].concat(p['工作内容'].map(x => '・' + x)) : []), '入社日：' + md(p['入社'] || ''),
     '在留資格：' + (p['在留资格'] || ''), '在留カード番号：' + (p['卡号'] || ''), '在留期限：' + md(p['在留期限'] || ''), '国籍：' + (p['国籍'] || ''),
     '生年月日：' + md(p['生日'] || ''), '住所：' + (p['住所'] || ''), '電話：' + (p['电话'] || '')].join('\n');
