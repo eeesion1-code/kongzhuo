@@ -586,7 +586,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
 })();
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v104';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v105';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -881,10 +881,13 @@ function loadPw(force) {
 }
 const WD = '日一二三四五六';
 function pwNow() { const t = parseT(D && D.now) || new Date(); return new Date(t.getTime() + (D && D.got ? Date.now() - D.got : 0)); }
-function pwTodayStr() { const t = pwNow(); return t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0'); }
+// 11/21 用户：「11.21 是不是 618 组错了」→ 半夜 0〜5 点以前按日历算成了 11/21，把实时程序 11/20 营业日的预约放到 11/21 按钮上。
+//   改成和营业额（svToday）、レストランボード 一样按营业日：5:00 以前还算前一天
+function pwBiz() { const t = pwNow(); if (t.getHours() < 5) t.setDate(t.getDate() - 1); return t; }
+function pwTodayStr() { const t = pwBiz(); return t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0'); }
 function pwDayLabel(ds) {
   const [y, m, d] = ds.split('-').map(Number), dt = new Date(y, m - 1, d);
-  const t = pwNow(), t0 = new Date(t.getFullYear(), t.getMonth(), t.getDate());
+  const t = pwBiz(), t0 = new Date(t.getFullYear(), t.getMonth(), t.getDate());
   const left = Math.round((dt - t0) / 86400000);
   return { md: m + '/' + d + '(' + WD[dt.getDay()] + ')', left: left <= 0 ? '今天' : left === 1 ? '明天' : '还有 ' + left + ' 天' };
 }
@@ -923,6 +926,10 @@ function pwStore(r) { return D.stores.find(s => s.rbKey && s.rbKey === r.key) ||
 // 今天：每家店用实时预约（没读到的店用 13:14 那次的）
 function pwTodayRows() {
   const td = pwTodayStr(), base = (PW.rows || []).filter(r => r.date === td && !r.kind), out = [];
+  // 实时预约是哪个营业日读的（5:00 以前算前一天）；不是今天（早上 5 点后实时程序还没开始读）就只用排位检查读的
+  const rt = parseT(D.rbStamp); if (rt && rt.getHours() < 5) rt.setDate(rt.getDate() - 1);
+  const rbDay = rt ? rt.getFullYear() + '-' + String(rt.getMonth() + 1).padStart(2, '0') + '-' + String(rt.getDate()).padStart(2, '0') : '';
+  if (rbDay !== td) return base.slice().sort((a, b) => (a.rate || 0) - (b.rate || 0) || b.groups - a.groups);
   D.stores.forEach(s => {
     const rs = (s.rsv || []).filter(x => !/キャンセル/.test(x.status || ''));
     const old = base.find(x => x.key === s.rbKey);
