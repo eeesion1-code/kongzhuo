@@ -285,11 +285,15 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
   addEventListener('touchcancel', () => { on = false; hide(); }, { passive: true });
 })();
 
-const APPV = 'yunying-v63';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v64';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);
 const PVST = IN_KZ && (localStorage.getItem('asRole') === 'staff' || localStorage.getItem('asStaff') === '1');   // 11/19 老板在空桌一览点「👀 运营部画面／店长画面」→ 按店长权限看
 function exitPreview() { ['asRole', 'asStaff', 'last', 'acrq'].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} }); location.href = './'; }
-const TEST = /\/test\//.test(location.pathname);   // 11/19 测试版（yunying/test/）：Claude 按需求改好先放这里，老板确认后才换成正式版   // 在 空桌一览 里面（pj.html）还是独立 APP
+const TEST = /\/test(-hr)?\//.test(location.pathname);   // 11/20 人事部测试版在 yunying/test-hr/
+// 11/20 人事部密码（后台 what=hr 回 role:'hr'）：只显示 👔 人事・🧹 卫生・🛂 签证名簿 和提需求（app=hr），不读评价（pj）・预约异常（ycd）
+let HRONLY = LS_get0('pjRole') === 'hr';
+function LS_get0(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
+const HR_TABS = ['hr', 'hy', 'xq'];   // 11/19 测试版（yunying/test/）：Claude 按需求改好先放这里，老板确认后才换成正式版   // 在 空桌一览 里面（pj.html）还是独立 APP
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -338,28 +342,30 @@ async function load() {
   PJ = cacheGet('pj'); HR = cacheGet('hr'); owner = !!HR;
   LOADING = true;   // 11/16 用户看到旧数据（先显示手机里存的，后台要几秒）→ 右上角写「读取最新中…」
   if (PJ || HR) render();
-  const [a, b] = await Promise.allSettled([api('pj'), api('hr')]);
+  const [a, b] = await Promise.allSettled([HRONLY ? Promise.resolve({ error: 'owner' }) : api('pj'), api('hr')]);
   if (a.status === 'fulfilled') {
     const d = a.value;
     if (d && d.error === 'key') { LS.del('k'); K = ''; return showKey('密码不对'); }
     if (d && d.error === 'device') return blockDevice(d);   // 11/18：没登记的手机
-    if (d && Array.isArray(d.rows)) { const same = PJ && PJ.at === d.at && (PJ.rows || []).length === d.rows.length; PJ = d; pjErr = ''; if (!same) setTimeout(() => cachePut('pj', d), 400); }   // v54：1MB 多的缓存晚一点写、没变就不写（写的时候手机会顿一下）
+    if (d && d.error === 'owner') { PJ = null; pjErr = ''; }   // 11/20 人事部密码看不到评价，不算出错
+    else if (d && Array.isArray(d.rows)) { const same = PJ && PJ.at === d.at && (PJ.rows || []).length === d.rows.length; PJ = d; pjErr = ''; if (!same) setTimeout(() => cachePut('pj', d), 400); }   // v54：1MB 多的缓存晚一点写、没变就不写（写的时候手机会顿一下）
     else pjErr = '读不到评价数据（后台还没部署新版本）';
   } else pjErr = '网络不通，显示的是上次的数据';
   if (b.status === 'fulfilled') {
     const d = b.value;
     // v62：人事数据里带着空桌一览「🛂 签证资料」的员工名簿（k=vz/vzc：在留卡号・住所・电话），运营部用不到 → 去掉，不进内存也不存进手机
-    if (d && Array.isArray(d.rows)) { d.rows = d.rows.filter(r => r.k !== 'vz' && r.k !== 'vzc'); HR = d; owner = true; hrErr = ''; cachePut('hr', d); }
+    if (d && Array.isArray(d.rows)) { d.rows = d.rows.filter(r => r.k !== 'vz' && r.k !== 'vzc'); HRONLY = d.role === 'hr'; try { if (HRONLY) localStorage.setItem('pjRole', 'hr'); else localStorage.removeItem('pjRole'); } catch (e) {} HR = d; owner = true; hrErr = ''; cachePut('hr', d); }
     else if (d && d.error === 'owner') { HR = null; owner = false; LS.del('pjc_hr'); }
     else if (owner || (d && !d.error)) hrErr = '读不到人事评价（后台还没部署新版本）';
   }
+  if (HRONLY && HR_TABS.indexOf(tab) < 0) tab = 'hr';
   if (!owner && tab !== 'pj' && tab !== 'ty' && tab !== 'yc' && tab !== 'qr' && tab !== 'rk' && tab !== 'cl' && tab !== 'xq') tab = 'pj';
   LOADING = false; lastLoad = Date.now();
   renderSoon();
   if (tab === 'qr') loadQr();
   if (tab === 'rk') loadRk();
   if (tab === 'xq') loadXq();
-  loadYcd();
+  if (!HRONLY) loadYcd();
 }
 // 11/18：后台说这台手机没登记 → 什么都不给看：手机里存的运营部数据（pjc_ 开头：评价・人事・回头客・谷歌扫码…）全删，上面的标签也收起
 //   （v39：以前只删评价・人事两份、标签还能点，点「回头客」「谷歌扫码」会显示手机里存的旧数据）
@@ -373,26 +379,27 @@ function blockDevice(d) {
 }
 let LOADING = false;
 function showKey(msg) {
-  $('main').innerHTML = '<div class="keybox"><img src="icon-192.png" alt="" style="width:64px;height:64px;border-radius:14px"><p>请输入密码（和空桌一览同一个）<br><span class="note">老板密码看得到人事评价・卫生检查；店长密码只看评价</span></p><input id="kin" type="password" autocomplete="off"><button onclick="saveKey()">确定</button><p class="note" style="color:var(--bad)">' + esc(msg || '') + '</p></div>';
+  $('main').innerHTML = '<div class="keybox"><img src="icon-192.png" alt="" style="width:64px;height:64px;border-radius:14px"><p>请输入密码（和空桌一览同一个）<br><span class="note">老板密码看得到人事评价・卫生检查；店长密码只看评价；人事部密码只看人事</span></p><input id="kin" type="password" autocomplete="off"><button onclick="saveKey()">确定</button><p class="note" style="color:var(--bad)">' + esc(msg || '') + '</p></div>';
 }
-function saveKey() { const v = $('kin').value.trim(); if (!v) return; K = v; LS.set('k', K); LS.del('pjc_pj'); LS.del('pjc_hr'); PJ = HR = null; owner = false; load(); }
+function saveKey() { const v = $('kin').value.trim(); if (!v) return; K = v; LS.set('k', K); try { Object.keys(localStorage).filter(k => k.indexOf('pjc_') === 0).forEach(k => localStorage.removeItem(k)); } catch (e) {} LS.del('pjRole'); HRONLY = false; PJ = HR = XQ = null; owner = false; load(); }   // 11/20 换密码（例：人事部↔店长）时清掉全部 pjc_ 缓存
 function changeKey() { showKey(''); }
 
 // ---------- 公共 ----------
-function setTab(t) { progScroll(); const pv = tab; if (pv !== t) navPush('tab', () => setTab(pv)); tab = t; LS.set('pjTab', t); render(); window.scrollTo(0, 0); if (t === 'qr') loadQr(); if (t === 'rk') loadRk(); if (t === 'xq') loadXq(); loadYcd(); }
+function setTab(t) { if (t === 'vz') { location.href = '/kongzhuo/vz.html'; return; } if (HRONLY && HR_TABS.indexOf(t) < 0) t = 'hr'; progScroll(); const pv = tab; if (pv !== t) navPush('tab', () => setTab(pv)); tab = t; LS.set('pjTab', t); render(); window.scrollTo(0, 0); if (t === 'qr') loadQr(); if (t === 'rk') loadRk(); if (t === 'xq') loadXq(); if (!HRONLY) loadYcd(); }
 function render() {
   progScroll();   // v56：重画后页面变短时浏览器自己调的滚动不算「人在滑」
   SGK = []; NQK = []; SGC = [];   // 签名栏・待确认的编号表，每次重画重来
   if (BLOCKED) return;
   const ycN = ycBad().length;   // 11/16 预约异常：有订不了的页面就在按钮上显示几处
-  const tabs = [['pj', '⭐ 评价'], ['qr', '📲 谷歌扫码'], ['ty', '📅 预约'], ['rk', '🔁 回头客'], ['cl', '📝 处理记录'], ['yc', '🚨 预约异常' + (ycN ? ' <b style="color:#fff;background:var(--bad);border-radius:9px;padding:0 6px;font-size:12px">' + ycN + '</b>' : '')], ...(owner ? [['hr', '👔 人事'], ['sy', '👤 社员'], ['hy', '🧹 卫生']] : [])];
+  const tabs = HRONLY ? [['hr', '👔 人事'], ['hy', '🧹 卫生'], ['vz', '🛂 签证名簿']] : [['pj', '⭐ 评价'], ['qr', '📲 谷歌扫码'], ['ty', '📅 预约'], ['rk', '🔁 回头客'], ['cl', '📝 处理记录'], ['yc', '🚨 预约异常' + (ycN ? ' <b style="color:#fff;background:var(--bad);border-radius:9px;padding:0 6px;font-size:12px">' + ycN + '</b>' : '')], ...(owner ? [['hr', '👔 人事'], ['sy', '👤 社员'], ['hy', '🧹 卫生']] : [])];
   { const xb = $('xqb'); if (xb) xb.className = 'xqb' + (tab === 'xq' ? ' on' : ''); }
+  { const h1 = document.querySelector('header h1'); if (h1 && h1.textContent !== (HRONLY ? '人事部' : '运营部')) h1.textContent = HRONLY ? '人事部' : '运营部'; }   // 11/20 人事部密码
   $('tabs').innerHTML = tabs.map(([k, n]) => '<button class="' + (tab === k ? 'on' : '') + '" onclick="setTab(\'' + k + '\')">' + n + '</button>').join('');
   const at = tab === 'xq' ? (XQ && XQ.now) : tab === 'rk' ? (RK && RK.at) : tab === 'qr' ? (QRD && QRD.updated) : tab === 'pj' || tab === 'ty' || tab === 'yc' ? (PJ && PJ.at) : (HR && HR.at);
   $('at').textContent = (at ? at.slice(5).replace('-', '/') + ' 更新' : '') + (tab === 'rk' ? (rkBusy ? '・读取最新中…' : '') : tab === 'qr' ? (qrBusy ? '・读取最新中…' : '') : LOADING ? '・读取最新中…' : (pjErr && tab !== 'hr' && tab !== 'sy' && tab !== 'hy') ? '・⚠ 没读到最新（显示的是上次的）' : '');
   { const sb = tab !== 'hr' && tab !== 'sy' && tab !== 'hy' && tab !== 'xq' ? selBar() : '', sh = $('selh'); if (sh && sh.innerHTML !== sb && !(document.activeElement && sh.contains(document.activeElement))) sh.innerHTML = sb; }   // v55：店铺选择放进顶上固定栏，往下滑也一直在
   patchMain((tab === 'hr' ? renderHr() : tab === 'sy' ? renderSy() : tab === 'hy' ? renderHy() : tab === 'ty' ? renderTy() : tab === 'yc' ? renderYc() : tab === 'qr' ? renderQr() : tab === 'rk' ? renderRk() : tab === 'cl' ? renderCl() : tab === 'xq' ? renderXq() : renderPj()) +
-    '<div class="foot"><a onclick="changeKey()">🔑 换密码（老板 / 店长）</a>' + (IN_KZ ? '' : '　版本 ' + APPV.replace('yunying-v', '')) + '</div>');
+    '<div class="foot"><a onclick="changeKey()">🔑 换密码（老板 / 店长 / 人事部）</a>' + (IN_KZ ? '' : '　版本 ' + APPV.replace('yunying-v', '')) + '</div>');
 }
 const stars = s => s == null ? '' : '<span class="stars">' + '★'.repeat(Math.round(s)) + '<span style="opacity:.25">' + '★'.repeat(5 - Math.round(s)) + '</span></span>';
 function brandShort(n) {
@@ -432,14 +439,16 @@ function trendCard(T) {
 // 11/19 用户：「运营部也要有这个键」（会计部 APP 先做好的同一套）。员工写 → Claude 每天 19:00 做成测试版（yunying/test/）
 //   → 老板在这里看测试版、按 ✅ 上线 / ↩ 退回 → 电脑脚本换成正式版。后台 what=acreq&app=yy，云端表格「运营部需求」工作表。
 //   碰到 营业额谁能看・密码登录・删数据・改后台 的需求，Claude 不自己做，放「等老板定」。
-const XQ_PILL = { '新': ['p0', '已收到，等处理'], '处理中': ['p2', 'Claude 在做'], '做好待确认': ['p2', '做好了，等老板确认'], '要问你': ['p3', '要你补充'], '等老板定': ['p2', '等老板决定'],
-  '退回修改': ['p2', '老板退回，重新改'], '上线中': ['p1', '老板同意，马上上线'], '已上线': ['p1', '✓ 已上线'], '不做': ['p0', '这次不做'] };
-let XQ = cacheGet('xq'), xqBusy = false, xqErr = '', xqAt = 0, xqOpen = '', xqMsg = '', xqBack = false;
-const xqApi = q => api('acreq&app=yy' + q + '&who=' + encodeURIComponent(LS.get('xqWho', '') || (XQ && XQ.owner ? '老板' : '')));
+// 11/20 改：电脑每 5 分钟查、一提就做 →「部门确认中」部门先看（满意交老板 act=dok／还要改 act=dback）→ 老板・副社长在这里或空桌一览「✅ 上线审批」上线。
+const XQ_PILL = { '新': ['p0', '已收到，等处理'], '处理中': ['p2', 'Claude 在做'], '部门确认中': ['p3', '测试版做好了，请你们看'], '做好待确认': ['p2', '部门满意，等老板上线'], '要问你': ['p3', '要你补充'], '等老板定': ['p2', '等老板决定'],
+  '退回修改': ['p2', '退回，Claude 重新改'], '上线中': ['p1', '老板同意，马上上线'], '已上线': ['p1', '✓ 已上线'], '不做': ['p0', '这次不做'] };
+let XQ = cacheGet('xq'), xqBusy = false, xqErr = '', xqAt = 0, xqOpen = '', xqMsg = '', xqBack = false, xqDb = false;
+const xqApp = () => HRONLY || /\/test-hr\//.test(location.pathname) ? 'hr' : 'yy';   // 11/20 人事部的需求单独一张表（编号 H）
+const xqApi = q => api('acreq&app=' + xqApp() + q + '&who=' + encodeURIComponent(LS.get('xqWho', '') || (XQ && XQ.owner ? '老板' : '')));
 async function loadXq(force) {
   if (xqBusy || (!force && Date.now() - xqAt < 20000)) return; xqBusy = true; xqAt = Date.now();
   try {
-    const d = await api('acreq&app=yy');
+    const d = await api('acreq&app=' + xqApp());
     if (d && d.rows) { XQ = d; xqErr = ''; cachePut('xq', d); }
     else if (d && d.error === 'device') { xqBusy = false; return blockDevice(d); }
     else xqErr = '读不到（' + ((d && d.error) || '') + '）';
@@ -459,22 +468,33 @@ function xqSend() {
   const v = ($('xqv') || {}).value || '', who = ($('xqw') || {}).value || '';
   if (!v.trim()) { xqMsg = '<div class="err">内容还是空的</div>'; return render(); }
   LS.set('xqWho', who.trim());
-  xqDo('&act=add&v=' + encodeURIComponent(v.trim()), '收到了。Claude 每天 19:00 处理，做好的先放测试版，老板确认后上线。进度看下面。', () => { const e = $('xqv'); if (e) e.value = ''; });
+  xqDo('&act=add&v=' + encodeURIComponent(v.trim()), '收到了。Claude 一般 30 分钟内做好测试版，你们先看，满意了交老板上线。进度看下面。', () => { const e = $('xqv'); if (e) e.value = ''; });
 }
 function xqOk() { xqDo('&act=ok', '已同意上线：电脑 10 分钟内换成正式版，大家手机自动更新。'); }
 function xqBackGo() { const w = ($('xqwhy') || {}).value || ''; if (!w.trim()) { xqMsg = '<div class="err">请写退回的原因（哪里不对、要怎么改）</div>'; return render(); } xqDo('&act=back&why=' + encodeURIComponent(w.trim()), '已退回，Claude 下次按你写的重新改。'); }
+function xqDok() { xqDo('&act=dok', '已交给老板・副社长：他们按「上线」后大家手机自动更新。'); }
+function xqDbGo() { const w = ($('xqdwhy') || {}).value || ''; if (!w.trim()) { xqMsg = '<div class="err">请写还要改哪里、怎么改</div>'; return render(); } xqDb = false; xqDo('&act=dback&why=' + encodeURIComponent(w.trim()), '收到，Claude 一般 30 分钟内接着改，改好再请你们看。'); }
 function xqYes(id, yes) { xqDo('&act=' + (yes ? 'yes' : 'no') + '&id=' + id, yes ? '同意做，Claude 下次处理。' : '这条不做了。'); }
 function xqReply(id) { const v = ($('xqr_' + id) || {}).value || ''; if (!v.trim()) return; xqDo('&act=reply&id=' + id + '&v=' + encodeURIComponent(v.trim()), '补充好了，Claude 下次一起处理。'); }
 function xqToggle(id) { xqOpen = xqOpen === id ? '' : id; xqMsg = ''; render(); }
 function renderXq() {
   let h = `<div class="xq"><div class="card"><div class="ct">💡 想改什么、想加什么，直接写</div><div class="note">例：「评价页想按店长分开看」「预约异常想早上 9 点推送」。<br>`
-    + `提了以后：<b>Claude 每天 19:00 处理</b> → 做好的先放<b>测试版</b> → <b>老板看过按「上线」</b> → 大家手机自动更新。写不清楚的，Claude 会在下面问你。</div>`
+    + `提了以后：<b>Claude 一般 30 分钟内做好</b>，先放<b>测试版</b> → <b>你们先看</b>，还要改就写意见、满意就按「交老板」 → <b>老板・副社长按「上线」</b> → 大家手机自动更新。写不清楚的，Claude 会在下面问你。</div>`
     + `<input id="xqw" placeholder="你的名字・店名（例：上野 王）" value="${esc(LS.get('xqWho', ''))}" maxlength="20">`
     + `<textarea id="xqv" placeholder="写在这里（最多 1000 字）：哪一页、想改成什么样" maxlength="1000"></textarea>`
     + `<button class="xbtn" onclick="xqSend()">发送</button>${xqOpen ? '' : xqMsg}</div>`;
   if (!XQ) return h + `<div class="card"><div class="note">${xqBusy ? '读取中…' : esc(xqErr || '还没有数据')}</div></div></div>`;
-  const rows = XQ.rows || [], wait = rows.filter(r => r.st === '做好待确认'), boss = rows.filter(r => r.st === '等老板定');
+  const rows = XQ.rows || [], wait = rows.filter(r => r.st === '做好待确认'), boss = rows.filter(r => r.st === '等老板定'), dept = rows.filter(r => r.st === '部门确认中');
   if (xqErr) h += `<div class="note" style="color:var(--warn)">${esc(xqErr)}</div>`;
+  if (dept.length) {   // 11/20 部门先看测试版
+    const url = (dept.find(r => r.test) || {}).test || XQ.test || 'test/';
+    h += `<div class="card" style="border:2px solid #2563eb"><div class="ct">🧪 测试版做好了：请先看（${dept.length} 条）</div>`
+      + dept.map(r => `<div class="row"><b>${esc(r.id)}</b>　<small>${esc(r.who)}　${esc(r.t.slice(5))}</small><div style="white-space:pre-wrap">${esc(r.v)}</div>${r.note ? `<div class="note">🛠 Claude：${esc(r.note)}</div>` : ''}</div>`).join('')
+      + `<a class="xbtn sub" href="${esc(url)}" target="_blank">🧪 打开测试版看看</a>`
+      + `<div class="two"><button class="g" onclick="xqDok()">👍 满意，交老板</button><button class="r" onclick="xqDb=!xqDb;xqMsg='';render()">✏️ 还要改</button></div>`
+      + (xqDb ? `<textarea id="xqdwhy" placeholder="还要改哪里、改成什么样（必填）" maxlength="500"></textarea><button class="xbtn" onclick="xqDbGo()">交给 Claude 接着改</button>${xqMsg}` : '')
+      + `<div class="note">在测试版里可以随便看；按的按钮会真的记下来。${XQ.owner ? '你是老板：也可以在空桌一览「✅ 上线审批」直接上线。' : ''}</div></div>`;
+  }
   if (XQ.owner && wait.length) {
     const url = (wait.find(r => r.test) || {}).test || 'test/';
     h += `<div class="card" style="border:2px solid #d97706"><div class="ct">🟡 待你确认：测试版里有 ${wait.length} 条</div>`
@@ -494,8 +514,8 @@ function renderXq() {
     return `<div class="row${ask ? ' ask' : ''}"><span class="pill ${pc}">${esc(pt)}</span>　<small>${esc(r.id)}　${esc(r.who)}　${esc(r.t.slice(5))}</small>`
       + `<div style="white-space:pre-wrap;word-break:break-word">${esc(r.v)}</div>`
       + (r.note ? `<div class="note">${ask ? '❓ Claude 问：' : '🛠 Claude：'}${esc(r.note)}</div>` : '')
-      + (r.back ? `<div class="note">老板：${esc(r.back)}</div>` : '')
-      + (r.st === '做好待确认' && r.test ? `<div class="note"><a class="lnk" href="${esc(r.test)}" target="_blank">🧪 打开测试版看看</a></div>` : '')
+      + (r.back ? `<div class="note">意见：${esc(r.back)}</div>` : '')
+      + ((r.st === '做好待确认' || r.st === '部门确认中') && r.test ? `<div class="note"><a class="lnk" href="${esc(r.test)}" target="_blank">🧪 打开测试版看看</a></div>` : '')
       + (ask || xqOpen === r.id ? `<input id="xqr_${r.id}" placeholder="${ask ? '回答 Claude 的问题' : '补充一句'}" maxlength="500"><button class="xbtn" onclick="xqReply('${r.id}')">补充</button>`
         : (r.st !== '不做' ? `<div class="note"><a class="lnk" onclick="xqToggle('${r.id}')">➕ 补充</a></div>` : ''))
       + (xqOpen === r.id ? xqMsg : '') + '</div>';
