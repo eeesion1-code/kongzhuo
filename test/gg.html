@@ -1,0 +1,580 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<base href="../">
+<meta name="test-base" content="44d202af0bd5">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>广告预约部</title>
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="广告预约部">
+<meta name="theme-color" content="#f5f6f8" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0f1115" media="(prefers-color-scheme: dark)">
+<style>
+/* 11/19 用户：「APP 上的我的店改为广告部门（后定名「广告预约部」），按键排在运营部前面。里面要生成的任务为 Slack 经营群的数据：每一天预约的客人无断取消，
+   统计每一家店铺无断取消的数据，金额也要，然后每个月的数据。再加上预约中心是否有把这组客人取消掉，并签字署名是否料金跟客人打通电话收回回来钱了。
+   那钱有没有回来要在会计部显示，会计部根据这个信息来跟进客人是否汇款」。
+   数据：Slack #经营汇报 → Claude 每天 10:00 读 → 后台「无断取消」工作表（what=ns 读・nsdo 写）。和空桌一览同一个网站、同一个密码・手机编号。 */
+:root{--bg:#f5f6f8;--card:#fff;--ink:#16181d;--sub:#6b7280;--faint:#9ca3af;--line:#e6e8ec;--soft:#f0f2f5;--brand:#1d4ed8;
+  --good:#15803d;--goodBg:#ecfdf3;--warn:#b45309;--warnBg:#fef3c7;--bad:#dc2626;--badBg:#fee2e2;--shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.08)}
+@media (prefers-color-scheme: dark){:root{--bg:#0f1115;--card:#181b21;--ink:#eceef2;--sub:#a1a7b3;--faint:#6b7280;--line:#2a2f38;--soft:#20242c;--brand:#3b82f6;
+  --good:#22c55e;--goodBg:#11281a;--warn:#facc15;--warnBg:#2f2a10;--bad:#f87171;--badBg:#361515;--shadow:none}}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink)}
+html{touch-action:manipulation}
+body{font:15px/1.5 -apple-system,BlinkMacSystemFont,"Hiragino Sans","PingFang SC","Noto Sans CJK SC","Microsoft YaHei",sans-serif;-webkit-text-size-adjust:100%}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+button:active,a:active{opacity:.6}
+header{position:sticky;top:0;z-index:5;background:var(--bg);padding:calc(8px + env(safe-area-inset-top)) 16px 8px;border-bottom:1px solid var(--line)}
+.top{display:flex;align-items:center;gap:8px;max-width:760px;margin:0 auto}
+.top a.back{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:6px 10px;font-size:14px;color:var(--ink);text-decoration:none}
+.top h1{flex:1;margin:0;font-size:19px}.top small{font-size:12px;color:var(--sub)}
+main{max-width:760px;margin:0 auto;padding:10px 16px 40px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:12px 14px;margin:10px 0}
+.ct{font-weight:700;font-size:16px;margin-bottom:4px}
+.note{font-size:12.5px;color:var(--sub);line-height:1.6;margin:4px 0 0}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:2px 0 6px;scrollbar-width:none}.chips::-webkit-scrollbar{display:none}
+.chips button{flex:0 0 auto;border:1px solid var(--line);background:var(--card);border-radius:999px;padding:6px 12px;font-size:14px;font-weight:600}
+.chips button.on{background:var(--brand);border-color:var(--brand);color:#fff}
+.kp{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:8px 0}
+.kp div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;box-shadow:var(--shadow)}
+.kp small{display:block;font-size:12.5px;color:var(--sub)}.kp b{font-size:24px;line-height:1.25}.kp .g b{color:var(--good)}.kp .r b{color:var(--bad)}
+.kp .w{grid-column:1/-1}
+table{width:100%;border-collapse:collapse;font-size:14px}th,td{padding:7px 4px;border-top:1px solid var(--line);text-align:right;white-space:nowrap}
+th{font-size:12px;color:var(--sub);font-weight:600;border-top:0}td:first-child,th:first-child{text-align:left;white-space:normal}
+.case{background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:10px 12px;margin:10px 0}
+.case.todo{border-left:4px solid var(--bad)}.case.wait{border-left:4px solid var(--warn)}.case.done{border-left:4px solid var(--good);opacity:.85}
+.case .h{font-weight:700;font-size:15.5px}.case .m{font-size:13px;color:var(--sub);margin-top:2px}.case .amt{font-weight:700}
+.step{border-top:1px dashed var(--line);margin-top:8px;padding-top:8px;font-size:14px}
+.step .t{font-weight:700;font-size:13.5px;color:var(--sub)}
+.ok{color:var(--good);font-weight:600}.wt{color:var(--warn);font-weight:600}.no{color:var(--bad);font-weight:600}
+.undo{font-size:12.5px;color:var(--sub);text-decoration:underline;margin-left:6px;cursor:pointer}
+.row2{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+.row2 input{flex:1 1 120px;min-width:0;padding:9px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);font-size:16px}
+.go{border:0;border-radius:10px;background:var(--brand);color:#fff;font-weight:700;padding:9px 14px}
+.res{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.res label{border:1px solid var(--line);border-radius:999px;padding:5px 11px;font-size:14px;background:var(--card)}
+.res input{display:none}.res input:checked+span{color:#fff}.res label:has(input:checked){background:var(--brand);border-color:var(--brand);color:#fff}
+.me{display:flex;align-items:center;gap:8px;background:var(--warnBg);border-radius:12px;padding:8px 10px;margin:8px 0;font-size:14px}
+.me input{flex:1;min-width:0;padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);font-size:16px}
+.msg{font-size:13.5px;margin:6px 0}.msg.e{color:var(--bad)}.msg.s{color:var(--good)}
+.sec{font-size:13.5px;color:var(--sub);font-weight:700;margin:16px 2px 4px}
+.empty{padding:28px 10px;text-align:center;color:var(--sub)}
+.keybox{text-align:center;padding:40px 8px}.keybox input{display:block;width:100%;max-width:260px;margin:12px auto 0;padding:11px;border:1px solid var(--line);border-radius:10px;background:var(--card);font-size:16px;text-align:center}.keybox button{display:block;width:100%;max-width:260px;margin:10px auto 0;padding:12px;border:0;border-radius:12px;background:var(--brand);color:#fff;font-weight:700;font-size:16px}
+.foot{font-size:12px;color:var(--faint);text-align:center;margin:20px 0 0}.foot a{color:var(--sub);text-decoration:underline;cursor:pointer}
+.det{background:var(--soft);border-radius:10px;padding:8px 10px;margin:6px 0 2px}.det table{width:100%;border-collapse:collapse;font-size:13.5px}.det th,.det td{text-align:left;padding:4px 4px;border-top:1px solid var(--line);vertical-align:top;white-space:normal}.det tr:first-child th,.det tr:first-child td{border-top:0}.det th{width:7.5em;color:var(--sub);font-weight:600;white-space:nowrap}.det td{word-break:break-all}
+details summary{cursor:pointer;color:var(--sub);font-size:14px;margin:12px 2px}
+/* 11/20 「📋 每日上报」 */
+.chips .bd{display:inline-block;min-width:18px;padding:0 5px;border-radius:999px;background:var(--bad);color:#fff;font-size:11px;line-height:1.5}
+.cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(112px,1fr));gap:6px;margin:8px 0}.cg{border-radius:10px;padding:6px 8px;font-size:12.5px;line-height:1.4;border:1px solid var(--line);background:var(--card)}.cg.ok{border-color:var(--good);background:var(--goodBg)}.cg.miss{border-color:var(--bad);background:var(--badBg)}.cg.bad{border-color:var(--warn);background:var(--warnBg)}.cg small{color:var(--sub)}
+.kp .g b{color:var(--good)}
+/* 11/19 「🔍 网页检查」 */
+.tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:4px 0 6px}
+.tabs button{border:1px solid var(--line);background:var(--card);border-radius:12px;padding:10px 6px;font-weight:700;font-size:15px;box-shadow:var(--shadow)}
+.tabs button.on{background:var(--brand);border-color:var(--brand);color:#fff}
+.testbar{position:sticky;top:0;z-index:70;background:#fde047;color:#422006;font-size:13.5px;font-weight:700;padding:calc(7px + env(safe-area-inset-top)) 12px 7px;text-align:center}.testbar a{color:#1d4ed8}
+.xqta{width:100%;min-height:96px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);font-size:16px;font-family:inherit;margin-top:6px;box-sizing:border-box}
+.xqr{border-top:1px solid var(--line);padding:9px 0}.xqr:first-of-type{border-top:0}.xqp{display:inline-block;border-radius:999px;padding:1px 9px;font-size:12px;font-weight:700;background:var(--soft);color:var(--sub)}.xqp.b{background:#dbeafe;color:#1d4ed8}.xqp.g{background:var(--goodBg);color:var(--good)}.xqp.w{background:var(--warnBg);color:var(--warn)}
+.xbtn{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:8px}.xbtn button,.xbtn a{border:0;border-radius:10px;padding:11px 6px;font-weight:700;font-size:15px;color:#fff;text-align:center;text-decoration:none}
+.tabs button .bd{display:inline-block;min-width:20px;padding:0 6px;margin-left:4px;border-radius:999px;background:var(--bad);color:#fff;font-size:12px;line-height:20px}
+.wcs .wi{border-top:1px dashed var(--line);margin-top:8px;padding-top:8px}
+.wcs .wf{font-weight:700;font-size:14.5px}.wcs .wf small{font-weight:400;color:var(--faint);margin-left:6px}
+.wt2{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:4px}.wt2 td{border-top:1px solid var(--line);padding:5px 4px;text-align:left;white-space:normal;vertical-align:top}
+.wt2 td:first-child{width:6.8em;color:var(--sub);white-space:nowrap}.wt2 tr:first-child td{border-top:0}
+.wt2 tr.odd td{background:var(--badBg)}.wt2 tr.odd td:last-child b{color:var(--bad)}
+.wt2 .raw{display:block;font-size:12px;color:var(--faint);word-break:break-all}
+.lk{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}.lk a{font-size:13px;border:1px solid var(--line);border-radius:999px;padding:3px 10px;color:var(--brand);text-decoration:none;background:var(--card)}
+.wstat{font-size:14px;margin:6px 0}
+</style>
+</head>
+<body>
+<header><div class="top"><a class="back" id="back" href="./" style="display:none">‹ 空桌一览</a><h1>📣 广告预约部</h1><small id="at"></small></div></header>
+<main id="main"><div class="empty">读取中…</div></main>
+<script>
+const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
+const LS = { get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const yen = n => '¥' + (Number(n) || 0).toLocaleString('ja-JP');
+// 11/19 用户：「广告部的 APP 只能让广告部和预约中心看的链接发一个…只能最开始的 2 台手机看，和 2 台电脑」
+//   单独打开（https://eeesion1-code.github.io/kongzhuo/gg.html）时用「广告预约部密码」（后台角色 gg，名额：广告预约部手机 2・电脑 2，先登录先占）；
+//   这个密码另存在 ggk，不动空桌一览的密码 k。从空桌一览底栏点进来时没有 ggk，就用空桌一览的密码（老板・店长）。
+let K = LS.get('ggk', '') || LS.get('k', '');
+const DV = (() => { let v = LS.get('dv', ''); if (!/^[0-9a-f]{32}$/.test(v)) { const a = new Uint8Array(16); crypto.getRandomValues(a); v = Array.from(a, b => b.toString(16).padStart(2, '0')).join(''); LS.set('dv', v); } return v; })();
+function showKey(msg) {
+  $('main').innerHTML = `<div class="keybox"><p>📣 广告预约部<br>请输入负责人给的密码</p><input id="kin" autocomplete="off" autocapitalize="off" enterkeyhint="go" onkeydown="if(event.key==='Enter')saveKey()"><button onclick="saveKey()">开始使用</button><p class="msg e">${esc(msg || '')}</p></div>`;
+  $('at').textContent = '';
+}
+function saveKey() { const v = (($('kin') || {}).value || '').trim(); if (!v) return; LS.set('ggk', v); K = v; NS = null; load(); }
+function changeKey() { try { localStorage.removeItem('ggk'); localStorage.removeItem('ggc'); } catch (e) {} K = LS.get('k', ''); NS = null; showKey(''); }
+const DVUA = (() => { const u = navigator.userAgent, st = (navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) ? '主屏幕APP' : '浏览器'; let m;
+  if ((m = u.match(/iPhone OS ([\d_]+)/))) return `iPhone iOS ${m[1].replace(/_/g, '.')}・${st}`;
+  if ((m = u.match(/iPad.*? OS ([\d_]+)/))) return `iPad iOS ${m[1].replace(/_/g, '.')}・${st}`;
+  if ((m = u.match(/Android ([\d.]+); ([^;)]+)/))) return `Android ${m[1]} ${m[2].trim()}・${st}`;
+  return `${(u.match(/Windows NT|Macintosh|Android|Linux/) || ['其他'])[0]}・${st}`; })();
+const PV = () => K === LS.get('k', '') ? (['staff', 'gg'].includes(LS.get('asRole', '')) ? LS.get('asRole', '') : LS.get('asStaff', '') === '1' ? 'staff' : '') : '';
+function exitPreview() { ['asRole', 'asStaff', 'last', 'acrq'].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} }); location.href = './'; }   // 11/19 老板在空桌一览「📱 登录手机」点了「👀 看店长画面」→ 这页也按店长权限看
+const api = q => fetch(API + '?fmt=json' + q + '&k=' + encodeURIComponent(K) + '&dv=' + DV + '&ua=' + encodeURIComponent(DVUA) + (PV() ? '&as=' + PV() : ''), { cache: 'no-store' }).then(r => r.json());
+
+let NS = (() => { try { return JSON.parse(LS.get('ggc', 'null')); } catch (e) { return null; } })(), err = '', busy = false, msgs = {}, month = LS.get('ggMonth', ''), offOpen = '';
+const RES = ['同意付款', '已当场付', '请求中', '客人回复不付款', '拒绝', '联系不上', '不收'];   // 11/19 用户加「请求中」「客人回复不付款」
+const ASKED = r => PAY.includes(r) || r === '请求中';   // 已经向客人请求了金额的
+const PAY = ['同意付款', '已当场付'];
+function rowsObj() {
+  if (!NS) return [];
+  return NS.rows.map(r => { const o = {}; NS.head.forEach((h, i) => o[h] = r[i]); return o; }).filter(o => !o['停用']);
+}
+// 一单的状态：todo＝预约中心还没签（取消或联系）；wait＝同意付款等会计到账；done＝收完／不用收
+function stOf(o) {
+  if (!o['取消・谁'] || !o['联系・结果'] || o['联系・结果'] === '请求中') return 'todo';   // 请求中＝客人还没回复，预约中心还要跟
+  if (PAY.includes(o['联系・结果']) && !o['到账・金额']) return 'wait';
+  return 'done';
+}
+async function load() {
+  if (!K) return showKey('');
+  busy = true; if (NS) render();
+  try {
+    const d = await api('&what=ns');
+    if (d && d.rows) { NS = d; err = ''; LS.set('ggc', JSON.stringify(d)); }
+    else if (d && d.error === 'device') { NS = null; LS.set('ggc', 'null'); $('main').innerHTML = `<div class="empty">🔒 这台${/Windows|Macintosh|Linux/.test(DVUA) ? '电脑' : '手机'}还没登记，不能使用${LS.get('ggk', '') === K ? '（广告预约部只给最开始登录的 2 台手机・2 台电脑）' : '（这个密码的名额已满）'}。<br>已经通知负责人，请负责人授权后再打开。编号：<b>${esc(d.id || '—')}</b></div>`; busy = false; return; }
+    else if (d && (d.error === 'key' || d.error === 'owner')) { NS = null; LS.set('ggc', 'null'); busy = false; if (LS.get('ggk', '') === K) { try { localStorage.removeItem('ggk'); } catch (e) {} } K = ''; return showKey(d.error === 'key' ? '密码不对，请再确认一下' : '这个密码看不到广告预约部'); }
+    else err = '读不到（' + ((d && d.error) || '') + '）';
+  } catch (e) { err = '网络不通，显示的是上次的数据'; }
+  busy = false; render();
+  if (tab === 'wc' && K && NS) loadWc();   // 11/19 网页检查（密码・设备先由上面无断取消那次确认）
+}
+async function act(id, q, okText) {
+  const who = (($('who') || {}).value || '').trim();
+  if (!who) { msgs[id] = ['e', '请先在上面写你的名字']; return render(); }
+  LS.set('ggWho', who);
+  msgs[id] = ['', '保存中…']; render();
+  try {
+    const d = await api('&what=nsdo&id=' + encodeURIComponent(id) + '&who=' + encodeURIComponent(who) + q);
+    if (d.error) throw new Error(d.error === 'device' ? '这台手机没登记' : d.error === 'owner' ? '这个密码不能签' : d.error);
+    NS = d; LS.set('ggc', JSON.stringify(d)); msgs[id] = ['s', '✓ ' + okText]; offOpen = '';
+  } catch (e) { msgs[id] = ['e', '没保存：' + e.message]; }
+  render();
+}
+function signYc(id) { act(id, '&act=yc', '已签名：预约系统已取消'); }
+function signCall(id) {
+  const r = (document.querySelector(`input[name="r_${CSS.escape(id)}"]:checked`) || {}).value || '';
+  const amt = ((document.getElementById('a_' + id) || {}).value || '').replace(/[^0-9]/g, ''), how = ((document.getElementById('h_' + id) || {}).value || '').trim();
+  if (!r) { msgs[id] = ['e', '请选联系结果']; return render(); }
+  if (ASKED(r) && !amt) { msgs[id] = ['e', '请写请求金额']; return render(); }
+  if (['拒绝', '联系不上', '不收'].includes(r) && !how) { msgs[id] = ['e', '请写说明（为什么）']; return render(); }
+  act(id, '&act=call&res=' + encodeURIComponent(r) + '&amt=' + amt + '&how=' + encodeURIComponent(how), '已签名：' + r);
+}
+function undo(id, step) { act(id, '&act=undo&step=' + step, '已撤销'); }
+function offGo(id) { const w = (($('o_' + id) || {}).value || '').trim(); if (!w) { msgs[id] = ['e', '请写为什么不算']; return render(); } act(id, '&act=off&how=' + encodeURIComponent(w), '这单不算了'); }
+// 11/19 用户：「手机上可以操作的那种」→ 老板在手机上设广告预约部密码：用 POST 发（密码不放网址里），后台 doPost what=setgg 只认老板密码
+async function setGgKey() {
+  const a = (($('gp1') || {}).value || '').trim(), b = (($('gp2') || {}).value || '').trim();
+  if (!a) { msgs.__gg = ['e', '请输入新密码']; return render(); }
+  if (a !== b) { msgs.__gg = ['e', '两次输入的不一样，请再输一次']; return render(); }
+  msgs.__gg = ['', '保存中…']; render();
+  try {
+    const r = await fetch(API, { method: 'POST', body: JSON.stringify({ k: K, what: 'setgg', v: a }) }).then(x => x.json());
+    if (!r.ok) throw new Error(r.error === 'owner' ? '要用老板密码' : (r.error || '后台没回答'));
+    msgs.__gg = ['s', '✓ 广告预约部密码已启用，把下面的链接和密码发给广告部・预约中心'];
+  } catch (e) { msgs.__gg = ['e', '没保存：' + e.message]; }
+  render();
+  ['gp1', 'gp2'].forEach(i => { const e = $(i); if (e) e.value = ''; });
+}
+function setMonth(m) { month = m; LS.set('ggMonth', m); render(); }
+// 11/20 用户：「不能选当天的日子，和期间选择」→ 除了月份，加 今天・昨天・本周・📅 自选期间（起止同一天＝看某一天）；按预约日算
+const ymd = d => d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+const md = s => +s.slice(5, 7) + '/' + +s.slice(8, 10);
+function period() {
+  const t = new Date(), today = ymd(t);
+  if (month === 'today') return { from: today, to: today, label: '今天（' + md(today) + '）' };
+  if (month === 'yday') { const y = ymd(new Date(t.getTime() - 864e5)); return { from: y, to: y, label: '昨天（' + md(y) + '）' }; }
+  if (month === 'week') { const m = ymd(new Date(t.getTime() - ((t.getDay() + 6) % 7) * 864e5)); return { from: m, to: today, label: '本周（' + md(m) + '〜' + md(today) + '）' }; }
+  if (month === 'range') {
+    let a = LS.get('ggFrom', '') || today, b = LS.get('ggTo', '') || a;
+    if (b < a) [a, b] = [b, a];
+    return { from: a, to: b, label: a === b ? md(a) : md(a) + '〜' + md(b) };
+  }
+  return { from: month + '-01', to: month + '-31', label: +month.slice(5) + '月' };
+}
+function setRange() {
+  const a = ($('nsFrom') || {}).value || '', b = ($('nsTo') || {}).value || '';
+  if (a) LS.set('ggFrom', a);
+  LS.set('ggTo', b || a);
+  if (b === '' && $('nsTo')) $('nsTo').value = a;
+  month = 'range'; LS.set('ggMonth', 'range'); render();
+}
+
+// 11/19 用户：「跳转不过去」——レストランボード 的预约详情页只能看当前选中的店，从外面跳不过去 → 电脑程序（rb配对.py，只读）把预约台账读下来，在 APP 里展开看
+const DET_F = [['店', '店'], ['日期', '日期'], ['时间', '时间'], ['名字', '名字（カナ）'], ['汉字', '名字（汉字）'], ['电话', '电话'], ['邮箱', '邮箱'], ['人数', '人数'], ['席', '席'],
+  ['套餐', '套餐'], ['经路', '预约经路'], ['网站预约号', '网站预约号'], ['客人要求', '客人要求'], ['店里备注', '店里备注'], ['受理时间', '受理时间'], ['状态', 'レストランボード状态']];
+let detOpen = new Set();
+function togDet(id) { detOpen.has(id) ? detOpen.delete(id) : detOpen.add(id); render(); }
+function detPanel(o) {
+  let d = {};
+  try { d = JSON.parse(o['RB详情'] || '{}') || {}; } catch (e) {}
+  const rows = DET_F.filter(([k]) => d[k]).map(([k, n]) => `<tr><th>${n}</th><td>${k === '电话' ? `<a href="tel:${esc(d[k])}" style="color:var(--brand);font-weight:700">${esc(d[k])}</a>` : k === '邮箱' ? `<a href="mailto:${esc(d[k])}" style="color:var(--brand)">${esc(d[k])}</a>` : esc(d[k])}</td></tr>`).join('');
+  return rows ? `<div class="det"><table>${rows}</table><div class="note">来自レストランボード（电脑每天 10:30・18:00 只读读取）</div></div>` : '';
+}
+function caseCard(o) {
+  const id = o['编号'], s = stOf(o), m = msgs[id], d = o['预约日'].slice(5).replace('-', '/');
+  let h = `<div class="case ${s}"><div class="h">${esc(d)} ${esc(o['时间'])}　${esc(o['公司'])} ${esc(o['店'])}</div>`
+    + `<div class="m">${esc(o['客人'])} 様　${esc(o['人数'])}名　${esc(o['内容'])}　合计 <span class="amt">${yen(o['合计'])}</span>`
+    + (o['Slack链接'] ? `　<a href="${esc(o['Slack链接'])}" target="_blank" style="color:var(--brand)">Slack 原文</a>` : '') + '</div>'
+    // 11/19 用户：「点击打开这，就是显示客人电话的预约台账页面」→ 电脑程序（rb配对.py，只读）配上 レストランボード 的这组预约；电话只给老板・广告预约部・会计部
+    + (o['RB预约编号'] ? `<div class="m">📒 レストランボード：${esc(o['RB店'])}・<b style="color:${o['RB状态'] === '已取消' ? 'var(--good)' : 'var(--warn)'}">${esc(o['RB状态'])}</b>`
+        + (o['电话'] ? `　📞 <a href="tel:${esc(o['电话'])}" style="color:var(--brand);font-weight:700">${esc(o['电话'])}</a>` : '')
+        + (o['RB详情'] ? `　<a class="undo" style="margin:0;color:var(--brand);font-weight:700" onclick="togDet('${id}')">📒 ${detOpen.has(id) ? '收起预约台账 ▲' : '点开看预约台账 ▼'}</a>` : '') + '</div>'
+        + (detOpen.has(id) ? detPanel(o) : '')
+      : '<div class="m">📒 レストランボード里还没找到这组（电脑每天 10:30・18:00 再找）</div>')
+    // 11/20 用户：「查一下能不能跳到台账」→ 实测：レストランボード 不能从外面指定店（选的店不存网址也不存 storage，详情页跨店会报错），
+    //   能做到的是网址带日期 from/to＝那天，打开「他店舗予約リスト」，再在店铺下拉选店、点客人＝原页面
+    + `<div class="m"><a href="https://restaurant-board.com/CLP/view/otherStoreReserveListWeb/?from=${o['预约日'].replace(/-/g, '')}&to=${o['预约日'].replace(/-/g, '')}" target="_blank" rel="noopener" style="color:var(--brand);font-weight:700">↗ 去レストランボード（${esc(d)} 他店舗予約リスト）</a>`
+    + `<div class="note">打开后在店铺下拉选「${esc(o['RB店'] || o['店'])}」→ 点「${esc(o['客人'])} 様」。要先在这台手机／电脑登录过レストランボード（HCL@888）。</div></div>`;
+  // ① 预约中心：预约系统里取消
+  h += '<div class="step"><div class="t">① 预约中心：在预约系统里取消这组</div>' + (o['取消・谁']
+    ? `<span class="ok">✓ 已取消</span>　${esc(o['取消・谁'])}　<small>${esc(o['取消・时间'].slice(5))}</small><a class="undo" onclick="undo('${id}','yc')">撤销</a>`
+    : (o['RB状态'] === '已取消' ? '<div class="note">レストランボード里已经是「已取消」，确认后签名。</div>' : o['RB状态'] ? `<div class="note" style="color:var(--warn)">⚠ レストランボード里还是「${esc(o['RB状态'])}」，请先在预约系统取消。</div>` : '')
+      + `<div class="row2"><button class="go" onclick="signYc('${id}')">✍ 已取消，签名</button></div>`) + '</div>';
+  // ② 打电话收取消料
+  h += '<div class="step"><div class="t">② 打电话给客人收取消料</div>';
+  if (o['联系・结果'] && o['联系・结果'] !== '请求中') {
+    const pay = PAY.includes(o['联系・结果']);
+    h += `<span class="${pay ? 'ok' : 'no'}">✓ ${esc(o['联系・结果'])}</span>${o['请求额'] ? '　请求 <b>' + yen(o['请求额']) + '</b>' : ''}　${esc(o['联系・谁'])}　<small>${esc(o['联系・时间'].slice(5))}</small>`
+      + (o['联系・说明'] ? `<div class="note">说明：${esc(o['联系・说明'])}</div>` : '') + (o['到账・金额'] ? '' : `<a class="undo" onclick="undo('${id}','call')">撤销</a>`);
+  } else {
+    if (o['联系・结果'] === '请求中') h += `<div><span class="wt">⏳ 请求中 ${yen(o['请求额'])}</span>　${esc(o['联系・谁'])}　<small>${esc(o['联系・时间'].slice(5))}</small>${o['联系・说明'] ? '<div class="note">说明：' + esc(o['联系・说明']) + '</div>' : ''}<div class="note">客人回复了就在下面选结果再签名。</div></div>`;
+    h += '<div class="res">' + RES.map(r => `<label><input type="radio" name="r_${esc(id)}" value="${r}">${r}</label>`).join('') + '</div>'
+      + `<div class="row2"><input id="a_${esc(id)}" inputmode="numeric" placeholder="请求金额" value="${esc(o['请求额'] || o['合计'])}"><input id="h_${esc(id)}" placeholder="说明（拒绝・联系不上・不收必填）" maxlength="200"></div>`
+      + `<div class="row2"><button class="go" onclick="signCall('${id}')">✍ 签名</button></div><div class="note">请求金额先填了 Slack 上的合计，按实际跟客人说的金额改。</div>`;
+  }
+  h += '</div>';
+  // ③ 会计部确认到账
+  h += '<div class="step"><div class="t">③ 会计部确认钱到账</div>' + (o['到账・金额']
+    ? (+o['到账・金额'] ? `<span class="ok">✓ 到账 ${yen(o['到账・金额'])}</span>　${esc(o['到账・日'])}　${esc(o['到账・谁'])}` : `<span class="no">✗ 没回款</span>　${esc(o['到账・谁'])}`) + (o['到账・说明'] ? `<div class="note">${esc(o['到账・说明'])}</div>` : '')
+    : PAY.includes(o['联系・结果']) ? '<span class="wt">⏳ 等会计部确认回款</span><div class="note">会计部在「💴 取消料」按「回款成功」或「没回款」。</div>'
+    : o['联系・结果'] === '请求中' ? '<span class="note">—（客人还没回复）</span>' : o['联系・结果'] ? '<span class="note">不用收</span>' : '<span class="note">—（先做完 ②）</span>') + '</div>';
+  if (NS.owner) h += offOpen === id
+    ? `<div class="row2"><input id="o_${esc(id)}" placeholder="为什么不算（例：重复、店里搞错）" maxlength="100"><button class="go" style="background:var(--bad)" onclick="offGo('${id}')">不算这单</button></div>`
+    : `<div class="note"><a class="undo" style="margin:0" onclick="offOpen='${id}';render()">（老板）这单不算</a></div>`;
+  if (m) h += `<div class="msg ${m[0]}">${esc(m[1])}</div>`;
+  return h + '</div>';
+}
+// ================= 11/20 「📋 每日上报」 =================
+// 用户：「广告预约部里面要添加一个每日 4 点读取 slack 的经营汇报。31 家店铺有没有都报？没有的话异常显示在 APP 里。
+//   每一天的无断取消没有写得非常准确的话也是异常，把这个键加上去」。没有无断取消的店也要每天发「无」（用户确认）。
+// Claude 每天 4:00（10:00 再补查）读 Slack #经营汇报，前一营业日每家店写进后台「经营汇报检查」（what=ns 里的 chk）；
+// 异常＝未报・写得不全，要签名＋写怎么处理（nsdo act=chksign / chkundo）。
+let chkDay = LS.get('ggChkDay', '');
+function chkObjs() { return NS && NS.chk ? NS.chk.map(r => { const o = {}; NS.chkHead.forEach((h, i) => o[h] = r[i]); return o; }) : []; }
+const CHK_BAD = r => r === '未报' || r === '写得不全';
+function chkTodo() { const lim = new Date(Date.now() - 7 * 864e5).toISOString().slice(0, 10); return chkObjs().filter(o => CHK_BAD(o['结果']) && !o['处理・谁'] && o['营业日'] >= lim).length; }
+function chkSetDay(d) { chkDay = d; LS.set('ggChkDay', d); render(); }
+async function chkAct(id, q, okText) {
+  const who = (($('cwho') || {}).value || '').trim();
+  if (!who) { msgs[id] = ['e', '请先在上面写你的名字']; return render(); }
+  LS.set('ggWho', who); msgs[id] = ['', '保存中…']; render();
+  try {
+    const d = await api('&what=nsdo&id=' + encodeURIComponent(id) + '&who=' + encodeURIComponent(who) + q);
+    if (d.error) throw new Error(d.error === 'device' ? '这台手机没登记' : d.error === 'owner' ? '这个密码不能签' : d.error);
+    NS = d; LS.set('ggc', JSON.stringify(d)); msgs[id] = ['s', '✓ ' + okText];
+  } catch (e) { msgs[id] = ['e', '没保存：' + e.message]; }
+  render();
+}
+function chkSign(id) { const how = (($('ch_' + id) || {}).value || '').trim(); if (!how) { msgs[id] = ['e', '请写怎么处理的（例：已提醒店长补报）']; return render(); } chkAct(id, '&act=chksign&how=' + encodeURIComponent(how), '已签名'); }
+function renderChk() {
+  $('at').textContent = NS ? NS.at.slice(5) + (busy ? ' 读取中…' : ' 更新') : '';
+  let h = tabsHtml() + `<div class="card"><div class="ct">📋 每日上报检查（Slack #经营汇报）</div><div class="note">31 家店每天都要在 Slack #经营汇报 报：有无断取消就写明细（日期・时间・客人名・人数・内容・合计），没有就发「无」。Claude 每天 4:00 查前一营业日（10:00 再补查一次，晚报的会变成已报）。<b>未报・写得不全</b>是异常，处理后签名并写怎么处理。</div></div>`;
+  if (!NS) return paint(h + `<div class="empty">${busy ? '读取中…' : esc(err || '还没有数据')}</div>`);
+  const all = chkObjs(), days = [...new Set(all.map(o => o['营业日']))].sort().reverse();
+  if (!days.length) return paint(h + '<div class="empty">还没有检查记录（每天 4:00 第一次检查后会出现）。</div>');
+  if (!days.includes(chkDay)) chkDay = days[0];
+  const wd = d => '日一二三四五六'[new Date(d + 'T00:00:00').getDay()];
+  h += '<div class="chips">' + days.slice(0, 14).map(d => { const n = all.filter(o => o['营业日'] === d && CHK_BAD(o['结果']) && !o['处理・谁']).length;
+    return `<button class="${d === chkDay ? 'on' : ''}" onclick="chkSetDay('${d}')">${+d.slice(5, 7)}/${+d.slice(8)}(${wd(d)})${n ? ` <span class="bd">${n}</span>` : ''}</button>`; }).join('') + '</div>';
+  const rows = all.filter(o => o['营业日'] === chkDay).sort((a, b) => +a['店No'] - +b['店No']);
+  const ok = rows.filter(o => !CHK_BAD(o['结果'])), miss = rows.filter(o => o['结果'] === '未报'), bad = rows.filter(o => o['结果'] === '写得不全');
+  const nsN = rows.reduce((t, o) => t + (+((o['结果'].match(/有\s*(\d+)/) || [])[1]) || 0), 0);
+  h += `<div class="kp"><div class="g"><small>已报</small><b>${ok.length}</b> / ${rows.length} 家</div><div class="r"><small>未报</small><b>${miss.length}</b> 家</div>`
+    + `<div class="${bad.length ? 'r' : ''}"><small>写得不全</small><b>${bad.length}</b> 家</div><div><small>报了无断取消</small><b>${nsN}</b> 组</div></div>`;
+  h += '<div class="cgrid">' + rows.map(o => { const c = o['结果'] === '未报' ? 'miss' : o['结果'] === '写得不全' ? 'bad' : 'ok';
+    return `<div class="cg ${c}"><b>No.${esc(o['店No'])}</b> ${esc(String(o['店']).replace(/^(まとめ[ｘx×]?|まとめX)/, '').slice(0, 9))}<br><small>${esc(o['结果'])}</small></div>`; }).join('') + '</div>';
+  const todo = rows.filter(o => CHK_BAD(o['结果']));
+  h += `<div class="me">✍ 签名用的名字<input id="cwho" placeholder="例：预约中心 王" maxlength="20" value="${esc(LS.get('ggWho', ''))}"></div>`;
+  h += `<div class="sec">⚠ 异常（${todo.length}）</div>` + (todo.length ? todo.map(o => {
+    const id = o['编号'], m = msgs[id], done = !!o['处理・谁'];
+    return `<div class="case ${done ? 'done' : 'todo'}"><div class="h">No.${esc(o['店No'])} ${esc(o['店'])}　<span class="${o['结果'] === '未报' ? 'no' : 'wt'}">${esc(o['结果'])}</span></div>`
+      + (o['说明'] ? `<div class="m">${esc(o['说明'])}</div>` : '') + (o['Slack链接'] ? `<div class="m"><a href="${esc(o['Slack链接'])}" target="_blank" style="color:var(--brand)">Slack 原文</a></div>` : '')
+      + '<div class="step">' + (done ? `<span class="ok">✓ 已处理</span>　${esc(o['处理・谁'])}　<small>${esc(o['处理・时间'].slice(5))}</small><div class="note">怎么处理：${esc(o['怎么处理'])}</div><a class="undo" onclick="chkAct('${id}','&act=chkundo','已撤销')">撤销</a>`
+        : `<div class="row2"><input id="ch_${esc(id)}" placeholder="怎么处理的（必填，例：已提醒店长补报）" maxlength="200"><button class="go" onclick="chkSign('${id}')">✍ 签名</button></div>`) + '</div>'
+      + (m ? `<div class="msg ${m[0]}">${esc(m[1])}</div>` : '') + '</div>';
+  }).join('') : '<div class="note">这天没有异常。</div>');
+  h += `<div class="note" style="margin-top:10px">检查时间：${esc((rows[0] || {})['检查时间'] || '')}。No.12 大宮 群里还没有账号，先算未报。</div>`;
+  paint(h);
+}
+
+// ================= 11/19 「🔍 网页检查」 =================
+// 用户：「在广告预约部 APP 点击进去后多一个按键，网页检查的键生成更新上传；检查这些网页的信息内容一致性，不同的需要标注，然后需要签名这个，说已经更改完成」
+// 电脑 广告部\网页检查\网页检查.py 每天 9 点后查一次（APP 按「🔄 现在检查」也会查）：各店 食べログ・ホットペッパー・ぐるなび・谷歌 店铺页的
+//   住所・电话・营业时间・定休日・席数・最大宴会人数 互相比 → 上传后台（what=wc 读・wcdo 签名／请求检查）。
+let tab = ['wc', 'chk', 'xq'].includes(LS.get('ggTab', 'ns')) ? LS.get('ggTab', 'ns') : 'ns';
+let WC = (() => { try { return JSON.parse(LS.get('ggwc', 'null')); } catch (e) { return null; } })(), wcErr = '', wcBusy = false, wcField = '', wcOpen = new Set();
+const WCP = { T: '食べログ', H: 'ホットペッパー', R: 'ぐるなび', G: '谷歌' };
+const WCF = ['住所', '电话', '营业时间', '定休日', '席数', '最大宴会人数'];
+function setTab(t) { tab = t; LS.set('ggTab', t); render(); if (t === 'xq') loadXq(); else load(); window.scrollTo(0, 0); }
+function tabsHtml() {
+  const nBad = WC ? wcObjs().filter(o => wcTodo(o)).length : 0;
+  return `<div class="tabs"><button class="${tab === 'ns' ? 'on' : ''}" onclick="setTab('ns')">🚫 无断取消</button><button class="${tab === 'chk' ? 'on' : ''}" onclick="setTab('chk')">📋 每日上报${chkTodo() ? `<span class="bd">${chkTodo()}</span>` : ''}</button><button class="${tab === 'wc' ? 'on' : ''}" onclick="setTab('wc')">🔍 网页检查${nBad ? `<span class="bd">${nBad}</span>` : ''}</button><button class="${tab === 'xq' ? 'on' : ''}" onclick="setTab('xq')">💡 提需求${xqBadge() ? `<span class="bd">${xqBadge()}</span>` : ''}</button></div>`;
+}
+function paint(h) {   // 重画时保留已经写的字・选的结果
+  const keep = {}, picked = {};
+  $('main').querySelectorAll('input[id],textarea[id]').forEach(e => keep[e.id] = e.value);   // 11/20 提需求的输入框也保留
+  $('main').querySelectorAll('input[type=radio]:checked').forEach(e => picked[e.name] = e.value);
+  $('main').innerHTML = h;
+  Object.keys(keep).forEach(k => { const e = $(k); if (e) e.value = keep[k]; });
+  Object.keys(picked).forEach(n => { const e = document.querySelector(`input[name="${CSS.escape(n)}"][value="${CSS.escape(picked[n])}"]`); if (e) e.checked = true; });
+}
+async function loadWc() {
+  wcBusy = true; if (WC) render();
+  try {
+    const d = await api('&what=wc');
+    if (d && d.rows) { WC = d; wcErr = ''; LS.set('ggwc', JSON.stringify(d)); }
+    else if (d && d.error === 'device') { wcErr = '这台设备还没登记'; }
+    else if (d && (d.error === 'key' || d.error === 'owner')) { wcErr = '这个密码看不到网页检查'; }
+    else wcErr = '读不到（' + ((d && d.error) || '') + '）' + (d && d.error === 'what' ? '' : '');
+  } catch (e) { wcErr = '网络不通，显示的是上次的数据'; }
+  wcBusy = false; render();
+  // 电脑正在检查／刚请求了：每 30 秒再看一次，查完自动出新结果
+  clearTimeout(loadWc.t);
+  if (tab === 'wc' && WC && (WC.state && WC.state.state === 'running' || (WC.req && WC.req > WC.last))) loadWc.t = setTimeout(() => { if (!document.hidden && tab === 'wc') loadWc(); }, 30000);
+}
+function wcObjs() {
+  if (!WC || !WC.rows) return [];
+  return WC.rows.map(r => { const o = {}; WC.head.forEach((h, i) => o[h] = r[i]);
+    try { o.vals = JSON.parse(o['各平台'] || '{}'); } catch (e) { o.vals = {}; }
+    try { o.links = JSON.parse(o['网址'] || '{}'); } catch (e) { o.links = {}; }
+    o.odd = (o['不一样的平台'] || '').split(',').filter(Boolean); return o; });
+}
+const wcTodo = o => o['结果'] === '不一致' && (!o['签名・谁'] || /^签了名但/.test(o['复查']));
+const wcWait = o => o['结果'] === '不一致' && o['签名・谁'] && !/^签了名但/.test(o['复查']);
+async function wcAct(id, q, okText) {
+  const who = (($('who') || {}).value || '').trim();
+  if (!who) { msgs[id] = ['e', '请先在上面写你的名字']; return render(); }
+  LS.set('ggWho', who);
+  msgs[id] = ['', '保存中…']; render();
+  try {
+    const d = await api('&what=wcdo&id=' + encodeURIComponent(id) + '&who=' + encodeURIComponent(who) + q);
+    if (d.error) throw new Error(d.error === 'owner' ? '这个密码不能签' : d.error);
+    WC = d; LS.set('ggwc', JSON.stringify(d)); msgs[id] = ['s', '✓ ' + okText];
+  } catch (e) { msgs[id] = ['e', '没保存：' + e.message]; }
+  render();
+}
+function wcSign(id) { const how = (($('wh_' + id) || {}).value || '').trim(); wcAct(id, '&act=sign&how=' + encodeURIComponent(how), '已签名：已更改完成（下次检查自动复查）'); }
+function wcUndo(id) { wcAct(id, '&act=undo', '签名已撤销'); }
+async function wcReq() {
+  msgs.__wc = ['', '发送中…']; render();
+  try {
+    const d = await api('&what=wcdo&act=req&who=' + encodeURIComponent((($('who') || {}).value || LS.get('ggWho', '')).trim()));
+    if (d.error) throw new Error(d.error === 'what' ? '后台还没部署新版本' : d.error);
+    WC = d; LS.set('ggwc', JSON.stringify(d)); msgs.__wc = ['s', '✓ 已请求，电脑 10 分钟内开始检查（约 10 分钟查完），这页会自动更新'];
+  } catch (e) { msgs.__wc = ['e', '没发出去：' + e.message]; }
+  render(); loadWc();
+}
+function wcSetField(f) { wcField = f; render(); }
+function wcTogStore(k) { wcOpen.has(k) ? wcOpen.delete(k) : wcOpen.add(k); render(); }
+function wcItem(o, mode) {
+  const id = o['编号'], m = msgs[id], top = o.vals._多数 || '';
+  let h = `<div class="wi"><div class="wf">${esc(o['项目'])}${o['首次发现'] ? `<small>${esc(o['首次发现'].slice(5))} 发现</small>` : ''}</div>`;
+  if (o['结果'] === '读不到') return h + `<div class="note">${esc(o['哪里不一样'])}</div></div>`;
+  h += '<table class="wt2">' + 'THRG'.split('').filter(p => o.vals[p]).map(p => { const v = o.vals[p], odd = o.odd.includes(p);
+    const raw = v.v.length > 90 ? v.v.slice(0, 90) + '…' : v.v;
+    return `<tr class="${odd ? 'odd' : ''}"><td>${odd ? '❌ ' : ''}${WCP[p]}</td><td>${v.n ? `<b>${esc(v.n)}</b>` : `<span class="note">${v.v ? (o['项目'] === '电话' ? '（转接号，不比）' : '（看不出，不比）') : '（没写）'}</span>`}${raw && raw !== v.n ? `<span class="raw">${esc(raw)}</span>` : ''}</td></tr>`; }).join('') + '</table>';
+  if (o['结果'] === '不一致') h += `<div class="note" style="color:var(--bad)">${top ? `多数平台是「${esc(top)}」，❌ 的平台要改成一样（或确认哪个对，全部改成对的）` : '各平台都不一样，请确认哪个对，全部改成一样'}</div>`;
+  if (o['签名・谁']) h += `<div style="margin-top:6px"><span class="ok">✍ 已更改完成</span>　${esc(o['签名・谁'])}　<small>${esc(o['签名・时间'].slice(5))}</small>${o['签名・说明'] ? `<div class="note">说明：${esc(o['签名・说明'])}</div>` : ''}`
+    + (o['结果'] === '不一致' && !/^签了名但/.test(o['复查']) ? `<a class="undo" onclick="wcUndo('${esc(id)}')">撤销</a>` : '') + '</div>';
+  if (o['复查']) h += `<div class="msg ${/^✓/.test(o['复查']) ? 's' : /^签了名但/.test(o['复查']) ? 'e' : ''}">${/^签了名但/.test(o['复查']) ? '⚠ ' : ''}${esc(o['复查'])}</div>`;
+  if (mode === 'todo') h += `<div class="row2"><input id="wh_${esc(id)}" placeholder="说明（例：ぐるなび 席数改成125）可不写" maxlength="200"></div>`
+    + `<div class="row2"><button class="go" onclick="wcSign('${esc(id)}')">✍ 已更改完成，签名</button></div>`;
+  if (m) h += `<div class="msg ${m[0]}">${esc(m[1])}</div>`;
+  return h + '</div>';
+}
+function wcStore(list, mode) {   // 一家店一张卡
+  const o0 = list[0], ln = o0.links || {};
+  return `<div class="case wcs ${mode === 'todo' ? 'todo' : mode === 'wait' ? 'wait' : 'done'}"><div class="h">${esc(o0['店名'])}　<small style="color:var(--sub);font-weight:400">${esc(o0['店区'])}</small></div>`
+    + `<div class="lk">${'THRG'.split('').filter(p => ln[p]).map(p => `<a href="${esc(ln[p])}" target="_blank" rel="noopener">${WCP[p]} ↗</a>`).join('')}</div>`
+    + list.map(o => wcItem(o, mode)).join('') + '</div>';
+}
+function groupBy(list) { const g = {}; list.forEach(o => (g[o['店名']] = g[o['店名']] || []).push(o)); return Object.values(g); }
+function renderWc() {
+  $('at').textContent = WC ? WC.at.slice(5) + (wcBusy ? ' 读取中…' : ' 更新') : (wcBusy ? '读取中…' : '');
+  let h = tabsHtml();
+  if (wcErr) h += `<div class="msg e">${esc(wcErr)}</div>`;
+  h += `<div class="card"><div class="ct">🔍 网页检查（各平台店铺信息是否一致）</div><div class="note">电脑每天 9 点后读一次各店 食べログ・ホットペッパー・ぐるなび・谷歌 的店铺页，比 住所・电话・营业时间・定休日・席数・最大宴会人数。`
+    + `不一样的标 ❌，改好网页后签名「已更改完成」，下次检查自动复查。<br>住所只比番地和楼层（楼名写法不比）；电话不比 050 转接号；营业时间不比 L.O.。</div>`;
+  const s = (WC && WC.state) || {}, last = WC ? WC.last : '';
+  h += `<div class="wstat">上次检查：<b>${last ? esc(last.slice(5)) : '还没有'}</b>`
+    + (s.state === 'running' ? `　<span class="wt">⏳ 电脑正在检查（${esc((s.at || '').slice(11))} 开始，约 10 分钟）</span>`
+      : WC && WC.req && WC.req > last ? `　<span class="wt">⏳ 已请求（${esc(WC.req.slice(11))}${WC.reqWho ? ' ' + esc(WC.reqWho) : ''}），电脑 10 分钟内开始</span>`
+      : s.state === 'error' ? `　<span class="no">上次没查成（${esc((s.at || '').slice(5))}）</span>` : '') + '</div>'
+    + `<div class="row2"><button class="go" onclick="wcReq()" ${s.state === 'running' ? 'disabled style="opacity:.5"' : ''}>🔄 现在检查（生成・更新・上传）</button></div>`
+    + (msgs.__wc ? `<div class="msg ${msgs.__wc[0]}">${esc(msgs.__wc[1])}</div>` : '') + '</div>';
+  if (!WC || !WC.rows) { $('main').innerHTML = h + `<div class="empty">${wcBusy ? '读取中…' : '还没有检查结果'}</div>`; return; }
+  const all = wcObjs(), f = all.filter(o => !wcField || o['项目'] === wcField);
+  const stores = new Set(all.map(o => o['店名'])), todo = f.filter(wcTodo), wait = f.filter(wcWait), fixed = f.filter(o => o['结果'] === '一致' && /^✓/.test(o['复查']));
+  const fail = all.filter(o => o['结果'] === '读不到'), okStores = [...stores].filter(n => !all.some(o => o['店名'] === n && o['结果'] === '不一致'));
+  h += `<div class="kp"><div><small>检查店数</small><b>${stores.size}</b> 家</div><div class="r"><small>要更改（项）</small><b>${all.filter(wcTodo).length}</b>　<small style="display:inline">${new Set(all.filter(wcTodo).map(o => o['店名'])).size} 家</small></div>`
+    + `<div><small>已签名・等复查</small><b>${all.filter(wcWait).length}</b></div><div class="g"><small>改好了（复查一致）</small><b>${all.filter(o => o['结果'] === '一致' && /^✓/.test(o['复查'])).length}</b></div></div>`;
+  h += '<div class="chips">' + ['', ...WCF].map(x => { const n = all.filter(o => wcTodo(o) && (!x || o['项目'] === x)).length;
+    return `<button class="${x === wcField ? 'on' : ''}" onclick="wcSetField('${x}')">${x || '全部'}${n ? ' ' + n : ''}</button>`; }).join('') + '</div>';
+  h += `<div class="me">✍ 签名用的名字<input id="who" placeholder="例：广告部 李" maxlength="20" value="${esc(LS.get('ggWho', ''))}"></div>`;
+  h += `<div class="sec">🔴 要更改（${todo.length} 项）</div>` + (todo.length ? groupBy(todo).map(l => wcStore(l, 'todo')).join('') : '<div class="note">没有要改的。</div>');
+  h += `<div class="sec">🟡 已签名「已更改完成」，等下次检查确认（${wait.length}）</div>` + (wait.length ? groupBy(wait).map(l => wcStore(l, 'wait')).join('') : '<div class="note">没有。</div>');
+  if (fail.length) h += `<div class="sec">⚠ 这次读不到的网页（${fail.length} 家）</div>` + groupBy(fail).map(l => wcStore(l, 'done')).join('');
+  h += `<details><summary>🟢 改好了（${fixed.length}）</summary>${groupBy(fixed).map(l => wcStore(l, 'done')).join('') || '<div class="note">没有。</div>'}</details>`;
+  h += `<details><summary>✅ 全部一致的店（${okStores.length} 家）</summary><div class="note" style="margin:0 4px 8px">${okStores.map(esc).join('、') || '没有'}</div></details>`;
+  if (NS && NS.role === 'gg') h += '<div class="foot"><a onclick="changeKey()">🔑 换密码</a></div>';
+  paint(h);
+}
+
+// ================= 11/20 「💡 提需求」 =================
+// 用户：「会计部，预约中心，广告部，人事部参与进来开发…生成副本APP他们观看他们调整，但最终上线我和副社长会定下来后用APP点击更新」
+// 员工写（选 预约中心／广告部）→ 电脑每 5 分钟查、Claude 做成测试版（kongzhuo/test/gg.html）→「部门确认中」部门先看：👍 满意交老板（act=dok）／✏️ 还要改（act=dback）
+// → 老板・副社长在空桌一览「✅ 上线审批」上线。后台 what=acreq&app=gg（多部门需求.gs），工作表「广告预约部需求」，编号 G。
+const TEST = /\/test\//.test(location.pathname);
+const XQ_PILL = { '新': ['', '已收到，等处理'], '处理中': ['b', 'Claude 在做'], '部门确认中': ['w', '测试版做好了，请你们看'], '做好待确认': ['b', '部门满意，等老板上线'], '要问你': ['w', '要你补充'],
+  '等老板定': ['b', '等老板决定'], '退回修改': ['b', '退回，Claude 重新改'], '上线中': ['g', '老板同意，马上上线'], '已上线': ['g', '✓ 已上线'], '不做': ['', '这次不做'] };
+let XQ = (() => { try { return JSON.parse(LS.get('ggxq', 'null')); } catch (e) { return null; } })(), xqBusy = false, xqErr = '', xqMsg = '', xqDb = false, xqOpen = '';
+function xqBadge() { return XQ && XQ.rows ? XQ.rows.filter(r => r.st === '部门确认中' || r.st === '要问你').length : 0; }
+async function loadXq() {
+  if (!K) return;
+  xqBusy = true; if (tab === 'xq') render();
+  try {
+    const d = await api('&what=acreq&app=gg');
+    if (d && d.rows && d.app === 'gg') { XQ = d; xqErr = ''; LS.set('ggxq', JSON.stringify(d)); }
+    else xqErr = d && d.error === 'device' ? '这台设备还没登记' : d && d.error === 'owner' ? '这个密码不能提需求' : d && d.rows ? '后台还没更新' : '读不到（' + ((d && d.error) || '') + '）';
+  } catch (e) { xqErr = '读不到（' + e.message + '）'; }
+  xqBusy = false; if (tab === 'xq') render();
+}
+function xqWho() {
+  const w = (($('xqw') || {}).value || LS.get('ggWho', '')).trim(), dp = (($('xqd') || {}).value || LS.get('ggDept', '')).trim();
+  if (w) LS.set('ggWho', w);
+  if (dp) LS.set('ggDept', dp);
+  return ((dp ? dp + ' ' : '') + w).trim();
+}
+async function xqDo(q, okText, after) {
+  xqMsg = '<div class="msg">保存中…</div>'; render();
+  try {
+    const d = await api('&what=acreq&app=gg' + q + '&who=' + encodeURIComponent(xqWho()));
+    if (d.error) throw new Error(d.error === 'device' ? '这台设备没登记' : d.error);
+    XQ = d; LS.set('ggxq', JSON.stringify(d)); xqDb = false; xqOpen = ''; xqMsg = `<div class="msg s">✓ ${okText}</div>`; if (after) after();
+  } catch (e) { xqMsg = `<div class="msg e">没保存：${esc(e.message)}</div>`; }
+  render();
+}
+function xqSend() {
+  const v = (($('xqv') || {}).value || '').trim();
+  if (!v) { xqMsg = '<div class="msg e">请先写要改什么</div>'; return render(); }
+  if (!(($('xqd') || {}).value || '')) { xqMsg = '<div class="msg e">请选是预约中心还是广告部</div>'; return render(); }
+  xqDo('&act=add&v=' + encodeURIComponent(v), '收到了。Claude 一般 30 分钟内做好测试版，你们先看，满意了交老板上线。', () => { const e = $('xqv'); if (e) e.value = ''; });
+}
+function xqDok() { xqDo('&act=dok', '已交给老板・副社长：他们按「上线」后大家自动更新。'); }
+function xqDbGo() {
+  const w = (($('xqwhy') || {}).value || '').trim();
+  if (!w) { xqMsg = '<div class="msg e">请写还要改哪里、怎么改</div>'; return render(); }
+  xqDo('&act=dback&why=' + encodeURIComponent(w), '收到，Claude 一般 30 分钟内接着改，改好再请你们看。');
+}
+function xqReply(id) { const v = (($('xqr_' + id) || {}).value || '').trim(); if (!v) return; xqDo('&act=reply&id=' + id + '&v=' + encodeURIComponent(v), '补充好了，Claude 下一轮一起处理。'); }
+function renderXq() {
+  $('at').textContent = XQ ? (xqBusy ? '读取中…' : XQ.now.slice(5) + ' 更新') : '';
+  const dp = LS.get('ggDept', '');
+  let h = tabsHtml();
+  h += `<div class="card"><div class="ct">💡 想改什么、想加什么，直接写</div><div class="note">例：「无断取消想按公司分开看」「网页检查想加一个只看谷歌的按钮」。<br>`
+    + `提了以后：<b>Claude 一般 30 分钟内做好</b>，先放<b>测试版</b> → <b>你们先看</b>，还要改就写意见、满意就按「交老板」 → <b>老板・副社长按「上线」</b> → 大家自动更新。写不清楚的，Claude 会在下面问你。</div>`
+    + `<div class="row2"><select id="xqd" style="flex:0 0 auto;padding:9px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);font-size:16px"><option value="">选部门</option>${['预约中心', '广告部'].map(x => `<option${x === dp ? ' selected' : ''}>${x}</option>`).join('')}</select>`
+    + `<input id="xqw" placeholder="你的名字" maxlength="14" value="${esc(LS.get('ggWho', ''))}"></div>`
+    + `<textarea id="xqv" class="xqta" placeholder="写在这里（最多 1000 字）：哪一页、想改成什么样" maxlength="1000"></textarea>`
+    + `<div class="row2"><button class="go" style="flex:1" onclick="xqSend()">发送</button></div>${xqMsg && !xqDb ? xqMsg : ''}</div>`;
+  if (!XQ) return paint(h + `<div class="card"><div class="note">${xqBusy ? '读取中…' : esc(xqErr || '还没有数据')}</div></div>`);
+  if (xqErr) h += `<div class="msg e">${esc(xqErr)}（显示的是上次读到的）</div>`;
+  const rows = XQ.rows || [], dept = rows.filter(r => r.st === '部门确认中');
+  if (dept.length) {
+    const url = (dept.find(r => r.test) || {}).test || XQ.test || './test/gg.html';
+    h += `<div class="card" style="border:2px solid #2563eb"><div class="ct">🧪 测试版做好了：请先看（${dept.length} 条）</div>`
+      + dept.map(r => `<div class="xqr"><b>${esc(r.id)}</b>　<small>${esc(r.who)}　${esc(r.t.slice(5))}</small><div style="white-space:pre-wrap">${esc(r.v)}</div>${r.note ? `<div class="note">🛠 Claude：${esc(r.note)}</div>` : ''}</div>`).join('')
+      + `<div class="xbtn" style="grid-template-columns:1fr"><a href="${esc(url)}" target="_blank" style="background:var(--soft);color:var(--ink)">🧪 打开测试版看看</a></div>`
+      + `<div class="xbtn"><button style="background:var(--good)" onclick="xqDok()">👍 满意，交老板</button><button style="background:var(--bad)" onclick="xqDb=!xqDb;xqMsg='';render()">✏️ 还要改</button></div>`
+      + (xqDb ? `<textarea id="xqwhy" class="xqta" placeholder="还要改哪里、改成什么样（必填）" maxlength="500"></textarea><div class="row2"><button class="go" style="flex:1" onclick="xqDbGo()">交给 Claude 接着改</button></div>${xqMsg}` : '')
+      + `<div class="note">在测试版里可以随便看；按的按钮会真的记下来。${XQ.owner ? '你是老板：也可以在空桌一览「✅ 上线审批」直接上线。' : ''}</div></div>`;
+  }
+  h += `<div class="card"><div class="ct">全部需求（${rows.length} 条）</div>` + (rows.length ? rows.map(r => {
+    const [pc, pt] = XQ_PILL[r.st] || ['', r.st], ask = r.st === '要问你';
+    return `<div class="xqr"${ask ? ' style="background:var(--warnBg);border-radius:10px;padding:8px"' : ''}><span class="xqp ${pc}">${esc(pt)}</span>　<small>${esc(r.id)}　${esc(r.who)}　${esc(r.t.slice(5))}</small>`
+      + `<div style="white-space:pre-wrap;word-break:break-word">${esc(r.v)}</div>`
+      + (r.note ? `<div class="note">${ask ? '❓ Claude 问：' : '🛠 Claude：'}${esc(r.note)}</div>` : '')
+      + (r.back ? `<div class="note">意见：${esc(r.back)}</div>` : '')
+      + (ask || xqOpen === r.id ? `<div class="row2"><input id="xqr_${r.id}" placeholder="${ask ? '回答 Claude 的问题' : '补充一句'}" maxlength="500"><button class="go" onclick="xqReply('${r.id}')">补充</button></div>`
+        : (r.st !== '不做' && r.st !== '已上线' ? `<div class="note"><a onclick="xqOpen='${r.id}';xqMsg='';render()" style="color:var(--brand);cursor:pointer">➕ 补充</a></div>` : ''))
+      + '</div>';
+  }).join('') : '<div class="note">还没有。</div>') + '</div>';
+  if (XQ.owner) h += `<div class="note" style="text-align:center;margin:10px">老板・副社长：所有部门等上线的都在 <a href="./sp.html" style="color:var(--brand);font-weight:700">✅ 上线审批</a></div>`;
+  paint(h);
+}
+if (TEST) document.body.insertAdjacentHTML('afterbegin', '<div class="testbar">🧪 测试版（还没上线）　在这里按的按钮会真的记下来　<a href="./gg.html">回正式版</a></div>');
+
+function render() {
+  if (!K) return showKey('');
+  $('back').style.display = (NS || WC) && (NS || WC).role !== 'gg' ? '' : 'none';   // 广告预约部密码只看这一页，不显示「‹ 空桌一览」
+  if (tab === 'wc') return renderWc();
+  if (tab === 'chk') return renderChk();
+  if (tab === 'xq') return renderXq();
+  $('at').textContent = NS ? NS.at.slice(5) + (busy ? ' 读取中…' : ' 更新') : '';
+  if (!NS) { $('main').innerHTML = tabsHtml() + `<div class="empty">${busy ? '读取中…' : esc(err || '还没有数据')}</div>`; return; }
+  const all = rowsObj(), months = [...new Set(all.map(o => o['预约日'].slice(0, 7)))].sort().reverse();
+  const cur = new Date(), cm = cur.getFullYear() + '-' + String(cur.getMonth() + 1).padStart(2, '0');
+  if (!month || (!['today', 'yday', 'week', 'range'].includes(month) && !months.includes(month) && month !== cm)) month = months[0] || cm;
+  const P = period(), PL = P.label;
+  const ms = all.filter(o => o['预约日'] >= P.from && o['预约日'] <= P.to);
+  const sum = (a, f) => a.reduce((t, o) => t + (Number(o[f]) || 0), 0);
+  const req = ms.filter(o => ASKED(o['联系・结果'])), got = sum(ms, '到账・金额'), rq = sum(req, '请求额');
+  const pend = sum(req.filter(o => !o['到账・金额']), '请求额');
+  let h = tabsHtml();
+  if (err) h += `<div class="msg e">${esc(err)}</div>`;
+  h += `<div class="card"><div class="ct">🚫 无断取消（Slack #经营汇报）</div><div class="note">各店在 Slack #经营汇报 发的无断取消，Claude 每天 10:00 读进来。每一单要：① 预约中心在预约系统取消并签名 → ② 打电话收取消料并签名 → ③ 会计部确认钱到账。</div></div>`;
+  h += '<div class="chips">' + [['today', '今天'], ['yday', '昨天'], ['week', '本周']].concat(months.map(m => [m, +m.slice(5) + '月']), [['range', '📅 自选期间']])
+    .map(([k, n]) => `<button class="${k === month ? 'on' : ''}" onclick="setMonth('${k}')">${n}</button>`).join('') + '</div>';
+  if (month === 'range') h += `<div class="row2" style="align-items:center"><input id="nsFrom" type="date" value="${esc(P.from)}" onchange="setRange()"><span>〜</span><input id="nsTo" type="date" value="${esc(P.to)}" onchange="setRange()"></div><div class="note">只看一天：起止选同一天。按预约日算。</div>`;
+  h += `<div class="kp"><div><small>${esc(PL)} 无断取消</small><b>${ms.length}</b> 组　<small style="display:inline">${sum(ms, '人数')} 名</small></div>`
+    + `<div><small>预约合计（损失）</small><b>${yen(sum(ms, '合计'))}</b></div>`
+    + `<div><small>向客人请求</small><b>${yen(rq)}</b></div>`
+    + `<div class="g"><small>已收回（讨回来的钱）</small><b>${yen(got)}</b></div>`
+    + `<div class="r w"><small>请求了还没到账（请求中＋等会计部确认）</small><b>${yen(pend)}</b>　<small style="display:inline">${req.filter(o => !o['到账・金额']).length} 组</small></div></div>`;
+  // 按店
+  const by = {};
+  ms.forEach(o => { const k = o['公司'] + ' ' + o['店']; const b = by[k] || (by[k] = { n: 0, a: 0, q: 0, g: 0 }); b.n++; b.a += +o['合计'] || 0; if (ASKED(o['联系・结果'])) b.q += +o['请求额'] || 0; b.g += +o['到账・金额'] || 0; });
+  const ks = Object.keys(by).sort((x, y) => by[y].n - by[x].n || by[y].a - by[x].a);
+  h += `<div class="card"><div class="ct">🏪 按店（${esc(PL)}）</div>` + (ks.length ? '<table><tr><th>店</th><th>组数</th><th>预约合计</th><th>请求</th><th>已收回</th></tr>'
+    + ks.map(k => `<tr><td>${esc(k)}</td><td>${by[k].n}</td><td>${yen(by[k].a)}</td><td>${yen(by[k].q)}</td><td>${yen(by[k].g)}</td></tr>`).join('') + '</table>' : '<div class="note">这段期间没有无断取消。</div>') + '</div>';
+  // 要处理（所有月份）
+  const todo = all.filter(o => stOf(o) === 'todo').sort((a, b) => (b['预约日'] + b['时间']).localeCompare(a['预约日'] + a['时间']));
+  const wait = all.filter(o => stOf(o) === 'wait').sort((a, b) => (b['预约日'] + b['时间']).localeCompare(a['预约日'] + a['时间']));
+  h += `<div class="me">✍ 签名用的名字<input id="who" placeholder="例：预约中心 王" maxlength="20" value="${esc(LS.get('ggWho', ''))}"></div>`;
+  h += `<div class="sec">🔴 预约中心要处理（${todo.length}）</div>` + (todo.length ? todo.map(caseCard).join('') : '<div class="note">都处理完了。</div>');
+  h += `<div class="sec">🟡 等会计部确认到账（${wait.length}）</div>` + (wait.length ? wait.map(caseCard).join('') : '<div class="note">没有。</div>');
+  const done = ms.filter(o => stOf(o) === 'done');
+  h += `<details><summary>🟢 ${esc(PL)} 已完成（${done.length}）</summary>${done.map(caseCard).join('') || '<div class="note">没有。</div>'}</details>`;
+  if (NS.role === 'gg') h += '<div class="foot"><a onclick="changeKey()">🔑 换密码</a></div>';
+  if (NS.owner) h += `<div class="card"><div class="ct">🔐 广告预约部密码（只有老板看得到）</div><div class="note">给广告部・预约中心用的密码。用这个密码只能看这一页；最开始登录的 2 台手机・2 台电脑能用（第 3 台起挡住、发邮件给你）。至少 6 个字，不能和别的密码一样。</div>`
+    + `<div class="row2"><input id="gp1" type="password" autocomplete="new-password" placeholder="新密码"><input id="gp2" type="password" autocomplete="new-password" placeholder="再输一次"></div>`
+    + `<div class="row2"><button class="go" onclick="setGgKey()">保存</button></div>${msgs.__gg ? `<div class="msg ${msgs.__gg[0]}">${msgs.__gg[1]}</div>` : ''}`
+    + `<div class="note">发给广告部・预约中心的链接：<br><b>${esc(location.origin + location.pathname)}</b>　<a class="undo" style="margin:0" onclick="navigator.clipboard && navigator.clipboard.writeText(location.origin + location.pathname).then(() => { msgs.__gg = ['s', '✓ 链接已复制']; render(); })">复制链接</a></div></div>`;
+  paint(h);   // 重画时保留已经写的字・选的结果（签名失败提示时不用重写）
+}
+if (PV()) document.body.insertAdjacentHTML('afterbegin', '<div id="pvbar" style="position:sticky;top:0;z-index:60;background:#facc15;color:#422006;font-size:14px;font-weight:700;padding:calc(8px + env(safe-area-inset-top)) 12px 8px;display:flex;align-items:center;gap:8px"><span style="flex:1">👀 正在看' + (PV() === 'gg' ? '广告预约部画面（广告部・预约中心看到的样子）' : '店长画面') + '</span><button onclick="exitPreview()" style="border:0;border-radius:999px;background:#422006;color:#fff;padding:6px 12px;font-weight:700">回到老板画面</button></div>');
+render();
+load();
+loadXq();   // 11/20 提需求的待看数显示在标签上
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { load(); loadXq(); } });
+</script>
+</body>
+</html>
