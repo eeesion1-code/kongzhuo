@@ -92,11 +92,14 @@ const md = d => d ? d.replace(/^(\d{4})-0?(\d+)-0?(\d+)$/, '$1/$2/$3') : '';
 const expTag = p => p['剩天'] == null ? (p['在留期限'] ? '' : '<span class="tag n">期限没填</span>')
   : p['剩天'] < 0 ? '<span class="tag r">已过期 ' + (-p['剩天']) + ' 天</span>' : p['剩天'] <= 90 ? '<span class="tag y">还剩 ' + p['剩天'] + ' 天</span>' : '<span class="tag g">' + md(p['在留期限']) + '</span>';
 // 离职报备：离职后 14 天内要向入管报备（「契約機関に関する届出」）；名簿「入管届出日」填了＝已报
+// 11/20 用户：（2022〜2024 年离职那些）「这是不需要再汇报了」→ 只提醒最近 30 天内离职的人；以前离职的、没写退职日的不再提醒
+const REP_DAYS = 30;
+const oldLeft = p => p['离职天'] == null || p['离职天'] > REP_DAYS;
 const repTag = p => p['入管届出'] ? '<span class="tag g">已报备 ' + md(p['入管届出']) + '</span>'
-  : p['离职天'] == null ? '<span class="tag y">没写退职日・没写报备</span>'
+  : oldLeft(p) ? '<span class="tag n">以前离职（不再提醒）</span>'
   : p['离职天'] <= 14 ? '<span class="tag y">还剩 ' + (14 - p['离职天']) + ' 天要报备</span>' : '<span class="tag r">已超过 14 天，没写报备</span>';
 const left = p => !!p['退职'];
-const needRep = p => left(p) && !p['入管届出'];
+const needRep = p => left(p) && !p['入管届出'] && !oldLeft(p);
 const expWarn = p => !left(p) && p['剩天'] != null && p['剩天'] <= 90;
 
 async function load() {
