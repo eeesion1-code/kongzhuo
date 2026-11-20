@@ -80,7 +80,10 @@ h1{font-size:20px;margin:0;flex:1;letter-spacing:.5px}
 .dvrow button.del{color:#dc2626}
 .dvme{background:var(--brand);color:#fff;border-radius:6px;padding:0 5px;font-size:11px;font-weight:400}
 .dvbad{font-size:12.5px;color:var(--sub);line-height:1.6;padding:5px 0;border-top:1px dashed var(--line)}
-#rlhint button+button{margin-left:6px}
+#rlhint button+button{margin-left:0}
+/* 11/20 v97：老板栏按钮加到 4 个（✅ 上线审批）后一行比手机宽，整页被撑宽往左偏 → 文字占一行，按钮放不下就换行 */
+#rlhint{flex-wrap:wrap;justify-content:flex-start;gap:6px}
+#rlhint>span{flex:1 1 100%}
 .rlst{font-size:14px;margin:6px 0}
 .rlres{background:var(--soft);border-radius:10px;padding:8px 10px;font-size:13px;line-height:1.6;margin:8px 0}
 .rlnote{font-size:12.5px;color:var(--sub);line-height:1.55;margin:8px 0}
@@ -581,7 +584,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
 })();
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v96';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v97';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
