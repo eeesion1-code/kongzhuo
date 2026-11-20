@@ -285,7 +285,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
   addEventListener('touchcancel', () => { on = false; hide(); }, { passive: true });
 })();
 
-const APPV = 'yunying-v65';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v66';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);
 const PVST = IN_KZ && (localStorage.getItem('asRole') === 'staff' || localStorage.getItem('asStaff') === '1');   // 11/19 老板在空桌一览点「👀 运营部画面／店长画面」→ 按店长权限看
 function exitPreview() { ['asRole', 'asStaff', 'last', 'acrq'].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} }); location.href = './'; }
@@ -1037,7 +1037,9 @@ function syParse() {
 const scCol = v => v == null ? 'var(--faint)' : v >= 95 ? 'var(--good)' : v >= 80 ? 'var(--ink)' : v >= 70 ? 'var(--warn)' : 'var(--bad)';
 function setSyMonth(m) { syMonth = m; LS.set('syMonth', m); render(); }
 function setSySort(m) { sySort = m; LS.set('sySort', m); render(); }
-function onSyQ(v) { syQ = v; clearTimeout(window._syT); window._syT = setTimeout(() => { render(); const q = $('syq'); if (q) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); } }, 250); }
+// 11/20 用户：「名字搜索栏里面为什么只能打拼音」→ 以前每打一个字 0.25 秒后整页重画（连搜索框一起换掉），中文・日文输入法还在拼音阶段就被打断。
+//   现在输入法拼字（composition）期间不重画，选定汉字（compositionend）再搜
+function onSyQ(v, e) { syQ = v; clearTimeout(window._syT); if (window._syComp || (e && e.isComposing)) return; window._syT = setTimeout(() => { render(); const q = $('syq'); if (q) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); } }, 250); }
 function tgSy(k) { syOpen.has(k) ? syOpen.delete(k) : syOpen.add(k); render(); }
 function renderSy() {
   if (!HR) return hrErr ? '<div class="err">' + esc(hrErr) + '</div>' : '<div class="empty">读取中…</div>';
@@ -1049,7 +1051,7 @@ function renderSy() {
   const q = syQ.trim();
   const hit = r => !q || String(r['名']).includes(q) || String(r['店']).includes(q) || (r['店历'] || []).some(x => String(x).includes(q));
   let h = '<div class="seg">' + [['year', '全年']].concat(months.map(m => [m, +m.slice(5) + ' 月'])).map(([k, n]) => '<button class="' + (syMonth === k ? 'on' : '') + '" onclick="setSyMonth(\'' + k + '\')">' + n + '</button>').join('') + '</div>';
-  h += '<input class="syq" id="syq" placeholder="🔍 搜姓名 / 店名" value="' + esc(syQ) + '" oninput="onSyQ(this.value)">';
+  h += '<input class="syq" id="syq" placeholder="🔍 搜姓名 / 店名" value="' + esc(syQ) + '" oninput="onSyQ(this.value, event)" oncompositionstart="window._syComp=1" oncompositionend="window._syComp=0;onSyQ(this.value)">';
   h += '<div class="seg">' + [['store', '按店'], ['score', '按分数']].map(([k, n]) => '<button class="' + (sySort === k ? 'on' : '') + '" onclick="setSySort(\'' + k + '\')">' + n + '</button>').join('') + '</div>';
   if (syMonth === 'year') {
     let L = D.sya.filter(hit);
