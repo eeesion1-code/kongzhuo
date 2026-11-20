@@ -138,6 +138,7 @@ function render() {
     rp.map(p => '<div onclick="openP(' + P.indexOf(p) + ')">' + esc(p['姓名']) + '・退职 ' + esc(md(p['退职']) || '') + ' ' + repTag(p) + '</div>').join('') +
     '<div style="cursor:default;font-size:12.5px;color:var(--sub)">报了以后请会计部在名簿「入管届出日」填上日期，这里就不再提醒</div></div>';
   const ms = ci['缺'] || {}, gaps = [['在留期限', '在留卡期限'], ['国籍', '国籍'], ['卡号', '在留卡号'], ['在留资格', '在留资格']].filter(([k]) => ms[k]).map(([k, n]) => n + ' ' + ms[k] + ' 人');
+  if ((ci['读法没登记'] || []).length) h += '<div class="alert y"><b>🔤 名字读法还没登记</b><div style="cursor:default">' + ci['读法没登记'].map(esc).join('、') + '（叫 Claude 加进 名字读法.json）</div></div>';
   if ((ci['资料没整理'] || []).length) h += '<div class="alert y"><b>📄 工作内容资料有新文件还没整理</b><div style="cursor:default">' + ci['资料没整理'].map(esc).join('、') + '（会计部 従業員名簿\\工作内容资料；叫 Claude 整理后，这些人的工作内容才会显示）</div></div>';
   if (gaps.length) h += '<div class="alert y"><b>📝 名簿还没填全</b><div style="cursor:default">' + gaps.join('・') + '（请会计部在名簿里补上；在留卡期限填了才能提前 3 个月提醒）</div></div>';
   if (ci['消失'] && ci['消失'].length) h += '<div class="alert y"><b>👀 以前在名簿上、现在不见了（' + ci['消失'].length + ' 人）</b><div style="cursor:default">' +
@@ -147,7 +148,7 @@ function render() {
   renderList();
 }
 function pRow(p) {
-  return '<div class="p' + (left(p) ? ' left' : '') + '" onclick="openP(' + P.indexOf(p) + ')"><div class="h"><b>' + esc(p['姓名']) + '</b>' +
+  return '<div class="p' + (left(p) ? ' left' : '') + '" onclick="openP(' + P.indexOf(p) + ')"><div class="h"><b>' + esc(p['姓名']) + '</b>' + (p['读法'] ? '<small style="font-weight:400;color:var(--sub);margin-left:6px">' + esc(p['读法']) + '</small>' : '') +
     '<small style="color:var(--sub)">' + esc(p['在留资格'] || '在留资格没填') + '</small><span>' + (left(p) ? repTag(p) : expTag(p)) + '</span></div>' +
     '<div class="m">' + esc(p['职务'] || '') + '</div></div>';
 }
@@ -161,16 +162,19 @@ function renderList() {
 //   电脑 签证资料_工作内容.py：入管提出的職務内容説明書（PDF→工作内容资料.json，原文）→ 本人的直接显示；别人按名簿職務找同类职务的一份当参考
 function zlHtml(z) {
   if (!z) return '';
-  return '<div style="background:var(--soft,#f3f4f6);border-radius:10px;padding:8px 10px;margin:4px 0">' +
-    '<div class="note" style="margin:0 0 4px">' + (z['本人'] ? '📄 本人在入管申请时提交的職務内容（' : '📄 同类职务参考：' + esc(z['来源']) + ' 的入管申请资料（不是本人的申请书；') + esc((z['文件'] || []).join('・')) + '）</div>' +
-    (z.sections || []).map(s => '<div style="font-weight:700;font-size:14px;margin-top:4px">' + esc(s.title) + (s.pct ? '<span style="font-weight:400;color:var(--sub)">（業務量 ' + esc(s.pct) + '）</span>' : '') + '</div>' +
-      '<ul style="margin:2px 0 0;padding-left:1.2em;font-size:13.5px;line-height:1.6">' + (s.items || []).map(x => '<li>' + esc(x) + '</li>').join('') + '</ul>').join('') +
-    (z.schedule ? '<details style="margin-top:4px"><summary class="note" style="cursor:pointer">一日のスケジュール</summary><div style="font-size:13px;line-height:1.6">' + esc(z.schedule) + '</div></details>' : '') + '</div>';
+  // 11/20 用户：「每位社员把这个隐藏」→ 不显示「同类职务参考：〇〇 的入管申请资料…」来源行；「职业内容改成中文版本」→ 显示中文，日文原文可展开
+  const sec = (zh) => (z.sections || []).map(s => '<div style="font-weight:700;font-size:14px;margin-top:4px">' + esc(zh ? (s.title_zh || s.title) : s.title) +
+      (s.pct ? '<span style="font-weight:400;color:var(--sub)">（' + (zh ? '工作量 ' + esc(String(s.pct).replace(/(\d+)\s*割/, '$10%').replace('約', '约')) : '業務量 ' + esc(s.pct)) + '）</span>' : '') + '</div>' +
+    '<ul style="margin:2px 0 0;padding-left:1.2em;font-size:13.5px;line-height:1.6">' + ((zh && s.items_zh) || s.items || []).map(x => '<li>' + esc(x) + '</li>').join('') + '</ul>').join('');
+  return '<div style="background:var(--soft,#f3f4f6);border-radius:10px;padding:8px 10px;margin:4px 0">' + sec(true) +
+    (z.schedule_zh ? '<details style="margin-top:4px"><summary class="note" style="cursor:pointer">一天的工作安排</summary><div style="font-size:13px;line-height:1.6">' + esc(z.schedule_zh) + '</div></details>' : '') +
+    '<details style="margin-top:6px"><summary class="note" style="cursor:pointer">日语原文（给入管看的）</summary>' + sec(false) +
+    (z.schedule ? '<div style="font-size:12.5px;line-height:1.6;color:var(--sub);margin-top:4px">' + esc(z.schedule) + '</div>' : '') + '</details></div>';
 }
 function openP(i) {
   const p = P[i], ci = C[p['公司']] || {}, row = (k, v) => v ? '<dt>' + k + '</dt><dd>' + v + '</dd>' : '<dt>' + k + '</dt><dd style="color:var(--faint)">名簿没填</dd>';
   const tel = p['电话'] ? '<a href="tel:' + esc(String(p['电话']).replace(/[^\d+]/g, '')) + '">' + esc(p['电话']) + '</a>' : '';
-  $('sheet').innerHTML = '<h3>' + esc(p['姓名']) + (left(p) ? ' <span class="tag n">已离职</span>' : '') + '<button onclick="closeP()">✕</button></h3>' +
+  $('sheet').innerHTML = '<h3>' + esc(p['姓名']) + (p['读法'] ? '<small style="font-weight:400;color:var(--sub);margin-left:6px">' + esc(p['读法']) + '</small>' : '') + (left(p) ? ' <span class="tag n">已离职</span>' : '') + '<button onclick="closeP()">✕</button></h3>' +
     '<div class="card"><dl class="kv">' +
     row('公司', esc(ci['正式名'] || p['公司'])) + row('社員コード', esc(p['编号'] || '')) +
     row('職務内容', esc(p['职务'] || '')) + row('入社日', p['入社'] ? esc(md(p['入社'])) + (p['在职年'] != null ? '（在职 ' + p['在职年'] + ' 年）' : '') : '') +
@@ -178,7 +182,8 @@ function openP(i) {
     // 11/20 用户：「其他社员的工作内容，你用 AI 生成下，比如他的职务内容为营业，他的工作内容需要展开」→ 电脑 签证资料_工作内容.py 按名簿職務内容展开
     '<div class="note" style="margin:8px 0 2px;font-weight:700;color:var(--ink)">工作内容（具体）</div>' + zlHtml(p['职务资料']) +
     ((p['工作内容'] || []).length ? (p['职务资料'] ? '<div class="note" style="margin:8px 0 2px;font-weight:700">补充（AI 按名簿職務内容展开）</div>' : '') +
-      '<ul style="margin:0;padding-left:1.2em;font-size:14px;line-height:1.6">' + p['工作内容'].map(x => '<li>' + esc(x) + '</li>').join('') + '</ul>' +
+      '<ul style="margin:0;padding-left:1.2em;font-size:14px;line-height:1.6">' + (p['工作内容_zh'] || p['工作内容']).map(x => '<li>' + esc(x) + '</li>').join('') + '</ul>' +
+      '<details style="margin-top:2px"><summary class="note" style="cursor:pointer">日语原文</summary><ul style="margin:0;padding-left:1.2em;font-size:13px;line-height:1.6;color:var(--sub)">' + p['工作内容'].map(x => '<li>' + esc(x) + '</li>').join('') + '</ul></details>' +
       '<div class="note" style="margin-top:4px">根据名簿上的職務内容由 AI 展开的说明（参考，不是名簿原文）</div>'
       : p['职务资料'] ? '' : '<div class="note">名簿没写職務内容，无法展开（请会计部在名簿补上）</div>') + '</div>' +
     '<div class="card"><dl class="kv">' +
@@ -199,7 +204,7 @@ function closeP(fromPop) { if ($('mask').style.display !== 'flex') return; $('ma
 addEventListener('popstate', () => closeP(true));
 function copyP(i) {
   const p = P[i], ci = C[p['公司']] || {};
-  const t = [ci['正式名'] || p['公司'], '氏名：' + p['姓名'], '社員コード：' + (p['编号'] || ''), '職務内容：' + (p['职务'] || ''), ...(p['职务资料'] ? ['業務内容' + (p['职务资料']['本人'] ? '（入管提出）' : '（同類職務参考）') + '：'].concat(...p['职务资料'].sections.map(s => ['【' + s.title + (s.pct ? '（' + s.pct + '）' : '') + '】'].concat(s.items.map(x => '・' + x)))) : []),
+  const t = [ci['正式名'] || p['公司'], '氏名：' + p['姓名'] + (p['读法'] ? '（' + p['读法'] + '）' : ''), '社員コード：' + (p['编号'] || ''), '職務内容：' + (p['职务'] || ''), ...(p['职务资料'] ? ['業務内容' + (p['职务资料']['本人'] ? '（入管提出）' : '（同類職務参考）') + '：'].concat(...p['职务资料'].sections.map(s => ['【' + s.title + (s.pct ? '（' + s.pct + '）' : '') + '】'].concat(s.items.map(x => '・' + x)))) : []),
     ...((p['工作内容'] || []).length ? [p['职务资料'] ? '補足：' : '業務内容：'].concat(p['工作内容'].map(x => '・' + x)) : []), '入社日：' + md(p['入社'] || ''),
     '在留資格：' + (p['在留资格'] || ''), '在留カード番号：' + (p['卡号'] || ''), '在留期限：' + md(p['在留期限'] || ''), '国籍：' + (p['国籍'] || ''),
     '生年月日：' + md(p['生日'] || ''), '住所：' + (p['住所'] || ''), '電話：' + (p['电话'] || '')].join('\n');
