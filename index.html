@@ -79,7 +79,7 @@ h1{font-size:20px;margin:0;flex:1;letter-spacing:.5px}
 .dvrow button{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:5px 9px;font-size:13px}
 .dvrow button.del{color:#dc2626}
 .dvme{background:var(--brand);color:#fff;border-radius:6px;padding:0 5px;font-size:11px;font-weight:400}
-.dvid{display:inline-block;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;font-weight:700;color:var(--ink);background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:0 5px}
+.dvid{display:inline-block;white-space:nowrap;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12.5px;font-weight:700;color:var(--ink);background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:0 5px}
 .dvq{display:block;width:100%;box-sizing:border-box;margin:10px 0 4px;font:inherit;font-size:16px;padding:9px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}
 .dvbad{font-size:12.5px;color:var(--sub);line-height:1.6;padding:5px 0;border-top:1px dashed var(--line)}
 .dvbad .dvok{margin-top:5px;border:0;border-radius:8px;background:#16a34a;color:#fff;padding:6px 12px;font-size:13px;font-weight:700}
@@ -612,7 +612,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
 })();
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v114';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v115';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -2688,7 +2688,7 @@ function devDo(q, ask) {
 }
 let dvQ = '';
 function devFilter(v) { dvQ = String(v || '').trim().toLowerCase(); document.querySelectorAll('#dvBody .dvrow').forEach(r => { r.style.display = !dvQ || (r.dataset.k || '').includes(dvQ) ? '' : 'none'; }); }
-function devName(i) { const x = DVL.list[i], v = prompt(`给编号 ${x.id} 这台起个名字（例：上野店长 王）\n${x.ua || ''}`, x.n || ''); if (v != null) devDo('&act=name&id=' + x.id + '&v=' + encodeURIComponent(v.trim())); }
+function devName(i) { const x = DVL.list[i], v = prompt(`给编号 ${String(x.id).slice(0, 6)} 这台起个名字（例：上野店长 王）\n${x.ua || ''}`, x.n || ''); if (v != null) devDo('&act=name&id=' + x.id + '&v=' + encodeURIComponent(v.trim())); }
 // 和后台 devNeed_ 同一个算法：这台要占哪个名额
 const devNeedJs = (r, ua) => { const pc = /^(Windows NT|Macintosh|Linux)・/.test(ua || '');
   if (r === 'ac') return pc ? 'acw' : 'ac'; if (r === 'gg') return pc ? 'gw' : 'gp'; if (r === 'hr') return pc ? 'hw' : 'hp';
@@ -2710,10 +2710,10 @@ function devRender() {
   h += `<div class="dvbtns">${d.lock && !d.open ? `<button onclick="devDo('&act=open')">➕ 开放登记 30 分钟</button>` : ''}${d.lock ? `<button class="sub" onclick="devDo('&act=unlock','解锁后，任何用对密码的手机都会自动登记，直到满 ${d.max} 台。确定吗？')">解锁</button>` : `<button onclick="devDo('&act=lock','锁定后只有名单里这几台手机・电脑能用，别的设备一律打不开。确定吗？')">🔒 现在锁定（只留这几台）</button>`}</div>`;
   // 11/22 用户：「333ff4 这个号码也写到登录手机里，然后我改名」→ 每台写上编号，上面加「输编号或名字找」
   h += `<input class="dvq" id="dvq" placeholder="🔍 输编号或名字找（例：333ff4）" value="${esc(dvQ)}" oninput="devFilter(this.value)" autocomplete="off" autocapitalize="off">`;
-  h += d.list.map((x, i) => `<div class="dvrow" data-k="${esc((x.id + ' ' + (x.n || '')).toLowerCase())}"><div><b>${i + 1}. ${esc(x.n || '（还没起名）')}</b> <span class="dvid">编号 ${esc(x.id)}</span>${x.me ? ' <span class="dvme">这台</span>' : ''}${x.pc ? ' <span class="dvme">电脑・不占名额</span>' : ''}${[['m', '空桌手机', '#2563eb'], ['pcw', '空桌电脑', '#0f766e'], ['yp', '运营部手机', '#c2410c'], ['yc', '运营部电脑', '#9a3412'], ['ac', '会计部手机', '#6d28d9'], ['acw', '会计部电脑', '#4c1d95'], ['gp', '广告预约部手机', '#b45309'], ['gw', '广告预约部电脑', '#92400e']].filter(t => x[t[0]]).map(t => ` <span class="dvme" style="background:${t[2]}">${t[1]}</span>`).join('')}<small>${esc(DV_ROLE[x.r] || x.r)}・${esc(x.ua)}<br>登记 ${esc(x.a)}　最后用 ${esc(x.t)}</small></div>`
+  h += d.list.map((x, i) => `<div class="dvrow" data-k="${esc((String(x.id).slice(0, 6) + ' ' + (x.n || '')).toLowerCase())}"><div><b>${i + 1}. ${esc(x.n || '（还没起名）')}</b> <span class="dvid">编号 ${esc(String(x.id).slice(0, 6))}</span>${x.me ? ' <span class="dvme">这台</span>' : ''}${x.pc ? ' <span class="dvme">电脑・不占名额</span>' : ''}${[['m', '空桌手机', '#2563eb'], ['pcw', '空桌电脑', '#0f766e'], ['yp', '运营部手机', '#c2410c'], ['yc', '运营部电脑', '#9a3412'], ['ac', '会计部手机', '#6d28d9'], ['acw', '会计部电脑', '#4c1d95'], ['gp', '广告预约部手机', '#b45309'], ['gw', '广告预约部电脑', '#92400e']].filter(t => x[t[0]]).map(t => ` <span class="dvme" style="background:${t[2]}">${t[1]}</span>`).join('')}<small>${esc(DV_ROLE[x.r] || x.r)}・${esc(x.ua)}<br>登记 ${esc(x.a)}　最后用 ${esc(x.t)}</small></div>`
     + `<span><button onclick="devName(${i})">改名</button>${x.me ? '' : `<button class="del" onclick="devDel(${i})">删</button>`}</span></div>`).join('') || '<div class="rlnote">还没有登记的手机</div>';
   // 11/22：被挡的手机旁边加「✅ 授权这台」（以前要叫 Claude 跑 设备管理.py allow）；已经登记的写「后来已登记」；已授权等打开的单独列出
-  const dvIn = new Set(d.list.map(x => x.id)), dvAl = new Set((d.allow || []).map(x => x.id));
+  const dvIn = new Set(d.list.map(x => String(x.id).slice(0, 6))), dvAl = new Set((d.allow || []).map(x => x.id));
   if ((d.allow || []).length) h += '<div class="svsub2" style="margin-top:12px">⏳ 已授权、等那台打开（24 小时内按「重新试一次」就登记）</div>' + d.allow.map(x => `<div class="dvbad">编号 <b>${esc(x.id)}</b>　${esc(x.name)}</div>`).join('');
   if (d.bad.length) h += '<div class="svsub2" style="margin-top:12px">⚠ 最近被挡住的手机</div>' + d.bad.map(x => `<div class="dvbad">${esc(x.t)}　${esc(DV_ROLE[x.r] || x.r)}・${esc(x.ua)}　编号 ${esc(x.id || '—')}<br>${esc(x.why)}`
     + (dvIn.has(x.id) ? '　<span class="dvme">后来已登记</span>' : dvAl.has(x.id) ? '　<span class="dvme">已授权、等打开</span>'
