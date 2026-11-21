@@ -596,7 +596,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
 })();
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v109';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v110';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -1059,7 +1059,7 @@ const svOpen = () => document.getElementById('salesView').style.display === 'blo
 let SVG = null, SVK = null, svCo = '';
 // sko＝只有三幸園的日子（集团历史开始前，11/15），集团跳过
 function svMk(d, sk) { const LB = {}, isD = x => /^\d/.test(x.d || '');   // 11/16：「L年-月」行＝人工月报（集团「人工」页用），不是日子
-  if (!sk) d.days.forEach(x => { if (x.lab) LB[x.lab.m] = Object.assign(LB[x.lab.m] || {}, x.lab); if (x.labh) LB[x.labh.m] = Object.assign(LB[x.labh.m] || {}, { h: x.labh.h }); if (x.labd) { const q = LB[x.labd.m] = LB[x.labd.m] || {}; q.d = (q.d || []).concat(x.labd.d); } if (x.labe) { const q = LB[x.labe.m] = LB[x.labe.m] || {}; q.e = Object.assign(q.e || {}, x.labe.h); } });
+  if (!sk) d.days.forEach(x => { if (x.lab) LB[x.lab.m] = Object.assign(LB[x.lab.m] || {}, x.lab); if (x.labh) LB[x.labh.m] = Object.assign(LB[x.labh.m] || {}, { h: x.labh.h }); if (x.labd) { const q = LB[x.labd.m] = LB[x.labd.m] || {}; q.d = (q.d || []).concat(x.labd.d); } if (x.labe) { const q = LB[x.labe.m] = LB[x.labe.m] || {}; q.e = Object.assign(q.e || {}, x.labe.h); } if (x.labs) { const q = LB[x.labs.m] = LB[x.labs.m] || {}; q.s = Object.assign(q.s || {}, x.labs.h); q.sl = x.labs.sl; } });
   const SKL = {}; if (sk) d.days.forEach(x => { if (x.sklab) SKL[x.sklab.m] = x.sklab; });   // 11/17 三幸園人工（工资表，K 行，只有老板拿得到）
   const o = sk ? { at: d.at, sk: true, days: d.days.filter(x => x.sk && isD(x)).map(x => Object.assign({ d: x.d }, x.sk)) } : Object.assign({}, d, { days: d.days.filter(x => !x.sko && isD(x)) }); o.lab = LB; o.sklab = SKL; o.raw = d.days.length; o.map = {}; o.mon = null; o.days.forEach(x => { o.map[x.d] = x; if (!sk && x.mon) o.mon = x.mon; });
   // 11/21：F 行＝每天记下来的「当天预测」{日期: {g: [当天预测, 整月预测], sk: […]}}（营业额历史.py 写；旧版 APP 不认这行）
@@ -1461,6 +1461,8 @@ const svOku = n => n >= 1e8 ? (n / 1e8).toFixed(2) + '亿' : man(n);
 function svLyMtd(days) { let a = 0, b = 0, n = 0; const P = []; days.forEach(x => { const bd = svCmpDay(x.d, 'ly'), q = bd && SV.map[bd]; if (q) { a += x.t; b += q.t; n++; P.push([x, q]); } }); return Object.assign({ a, b, n }, svLyShops(P)); }
 // 11/21 用户：「比去年同期 12% 是几家店铺写清楚」→ 两边各几家（立川一家两台收银算 1 家），再算同店（这段日子两年都开着的店：两边都有一半以上天数有营业额）
 const SV_ONE = ['立川'];
+// 11/21：家数按「店」算（立川一家两台收银算 1 家，和 APP 营业中 31 家同一口径）；rows＝[[车站, 店名, …], …]
+const svNShop = rows => new Set(rows.map(r => SV_ONE.includes(r[0]) ? '@' + r[0] : r[1])).size;
 function svLyShops(P) {
   if (SV.sk || !P.length) return {};
   const st = new Map(), ca = {}, cb = {}, half = P.length / 2, key = n => SV_ONE.includes(st.get(n)) ? '@' + st.get(n) : n;
@@ -1478,11 +1480,12 @@ function svLyShops(P) {
     gone: pick(n => (cb[n] || 0) >= half && (ca[n] || 0) < half) };                 // 去年有、今年没有（已关）
 }
 // 比去年同期下面那行：几家・同店
-function svLyShopsTxt(L) {
+function svLyShopsTxt(L, k, noBtn) {
   if (!L.nc) return '';
-  const out = [L.nw.length && `新店 ${L.nw.join('・')}`, L.pt.length && `去年这段营业不满一半天数的 ${L.pt.join('・')}`, L.gone.length && `已关的 ${L.gone.join('・')}`].filter(Boolean);
-  return `<div class="svlyst">比去年同期 ${svDl(L.a, L.b)}＝今年 <b>${L.nc}</b> 家 对 去年 <b>${L.nl}</b> 家（全部店，立川两台收银算 1 家）。`
-    + `<br>同店（两年都开着的 <b>${L.ns}</b> 家）${svDl(L.sa, L.sb)}${out.length ? `；同店不算：${out.join('，')}` : ''}。` + svStUpBtn(L) + '</div>';
+  k = k || 'ly'; const [A, B] = k === 'ly' ? ['今年', '去年'] : k === 'lm' ? ['这段', '上个月'] : ['这段', '上周'];
+  const out = [L.nw.length && `${k === 'ly' ? '新店' : '新开的'} ${L.nw.join('・')}`, L.pt.length && `${B}这段营业不满一半天数的 ${L.pt.join('・')}`, L.gone.length && `${k === 'ly' ? '已关的' : '这段没营业的'} ${L.gone.join('・')}`].filter(Boolean);
+  return `<div class="svlyst">比${SV_CMP[k]} ${svDl(L.a, L.b)}＝${A} <b>${L.nc}</b> 家 对 ${B} <b>${L.nl}</b> 家（全部店，立川两台收银算 1 家）。`
+    + `<br>同店（两边都开着的 <b>${L.ns}</b> 家）${svDl(L.sa, L.sb)}${out.length ? `；同店不算：${out.join('，')}` : ''}。` + (noBtn ? '' : svStUpBtn(L)) + '</div>';
 }
 // 11/21 用户：「这些（各店涨跌）和增长的哪里可以看」→ 一键去「各店」：期间＝这段日子（到最后一天日报）、比去年同期、按增减排
 function svStUpBtn(L) { if (!L.d0) return ''; const b = L.d1 < svRgEnd() ? L.d1 : svRgEnd(); return b < L.d0 ? '' : `<div class="svlinks"><button onclick="svGoStUp('${L.d0}','${b}')">🏪 看每家店涨跌（${svMD(L.d0)}〜${svMD(b)} 比去年，按增减排）›</button></div>`; }
@@ -1549,8 +1552,12 @@ function svRgCalHtml() {
 function svPeriodBar() {
   let h = `<div class="svrgm"><button class="${svRg ? '' : 'on'}" onclick="svRgMode(false)">单日</button><button class="${svRg ? 'on' : ''}" onclick="svRgMode(true)">📅 期间（自己选）</button></div>`;
   if (!svRg) return h + svDateBar();
+  return h + svRgBar();
+}
+// 11/21：期间选择条（‹ 期间 ›＋最近 7 天／30 天／本月／上个月／日历上选），时段・各店・人工共用一个期间
+function svRgBar() {
   const n = svRgLen(svRg.a, svRg.b);
-  h += `<div class="svdbar"><button class="iconbtn" onclick="svRgShift(-1)" aria-label="往前挪 ${n} 天">‹</button>`
+  let h = `<div class="svdbar"><button class="iconbtn" onclick="svRgShift(-1)" aria-label="往前挪 ${n} 天">‹</button>`
     + `<button class="svdlab" onclick="svRgOpen()">${svRgLab(svRg.a, svRg.b)}<small>${n} 天</small></button>`
     + `<button class="iconbtn" onclick="svRgShift(1)" ${svAdd(svRg.b, n) > svRgEnd() ? 'disabled' : ''} aria-label="往后挪 ${n} 天">›</button></div>`;
   const q = [[7, '最近 7 天'], [30, '最近 30 天'], ['m', '本月'], ['pm', '上个月']];
@@ -1562,7 +1569,7 @@ function svPeriodBar() {
 function svAgg(a, b) {
   const mk = svMK(), gk = svGK(), ix = svIX();
   const add = (A, B) => { if (!B) return A; if (!A) return B.slice(); B.forEach((v, i) => A[i] = (A[i] || 0) + (v || 0)); return A; };
-  const R = { a, b, nd: 0, t: 0, g: 0, c: 0, short: 0, h0: null, hr: null, gr: null, hrN: 0, pa: 0, pb: 0, pn: 0, phr: null, pchr: null, pgr: null, phrN: 0, cd: [], st: {} };
+  const R = { a, b, nd: 0, t: 0, g: 0, c: 0, short: 0, h0: null, hr: null, gr: null, hrN: 0, pa: 0, pb: 0, pn: 0, phr: null, pchr: null, pgr: null, phrN: 0, cd: [], st: {}, P: [] };
   for (let d = a; d <= b; d = svAdd(d, 1)) {
     const x = SV.map[d]; if (!x) continue;
     R.nd++; R.t += x.t; R.g += x.g || 0; R.c += x.c || 0; if (svShort(x)) R.short++;
@@ -1570,7 +1577,7 @@ function svAgg(a, b) {
     const hx = x[mk] && x.h0 === R.h0;
     if (hx) { R.hr = add(R.hr, x[mk]); R.gr = add(R.gr, x[gk]); R.hrN++; }
     const bd = svCmpDay(d, svCmpM), y = bd && SV.map[bd], hy = y && hx && y[mk] && y.h0 === x.h0, bm = {};
-    if (y) { R.pa += x.t; R.pb += y.t; R.pn++; R.cd.push(bd); y.s.forEach(q => bm[q[1]] = q); }
+    if (y) { R.pa += x.t; R.pb += y.t; R.pn++; R.cd.push(bd); y.s.forEach(q => bm[q[1]] = q); R.P.push([x, y]); }
     if (hy) { R.phr = add(R.phr, x[mk]); R.pchr = add(R.pchr, y[mk]); R.pgr = add(R.pgr, x[gk]); R.phrN++; }
     x.s.forEach(r => {
       const o = R.st[r[1]] || (R.st[r[1]] = { area: r[0], name: r[1], t: 0, g: 0, c: 0, gn: 0, nd: 0, hr: null, pa: 0, pb: 0, pn: 0, phr: null, pchr: null });
@@ -1610,7 +1617,9 @@ function svStoreBlockR(R) {
     r[ix] = o.pchr ? o.phr : o.hr; return r; };
   const x = { h0: R.h0, s: os.map(o => row(o, o.t)) };
   const base = R.pn ? { h0: R.h0, s: os.filter(o => o.pn).map(o => { const r = [o.area, o.name, o.pb]; r[ix] = o.pchr; return r; }) } : null;
-  return `<div class="svcard"><div class="svct">${os.length} 家<small>${R.nd} 天　合计 ${man(R.t)}${R.pn ? `　比${SV_CMP[svCmpM]} ${svDl(R.pa, R.pb)}` : ''}</small></div>`
+  const ns = svNShop(os.map(o => [o.area, o.name]));
+  return `<div class="svcard"><div class="svct">${ns} 家${ns < os.length ? `<small>（${os.length} 台收银）</small>` : ''}<small>${R.nd} 天　合计 ${man(R.t)}${R.pn ? `　比${SV_CMP[svCmpM]} ${svDl(R.pa, R.pb)}` : ''}</small></div>`
+    + (R.pn && !SV.sk ? svLyShopsTxt(Object.assign({ a: R.pa, b: R.pb }, svLyShops(R.P)), svCmpM, true) : '')
     + `<div class="svseg2 wide"><button class="${svStSort === 'amt' ? 'on' : ''}" onclick="svSetSort('amt')">按营业额</button><button class="${svStSort === 'up' ? 'on' : ''}" onclick="svSetSort('up')">按增减</button></div>`
     + (R.short ? `<div class="svmiss">⚠ 这段日子里有 ${R.short} 天少了店的数据，那几天的店合计会偏少。</div>` : '')
     + svStoreRows(x, base)
@@ -1825,7 +1834,7 @@ function svTabDay(today) {
   h += `<div class="svcard"><div class="svct">${svYMD(svDay)}${svWkH(svDay)}${x && x.live ? (x.fin ? '<small>实时最终读数・12 点日报出来后以日报为准</small>' : '<small>实时・明天日报为准</small>') : ''}</div>`;
   if (!x) return h + `<div class="svnote">这一天没有数据${svDay < first ? '（营业额历史从 ' + first + ' 开始）' : (svDay >= svAdd(svToday(), -1) ? '（昨天的要等今天 12 点日报做完）' : '')}</div></div>`;
   const short = svShort(x);
-  h += `<div class="svbig">${yen(x.t)}</div><div class="svnote">含税 · ${x.n} 家${short ? `　<span class="rr">${x.est ? `含 ${x.est.length} 家实时估计` : `少 ${short} 家`}</span>` : ''}${x.rest ? `　休息：${x.rest.map(r => esc(r[0] + ' ' + r[1].slice(0, 10))).join('、')}` : ''}</div>` + svMissHtml(x);
+  h += `<div class="svbig">${yen(x.t)}</div><div class="svnote">含税 · ${svNShop(x.s)} 家${short ? `　<span class="rr">${x.est ? `含 ${x.est.length} 家实时估计` : `少 ${short} 家`}</span>` : ''}${x.rest ? `　休息：${x.rest.map(r => esc(r[0] + ' ' + r[1].slice(0, 10))).join('、')}` : ''}</div>` + svMissHtml(x);
   { const p = svFcOf(svDay);   // 11/21：当天的预测 vs 实际
     if (p) h += `<div class="svfcl">${x.live && !x.fin ? `今天的预测 <b>约 ${man(p.v)}</b>：现在 ${man(x.t)}，到了预测的 <b>${Math.round(100 * x.t / p.v)}%</b>（晚上还会涨）` : `当天的预测 <b>约 ${man(p.v)}</b> → 实际比预测 ${svDl(x.t, p.v)}${x.live ? '（实时数，日报出来后以日报为准）' : ''}`}${p.rec ? '' : '<small>（倒推）</small>'}</div>`; }
   if (!x.live || x.fin) {
@@ -1939,7 +1948,7 @@ function svTabSt(today) {
   const x = svGet(svDay);
   if (!x) return h + '<div class="svnote">这一天没有数据</div>';
   const bd = x.live ? null : svCmpDay(svDay, svCmpM), base = bd && SV.map[bd];
-  h += `<div class="svcard"><div class="svct">${x.n} 家<small>${x.live ? '实时' : '日报'}　合计 ${man(x.t)}${base ? `　比${SV_CMP[svCmpM]}（${svCmpTag(svDay)}）${man(base.t)} ${svDl(x.t, base.t)}` : ''}</small></div>`
+  h += `<div class="svcard"><div class="svct">${svNShop(x.s)} 家<small>${x.live ? '实时' : '日报'}　合计 ${man(x.t)}${base ? `　比${SV_CMP[svCmpM]}（${svCmpTag(svDay)}）${man(base.t)} ${svDl(x.t, base.t)}` : ''}</small></div>`
     + `<div class="svseg2 wide"><button class="${svStSort === 'amt' ? 'on' : ''}" onclick="svSetSort('amt')">按营业额</button><button class="${svStSort === 'up' ? 'on' : ''}" onclick="svSetSort('up')">按增减</button></div>`
     + svMissHtml(x) + svStoreRows(x, base)
     + `<div class="svnote">${base ? `增减＝比${SV_CMP[svCmpM]}（${svCmpTag(svDay)}）同一家店；「—」＝那天这家店没有数据。` : x.live ? '今天是实时读数，对比要等明天日报。' : ''}点有「⏰」的店看它每小时的营业额。</div></div>`;
@@ -1963,9 +1972,10 @@ function svLabSet(k, v) {
   renderSales(); if (k === 'st' || k === 'm') { const el = document.getElementById('salesView'); if (el) el.scrollTop = 0; }
 }
 function svLabDSet(k, v) {
-  if (k === 'v') { svLabV = v; LS.set('svLabV', v); svLabSt = ''; svLabDSt = ''; } else if (k === 'day') { svLabDay = v; svLabDSt = ''; } else if (k === 'st') svLabDSt = v;
+  if (k === 'v') { svLabV = v; LS.set('svLabV', v); svLabSt = ''; svLabDSt = ''; svLabRgSt = ''; } else if (k === 'rst') svLabRgSt = v; else if (k === 'day') { svLabDay = v; svLabDSt = ''; } else if (k === 'st') svLabDSt = v;
   renderSales(); if (k !== 'day') { const el = document.getElementById('salesView'); if (el) el.scrollTop = 0; }
 }
+let svLabRgSt = '';
 const svPctS = r => r == null ? '—' : (100 * r).toFixed(1) + '%';
 // 线：{p: 罚线, g: 奖励线}。高过罚线＝红（要罚），低过奖励线＝绿（有奖励），中间＝黄
 const svLabLine = (L, n) => { const r = L.st.find(x => x[0] === n); return r && r[8] != null ? { p: r[8], g: r[9] } : null; };
@@ -2022,11 +2032,12 @@ function svTabLab() {
   if (!svLabM || !SV.lab[svLabM] || !SV.lab[svLabM].st) svLabM = ms[ms.length - 1];
   const i = ms.indexOf(svLabM), L = SV.lab[svLabM], P = i > 0 ? SV.lab[ms[i - 1]] : null;
   const [y, m] = svLabM.split('-').map(Number);
-  let h = svLabV === 'b' ? '' : `<div class="svmon"><button class="iconbtn" onclick="svLabSet('m','${ms[i - 1] || ''}')" ${i > 0 ? '' : 'disabled'} aria-label="上个月">‹</button><b>${y} 年 ${m} 月</b>`
+  let h = svLabV === 'b' || svLabV === 'r' ? '' : `<div class="svmon"><button class="iconbtn" onclick="svLabSet('m','${ms[i - 1] || ''}')" ${i > 0 ? '' : 'disabled'} aria-label="上个月">‹</button><b>${y} 年 ${m} 月</b>`
     + `<button class="iconbtn" onclick="svLabSet('m','${ms[i + 1] || ''}')" ${i < ms.length - 1 ? '' : 'disabled'} aria-label="下个月">›</button></div>`;
-  h += `<div class="svseg2 wide">${[['m', '月度'], ['d', '每日'], ['b', '本月预算']].map(([k, t]) => `<button class="${svLabV === k ? 'on' : ''}" onclick="svLabDSet('v','${k}')">${t}</button>`).join('')}</div>`;
+  h += `<div class="svseg2 wide">${[['m', '月度'], ['d', '每日'], ['r', '📅 期间'], ['b', '本月预算']].map(([k, t]) => `<button class="${svLabV === k ? 'on' : ''}" onclick="svLabDSet('v','${k}')">${t}</button>`).join('')}</div>`;
   h += svLabAlert();
   if (svLabV === 'd') return h + svTabLabDay(L);
+  if (svLabV === 'r') { if (!svRg) { const [a, b] = svRgQ(7); svRg = { a, b }; } return h + svRgBar() + svTabLabRange(); }
   if (svLabV === 'b') return h + svLabBudget(SV.lab[ms[ms.length - 1]]);
   if (svLabSt && L.st.some(r => r[0] === svLabSt)) return h + svLabStore(L, P, svLabSt, m);
   svLabSt = '';
@@ -2074,6 +2085,109 @@ function svTabLab() {
   const inf = L.info || {};
   h += `<div class="svnote">数据：指纹打卡（${esc(inf['考勤文件'] || '')}）、各店工资表、收银营业额。每月工资表做完以后，在电脑上跑一次「人工月报.py」就会更新。</div>`;
   return h;
+}
+// ===== 11/21 用户：人工页「这处选时间的也要」→ 期间（自己选）：选的日子里的人件费率・人时・多排（每日数据加起来）、闲时段（每天每店每个时段加起来再平均，和月度同一算法）、各店 =====
+// 数据：L.d 每日各店；L.s 每日时段（人工月报.py「每日时段」，11/21 起；10・11 月已补）；L.e 每日每小时。打卡齐不齐按那天所在月份（打卡覆盖 ≥70%）。
+const SV_SLH = { '11〜15点': 4, '15〜17点': 2, '22点半〜23点': 0.5, '23〜24点': 1 };   // 每个时段几个钟头
+function svLabRg(a, b) {
+  const rows = [], S = {}, E = {}, cov = {}, lines = {}, sl = [];
+  Object.keys(SV.lab || {}).sort().forEach(m => {
+    const L = SV.lab[m]; if (!L.st || m + '-31' < a || m + '-01' > b) return;
+    cov[m] = svLabSum(L).map; lines[m] = L;
+    (L.d || []).forEach(r => { if (r[0] >= a && r[0] <= b) rows.push(r); });
+    Object.entries(L.s || {}).forEach(([d, v]) => { if (d >= a && d <= b) S[d] = v; });
+    Object.entries(L.e || {}).forEach(([d, v]) => { if (d >= a && d <= b) E[d] = v; });
+    (L.sl || []).forEach(x => { if (!sl.includes(x)) sl.push(x); });
+  });
+  const ms = Object.keys(lines).sort(), LL = ms.length ? lines[ms[ms.length - 1]] : null;
+  const ok = (d, n) => ((cov[d.slice(0, 7)] || {})[n] || [])[4] >= 0.7;
+  return { rows, S, E, sl, LL, ok, days: [...new Set(rows.map(r => r[0]))].sort() };
+}
+const svLabCell = (K, v, ln) => v == null ? '—' : `<span class="${K.c(v, ln)}">${K.k === 'rph' ? Math.round(v).toLocaleString() : K.k === 'cph' ? v.toFixed(2) : K.k === 'over' ? v.toFixed(1) : (100 * v).toFixed(0) + '%'}</span>`;
+function svTabLabRange() {
+  const { a, b } = svRg, R = svLabRg(a, b), first = Object.keys(SV.lab || {}).sort()[0] || '';
+  if (!R.rows.length || !R.LL) return `<div class="svnote">这段日子没有人工数据（人工数据从 ${first} 月开始，每天电脑更新到前一天）。</div>`;
+  if (svLabRgSt) return svLabRgStore(R, svLabRgSt);
+  const L = R.LL, rs = R.rows.filter(r => R.ok(r[0], r[1])), M = svLabMet(rs), shops = [...new Set(rs.map(r => r[1]))];
+  const GL = svLabGrpLine(L, n => shops.includes(n));
+  // 和前面同样长的日子比
+  const n = svRgLen(a, b), pa = svAdd(a, -n), pb = svAdd(a, -1), P = svLabRg(pa, pb);
+  const PM = P.rows.length && P.days.length >= n / 2 ? svLabMet(P.rows.filter(r => P.ok(r[0], r[1]))) : null;
+  const pv = (K, v) => K.k === 'rph' ? yen(v) : K.k === 'cph' ? v.toFixed(2) + ' 人' : v.toFixed(1) + ' h';
+  let h = `<div class="svcard svhero"><div class="lab">期间人件费率（${svRgLab(a, b)}，有数据 ${R.days.length} 天，打卡齐的 ${shops.length} 家）</div>`
+    + `<div class="val">${svLabVal(M, SV_LK[0], GL)}</div>`
+    + `<div class="sub">指纹人工 ${man(M.C)} ÷ 营业额 ${man(M.S)}　工时 ${Math.round(M.H).toLocaleString()} h　客 ${Math.round(M.U).toLocaleString()} 人${PM && PM.rate != null ? `　比前 ${n} 天（${svMD(pa)}〜${svMD(pb)}）${svLabPt(M.rate, PM.rate)}` : ''}</div>`
+    + `<div class="sub">颜色按集团的线（罚线 ${GL ? svPctS(GL.p) : '—'}・奖励线 ${GL ? svPctS(GL.g) : '—'}，${+L.m.slice(5)} 月各店的线按营业额加权）</div></div>`;
+  h += `<div class="svmini">${SV_LK.slice(1).map(K => `<div>${K.n}${K.k === 'over' ? '（家均/天）' : ''}<b>${svLabVal(M, K)}</b>${PM && PM[K.k] != null && M[K.k] != null ? `前 ${n} 天 ${pv(K, PM[K.k])}` : K.u}</div>`).join('')}</div>`;
+  if (M.miss) h += `<div class="svmiss">这段日子有 ${M.miss} 次缺卡（只打了一次卡），这些人的工时没算进去，人工会偏少。</div>`;
+  h += svLabRgSlots(R);
+  // 各店
+  const by = {}; R.rows.forEach(r => (by[r[1]] = by[r[1]] || []).push(r));
+  const okS = nm => by[nm].every(r => R.ok(r[0], nm));
+  const bad = X => SV_LK.reduce((s, K) => s + (X[K.k] == null ? 0 : K.c(X[K.k], X.ln) === 'rr' ? 10 : K.c(X[K.k], X.ln) === 'm' ? 1 : 0), 0) + (X.rate || 0);
+  const list = Object.keys(by).map(nm => Object.assign(svLabMet(by[nm]), { nm, ln: svLabLine(L, nm) })).sort((p, q) => bad(q) - bad(p));
+  h += `<div class="svcard"><div class="svct">各店（${list.length} 家）<small>${svRgLab(a, b)}合计；红的多的在上，点店名看这家每天・每个钟头</small></div>`
+    + `<div class="svlabd"><div class="hd"><span>店</span><span>人件费率</span><span>人时营业额</span><span>人时客数</span><span>多排/天</span></div>`
+    + list.map(X => `<button onclick="svLabDSet('rst','${esc(X.nm)}')"><span class="nm">${esc(X.nm)}${okS(X.nm) ? '' : ' <small>打卡不全</small>'}${X.miss ? ` <small class="m">缺卡${X.miss}</small>` : ''}</span>`
+      + SV_LK.map(K => `<b>${svLabCell(K, X[K.k], X.ln)}</b>`).join('') + '</button>').join('') + '</div>'
+    + `<div class="svnote">判定和「每日」一样：${SV_LK.map(K => `<b>${K.n}</b> ${K.rule}`).join('；')}。人工＝指纹打卡工时 × 时薪（不是工资表）；「打卡不全」的店（指纹人工不到工资的 70%）不算进上面的集团合计。指纹里没有打卡的店（渋谷、錦糸町、大宮、立川等）看不到。期间可以跨月（人工数据从 ${first} 月起）。</div></div>`;
+  return h;
+}
+// 期间的闲时段：每家店＝这段日子里这个星期组的每天加起来 ÷ 天数（和月度一样，那天没打卡算 0）
+function svLabRgSlotRows(R, sl, g) {
+  const i = R.sl.indexOf(sl), ds = Object.keys(R.S).filter(d => R.S[d]._g === g), acc = {};
+  if (i < 0 || !ds.length) return { rows: [], nd: 0 };
+  ds.forEach(d => Object.entries(R.S[d]).forEach(([nm, v]) => { if (nm === '_g' || !v[i]) return; const o = acc[nm] = acc[nm] || [0, 0, 0, 0, d]; for (let k = 0; k < 4; k++) o[k] += v[i][k]; if (d > o[4]) o[4] = d; }));
+  return { nd: ds.length, rows: Object.entries(acc).map(([nm, o]) => ({ nm, st: o[0] / ds.length, sv: o[1] / ds.length, lb: o[2] / ds.length, bs: o[3] / ds.length, ok: R.ok(o[4], nm) })) };
+}
+function svLabRgSlots(R) {
+  if (!R.sl.length || !Object.keys(R.S).length) return '<div class="svnote">闲时段：这段日子没有「每天每个时段」的数据。</div>';
+  if (!R.sl.includes(svLabSl)) svLabSl = R.sl.includes(SV_LATE) ? SV_LATE : R.sl[0];
+  const gs = ['w', 's', 'f'].filter(k => Object.values(R.S).some(v => v._g === k)), g = gs.includes(svLabG) ? svLabG : gs[0];
+  const late = svLabSl === SV_LATE, bl = late ? '需要' : '撑得起', X = svLabRgSlotRows(R, svLabSl, g), good = X.rows.filter(r => r.ok);
+  const avg = k => good.length ? good.reduce((s, r) => s + r[k], 0) / good.length : 0, mL = good.reduce((s, r) => s + r.lb, 0), mR = good.reduce((s, r) => s + r.sv, 0);
+  const rows = X.rows.slice().sort((p, q) => (q.st - q.bs) - (p.st - p.bs)), show = svLabAll ? rows : rows.slice(0, 8), hh = (SV_SLH[svLabSl] || 1) * X.nd;
+  return `<div class="svcard"><div class="svct">闲时段：在班几人<small>${SV_LG[g]} ${X.nd} 天，指纹打卡，每小时平均</small></div>`
+    + `<div class="svseg2 wide">${R.sl.map(x => `<button class="${svLabSl === x ? 'on' : ''}" onclick="svLabSet('sl','${x}')">${x}</button>`).join('')}</div>`
+    + `<div class="svseg2 wide">${gs.map(k => `<button class="${g === k ? 'on' : ''}" onclick="svLabSet('g','${k}')">${SV_LG[k]}</button>`).join('')}</div>`
+    + `<div class="svmini"><div>平均在班（${good.length} 家）<b>${avg('st').toFixed(1)} 人</b></div><div>${late ? '平均需要' : '营业额撑得起'}<b>${avg('bs').toFixed(1)} 人</b></div><div>人工占营业额<b class="${mR && mL / mR > 0.3 ? 'rr' : 'g'}">${mR ? Math.round(100 * mL / mR) + '%' : '—'}</b></div></div>`
+    + '<div class="svlabx">' + show.map(r => { const d = r.st - r.bs;
+      return `<button onclick="svLabDSet('rst','${esc(r.nm)}')"><span class="nm">${esc(r.nm)}${r.ok ? '' : ' <small>打卡不全</small>'}</span><em>${r.st.toFixed(1)} 人 / ${bl} ${r.bs.toFixed(1)}</em><b class="${d >= 1.5 ? 'rr' : d >= 0.5 ? 'm' : 'g'}">${d >= 0 ? '多' : '少'} ${Math.abs(d).toFixed(1)}</b></button>`; }).join('') + '</div>'
+    + (rows.length > 8 ? `<button class="svmore" style="margin:6px 0 0" onclick="svLabSet('all')">${svLabAll ? '收起' : `全部 ${rows.length} 家 ›`}</button>` : '')
+    + `<div class="svnote">${late ? `23〜24 点：${svLabRuleTxt(R.LL)}。每天算一次再平均。` : `撑得起＝这个钟头的营业额 × 本店罚线 ÷ 时薪 ${SV_WAGE.toLocaleString()} 円。`}`
+    + `这段日子「${SV_LG[g]}」这个时段：人工约 ${man(mL * hh)}，营业额 ${man(mR * hh)}（打卡齐的 ${good.length} 家）。平均按这 ${X.nd} 天算（那天没打卡算 0，和月度一样）。点店名看这家每天・每个钟头。</div></div>`;
+}
+// 期间里的一家店：每个钟头平均＋每天一行（点一天跳到「每日」那天这家店）
+function svLabRgStore(R, nm) {
+  const { a, b } = svRg, rs = R.rows.filter(r => r[1] === nm).sort((p, q) => p[0] < q[0] ? -1 : 1), X = svLabMet(rs), ln = svLabLine(R.LL, nm);
+  let h = `<button class="svmore" style="margin:0 0 4px" onclick="svLabDSet('rst','')">‹ 全部店</button>`;
+  if (!rs.length) return h + '<div class="svnote">这段日子这家店没有数据</div>';
+  h += `<div class="svcard svhero"><div class="lab">${esc(nm)}　${svRgLab(a, b)} 人件费率</div><div class="val">${svLabVal(X, SV_LK[0], ln)}</div>`
+    + `<div class="sub">指纹人工 ${man(X.C)} ÷ 营业额 ${man(X.S)}　工时 ${Math.round(X.H).toLocaleString()} h　${rs.length} 天${rs.every(r => R.ok(r[0], nm)) ? '' : '　（打卡不全，实际人工更多）'}</div>`
+    + (ln ? `<div class="sub">本店罚线 ${svPctS(ln.p)}・奖励线 ${svPctS(ln.g)}</div>` : '') + '</div>'
+    + `<div class="svmini">${SV_LK.slice(1).map(K => `<div>${K.n}${K.k === 'over' ? '（每天）' : ''}<b>${svLabVal(X, K)}</b>${K.u}</div>`).join('')}</div>`;
+  // 每个钟头（这个星期组的平均）
+  const gs = ['w', 's', 'f'].filter(k => Object.keys(R.S).some(d => R.S[d]._g === k && R.S[d][nm])), g = gs.includes(svLabG) ? svLabG : gs[0];
+  const ds = g ? Object.keys(R.E).filter(d => R.E[d][nm] && R.S[d] && R.S[d]._g === g) : [], rt = svLabRate(R.LL, nm);
+  if (ds.length) {
+    const acc = {}; ds.forEach(d => { const e = R.E[d][nm]; e[1].forEach((p, i) => { const o = acc[e[0] + i] = acc[e[0] + i] || [0, 0]; o[0] += p; o[1] += (e[2][i] || 0) * 100; }); });
+    const need = rs.filter(r => ds.includes(r[0]) && r[11] != null), nd = need.length ? need.reduce((s, r) => s + r[11], 0) / need.length : null;
+    const HR = Object.keys(acc).map(Number).sort((p, q) => p - q).filter(x => x >= 11).map(x => { const p = acc[x][0] / ds.length, v = acc[x][1] / ds.length; return x === 23 && nd != null ? { hh: x, p, v, c: nd, nd: true } : { hh: x, p, v, c: v * rt / SV_WAGE }; });
+    h += `<div class="svcard"><div class="svct">每个钟头：在班几人<small>${SV_LG[g]} ${ds.length} 天平均</small></div>`
+      + `<div class="svseg2 wide">${gs.map(k => `<button class="${g === k ? 'on' : ''}" onclick="svLabSet('g','${k}')">${SV_LG[k]}</button>`).join('')}</div>` + svLabHrs(HR)
+      + `<div class="svnote">撑得起＝那个钟头营业额 × 本店罚线 ${svPctS(rt)} ÷ ${SV_WAGE.toLocaleString()} 円；23 点那一行是需要几人。差＝在班 − 基准，红＝多 1.5 人以上。</div></div>`;
+  }
+  h += `<div class="svcard"><div class="svct">每天<small>点一天看那天每个钟头</small></div><div class="svlabd"><div class="hd"><span>日期</span><span>人件费率</span><span>人时营业额</span><span>人时客数</span><span>多排</span></div>`
+    + rs.slice().reverse().map(r => { const Y = svLabMet([r]);
+      return `<button onclick="svLabGoDay('${r[0]}','${esc(nm)}')"><span class="nm">${svMD(r[0])}（${svWk(r[0])}）${r[7] ? ` <small class="m">缺卡${r[7]}</small>` : ''}</span>`
+        + SV_LK.map(K => `<b>${svLabCell(K, Y[K.k], ln)}</b>`).join('') + '</button>'; }).join('') + '</div></div>';
+  return h;
+}
+function svLabGoDay(ds, nm) {
+  const pv = svLabV, pm = svLabM, pst = svLabRgSt;
+  navPush('svlab', () => { svLabV = pv; LS.set('svLabV', pv); svLabM = pm; svLabRgSt = pst; svLabDSt = ''; renderSales(); });
+  svLabV = 'd'; LS.set('svLabV', 'd'); svLabM = ds.slice(0, 7); svLabDay = ds; svLabDSt = nm; renderSales();
+  const el = document.getElementById('salesView'); if (el) el.scrollTop = 0;
 }
 function svLabStore(L, P, n, m) {
   const FP = svLabFP(L), r0 = L.st.find(x => x[0] === n), r = FP ? Object.assign(r0.slice(), { 2: r0[10], 7: r0[10] ? '' : '没有指纹打卡' }) : r0, rate = r[1] && r[2] ? r[2] / r[1] : null, ln = svLabLine(L, n);
@@ -2333,7 +2447,7 @@ function svTabFc(today) {
   const lyMonSum = svMonAct(y - 1, m);
   let h = `<div class="svmon"><button class="iconbtn" onclick="svMove(-1)" ${svMon <= curMon ? 'disabled' : ''} aria-label="上个月">‹</button><b>${y} 年 ${m} 月</b><button class="iconbtn" onclick="svMove(1)" ${svMon >= maxMon ? 'disabled' : ''} aria-label="下个月">›</button></div>`;
   h += `<div class="svcard svhero"><div class="lab">${m} 月预测</div><div class="val">约 ${cnBig(F.t)}</div>`
-    + `<div class="sub">${lyMonSum ? `去年 ${m} 月实际 ${cnBig(lyMonSum)}　${svDl(F.t, lyMonSum)}` : '去年同月没有完整数据'}　${SV.sk ? '（堂食・外卖分开算）' : `（全部 ${M.open.size} 家）`}</div></div>`;
+    + `<div class="sub">${lyMonSum ? `去年 ${m} 月实际 ${cnBig(lyMonSum)}　${svDl(F.t, lyMonSum)}` : '去年同月没有完整数据'}　${SV.sk ? '（堂食・外卖分开算）' : `（全部 ${(ar => svNShop([...M.open].map(n => [ar[n], n])))(SV.days.slice(-14).reduce((o, x) => (x.s.forEach(r => o[r[1]] = r[0]), o), {}))} 家）`}</div></div>`;
   if (svMon === curMon) h += svAccCard(today);
   const SS = svSameStore(y, m);
   if (SS.n && !SV.sk) h += `<div class="svcard"><div class="svct">① 同店预测<small>去年 ${m} 月也开着的 ${SS.n} 家；不算 ${SS.all - SS.n} 台收银：${SS.out.join('、')}（新店，或去年这个月营业不满半个月）</small></div>`
