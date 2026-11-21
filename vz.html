@@ -89,7 +89,7 @@ const COS = ['HCL', 'HSW', '千聖', '三金', '世界村'];
 let P = [], C = {}, AT = '', co = sessionStorage.getItem('vzCo') || 'HCL', q = '', showLeft = false;
 const md = d => d ? d.replace(/^(\d{4})-0?(\d+)-0?(\d+)$/, '$1/$2/$3') : '';
 // 在留期限：已过／90 天内（3 个月）提醒
-const expTag = p => p['签证已更新'] ? '<span class="tag g">签证已更新</span>' : p['剩天'] == null ? (p['在留期限'] ? '' : '<span class="tag n">期限没填</span>')
+const expTag = p => p['签证已更新'] ? '<span class="tag g">签证已更新</span>' : p['剩天'] == null ? (p['在留期限'] ? '' : /永住/.test(p['在留资格'] || '') ? '<span class="tag g">永住</span>' : '<span class="tag n">期限没填</span>')
   : p['剩天'] < 0 ? '<span class="tag r">已过期 ' + (-p['剩天']) + ' 天</span>' : p['剩天'] <= 90 ? '<span class="tag y">还剩 ' + p['剩天'] + ' 天</span>' : '<span class="tag g">' + md(p['在留期限']) + '</span>';
 // 离职报备：离职后 14 天内要向入管报备（「契約機関に関する届出」）；名簿「入管届出日」填了＝已报
 // 11/20 用户：（2022〜2024 年离职那些）「这是不需要再汇报了」→ 只提醒最近 30 天内离职的人；以前离职的、没写退职日的不再提醒
@@ -165,6 +165,7 @@ function renderList() {
 }
 // 11/20 用户：「会计部 従業員名簿 里面有工作内容资料，读取里面的信息，套用到他们的工作内容，显示到对称的其他公司的社员上；之前生成的可以保留和合并」
 //   电脑 签证资料_工作内容.py：入管提出的職務内容説明書（PDF→工作内容资料.json，原文）→ 本人的直接显示；别人按名簿職務找同类职务的一份当参考
+// 11/21 永住者没填期限＝显示「永住」；名簿资格写错按 签证资料\在留资格更正.json 改（例：施家鴻）
 // 11/20 提速：资料全文只传一份（k=vzt），每人 p['职务资料'] 只有 {id, 本人}
 let VZT = {};
 const zl = p => p['职务资料'] ? Object.assign({}, VZT[p['职务资料'].id] || {}, p['职务资料']) : null;
@@ -195,7 +196,7 @@ function openP(i) {
       '<div class="note" style="margin-top:4px">根据名簿上的職務内容由 AI 展开的说明（参考，不是名簿原文）</div>'
       : p['职务资料'] ? '' : '<div class="note">名簿没写職務内容，无法展开（请会计部在名簿补上）</div>') + '</div>' +
     '<div class="card"><dl class="kv">' +
-    row('在留資格', esc(p['在留资格'] || '')) + row('在留カード番号', esc(p['卡号'] || '')) +
+    row('在留資格', esc(p['在留资格'] || '') + (p['名簿在留资格'] ? '<div class="note">名簿写的是「' + esc(p['名簿在留资格']) + '」，已按实际改（请会计部改名簿）</div>' : '')) + row('在留カード番号', esc(p['卡号'] || '')) +
     row('在留期限', p['在留期限'] ? esc(md(p['在留期限'])) + ' ' + expTag(p) : '') + row('国籍', esc(p['国籍'] || '')) + '</dl></div>' +
     '<div class="card"><dl class="kv">' +
     row('性別', esc(p['性别'] || '')) + row('生年月日', p['生日'] ? esc(md(p['生日'])) + (p['年龄'] != null ? '（' + p['年龄'] + ' 岁）' : '') : '') +
