@@ -310,6 +310,16 @@ nav button.on{color:var(--brand)}
 #keybox button{display:block;margin:12px auto 0;width:240px;max-width:80%;padding:12px;border:0;border-radius:12px;background:var(--brand);color:#fff;font-weight:600}
 #keybox .kback{display:none;background:var(--soft);color:var(--ink);font-weight:400}
 .kinapp{display:none;margin:14px auto 4px;max-width:340px;text-align:left;background:#fef3c7;color:#78350f;border-radius:12px;padding:10px 12px;font-size:14px;line-height:1.6}
+.iah{font-weight:800;font-size:15px}.iawhy{margin:2px 0 6px}
+.iasteps{margin:0;padding:0;list-style:none;counter-reset:ia}
+.iasteps li{counter-increment:ia;position:relative;padding:7px 0 7px 34px;border-top:1px dashed rgba(120,53,15,.25)}
+.iasteps li::before{content:counter(ia);position:absolute;left:0;top:7px;width:24px;height:24px;border-radius:50%;background:#78350f;color:#fff;font-weight:800;text-align:center;line-height:24px}
+.iasteps b{font-size:15px}
+.iakey{display:inline-block;border:1.5px solid #78350f;border-radius:6px;padding:0 5px;margin-left:2px;line-height:20px}
+.ianote{margin-top:6px;padding-top:7px;border-top:1px dashed rgba(120,53,15,.25);font-size:13px}
+#iahow{position:fixed;inset:0;z-index:300;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:16px}
+#iahow .iacard{background:#fef3c7;color:#78350f;border-radius:16px;padding:14px 14px 12px;max-width:360px;width:100%;max-height:90vh;overflow:auto;font-size:14px;line-height:1.6;text-align:left}
+#iahow button{display:block;width:100%;margin-top:10px;border:0;border-radius:12px;background:#78350f;color:#fff;padding:11px;font-size:15px;font-weight:700}
 #keybox.blk input,#keybox.blk .kgo{display:none}#keybox .kretry{display:none}#keybox.blk .kretry{display:block}#keybox.blk #ktip{line-height:1.7}
 .keylink{color:var(--sub);text-decoration:underline;cursor:pointer}
 /* 11/14 营业额页重排：分页・卡片・一眼看清楚 */
@@ -503,7 +513,7 @@ button:active,nav button:active,a:active{opacity:.6}
 <div id="keybox">
   <img src="icon-192.png" alt="">
   <p id="ktip">第一次打开，请输入负责人给的访问密码</p>
-  <p id="kinapp" class="kinapp" onclick="inappHow()"></p>
+  <div id="kinapp" class="kinapp"></div>
   <input id="kin" autocomplete="off" autocapitalize="off" enterkeyhint="go" onkeydown="if(event.key==='Enter')saveKey()">
   <button class="kgo" onclick="saveKey()">开始使用</button>
   <button class="kretry" onclick="load(true)">重新试一次</button>
@@ -600,7 +610,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
 })();
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v112';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v113';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -632,12 +642,27 @@ const KQ = () => '&k=' + encodeURIComponent(K) + '&dv=' + DV + '&ua=' + encodeUR
 function previewAs(r, page) { LS.set('asRole', r); ['asStaff', 'last', 'acrq'].forEach(k => LS.del(k)); if (page) location.href = page; else location.reload(); }
 function previewStaff() { previewAs('staff'); }
 function exitPreview() { ['asRole', 'asStaff', 'last', 'acrq'].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} }); location.href = './'; }
+// 11/22 用户：「添加主屏幕的流程写 1.浏览器 2.那个键 3.再添加主屏幕，写清晰点」→ 三步直接写出来，第 2 步画出那个键的样子
+const IA_SHARE = '<svg width="15" height="18" viewBox="0 0 16 20" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-3px"><path d="M8 13V2M4.5 5.5 8 2l3.5 3.5"/><path d="M5 8H3v10h10V8h-2"/></svg>';
+function inappSteps() {
+  const ios = !/Android/.test(navigator.userAgent);
+  const st = ios ? [
+    ['换到 Safari', '点这个画面右上角的「…」，选「在 Safari 打开」（有的写「用默认浏览器打开」）。'],
+    [`点「分享」键 <span class="iakey">${IA_SHARE}</span>`, '在 Safari 画面最下面，方框加向上箭头的那个键。看不到的话，先点右下角的「…」，里面就有「分享」。'],
+    ['点「添加到主屏幕」', '在弹出来的单子里往下滑找到它，点进去，再点右上角的「添加」。']
+  ] : [
+    ['换到浏览器', '点这个画面右上角的「…」，选「用浏览器打开」。'],
+    ['点右上角「⋮」键', '在 Chrome 画面右上角，三个点竖排的那个键。'],
+    ['点「添加到主屏幕」', '再点「添加」。']
+  ];
+  return '<ol class="iasteps">' + st.map(x => `<li><b>${x[0]}</b><br>${x[1]}</li>`).join('') + '</ol>'
+    + '<div class="ianote">以后都点手机桌面上的「空桌一览」图标打开。第一次打开要输一次密码，会出现新的手机编号：把编号发给负责人授权一次，以后就不会再掉。</div>';
+}
 function inappHow() {
-  const ios = /iPhone|iPad/.test(navigator.userAgent);
-  alert(`你现在是在「${INAPP}」里面打开的网页。这种网页过一两天会把手机里存的密码和手机编号清掉，所以又要输密码、又要重新登记。\n\n改成这样打开就不会掉：\n`
-    + (ios ? '1. 点右上角「…」，选「用 Safari 打开」（或「在浏览器打开」）。\n2. 在 Safari 下面点「分享」，选「添加到主屏幕」。\n'
-           : '1. 点右上角「…」，选「用浏览器打开」。\n2. 在 Chrome 右上角「⋮」选「添加到主屏幕」。\n')
-    + '3. 以后都点主屏幕上的「空桌一览」图标打开。\n\n第一次从图标打开要输一次密码，会显示新的手机编号：把编号发给负责人授权一次，以后就不会再掉。');
+  let o = document.getElementById('iahow');
+  if (!o) { document.body.insertAdjacentHTML('beforeend', '<div id="iahow" onclick="if(event.target===this)this.remove()"><div class="iacard"></div></div>'); o = document.getElementById('iahow'); }
+  o.firstChild.innerHTML = `<div class="iah">📱 改成主屏幕 APP（只要做一次）</div><div class="iawhy">你现在是在「${esc(INAPP)}」里面打开的，过一两天会清掉存的密码和手机编号，所以要一直重新登记。照下面 3 步做就不会再掉：</div>`
+    + inappSteps() + '<button onclick="document.getElementById(\'iahow\').remove()">知道了</button>';
 }
 function inappX() { try { sessionStorage.setItem('inappX', '1'); } catch (e) {} const b = document.getElementById('iabar'); if (b) b.remove(); }
 if (INAPP && (() => { try { return !sessionStorage.getItem('inappX'); } catch (e) { return true; } })())
@@ -689,7 +714,7 @@ function devBlocked(d) {
     + '<br><small>是自己人换了手机：请负责人在 APP 里「📱 登录手机 → 开放登记」，然后按下面的「重新试一次」。</small>';
 }
 function kinappShow() { const e = document.getElementById('kinapp'); if (!e || !INAPP) return;
-  e.innerHTML = `⚠ 你是在「${esc(INAPP)}」里面打开的网页：这种网页过一两天会清掉存的密码和手机编号，所以要一直重新输密码、重新登记。<br><b>请改用 Safari 打开，再「添加到主屏幕」</b>，以后从主屏幕图标打开就不会掉。<u>点这里看做法</u>`;
+  e.innerHTML = `<div class="iah">⚠ 你是在「${esc(INAPP)}」里面打开的</div><div class="iawhy">这种网页过一两天会清掉存的密码和手机编号，所以要一直重新输密码、重新登记。照这 3 步改成主屏幕 APP，以后就不会掉：</div>` + inappSteps();
   e.style.display = 'block'; }
 function hideKey() {
   document.getElementById('keybox').classList.remove('blk');
