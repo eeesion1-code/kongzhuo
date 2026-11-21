@@ -80,6 +80,7 @@ h1{font-size:20px;margin:0;flex:1;letter-spacing:.5px}
 .dvrow button.del{color:#dc2626}
 .dvme{background:var(--brand);color:#fff;border-radius:6px;padding:0 5px;font-size:11px;font-weight:400}
 .dvbad{font-size:12.5px;color:var(--sub);line-height:1.6;padding:5px 0;border-top:1px dashed var(--line)}
+.dvbad .dvok{margin-top:5px;border:0;border-radius:8px;background:#16a34a;color:#fff;padding:6px 12px;font-size:13px;font-weight:700}
 #rlhint button+button{margin-left:0}
 /* 11/20 v97：老板栏按钮加到 4 个（✅ 上线审批）后一行比手机宽，整页被撑宽往左偏 → 文字占一行，按钮放不下就换行 */
 #rlhint{flex-wrap:wrap;justify-content:flex-start;gap:6px}
@@ -308,6 +309,7 @@ nav button.on{color:var(--brand)}
 #keybox input{font:inherit;font-size:16px;padding:12px;border:1px solid var(--line);border-radius:12px;width:240px;max-width:80%;background:var(--card);color:var(--ink);text-align:center}
 #keybox button{display:block;margin:12px auto 0;width:240px;max-width:80%;padding:12px;border:0;border-radius:12px;background:var(--brand);color:#fff;font-weight:600}
 #keybox .kback{display:none;background:var(--soft);color:var(--ink);font-weight:400}
+.kinapp{display:none;margin:14px auto 4px;max-width:340px;text-align:left;background:#fef3c7;color:#78350f;border-radius:12px;padding:10px 12px;font-size:14px;line-height:1.6}
 #keybox.blk input,#keybox.blk .kgo{display:none}#keybox .kretry{display:none}#keybox.blk .kretry{display:block}#keybox.blk #ktip{line-height:1.7}
 .keylink{color:var(--sub);text-decoration:underline;cursor:pointer}
 /* 11/14 营业额页重排：分页・卡片・一眼看清楚 */
@@ -501,6 +503,7 @@ button:active,nav button:active,a:active{opacity:.6}
 <div id="keybox">
   <img src="icon-192.png" alt="">
   <p id="ktip">第一次打开，请输入负责人给的访问密码</p>
+  <p id="kinapp" class="kinapp" onclick="inappHow()"></p>
   <input id="kin" autocomplete="off" autocapitalize="off" enterkeyhint="go" onkeydown="if(event.key==='Enter')saveKey()">
   <button class="kgo" onclick="saveKey()">开始使用</button>
   <button class="kretry" onclick="load(true)">重新试一次</button>
@@ -597,7 +600,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
 })();
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v111';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v112';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -607,7 +610,14 @@ const LS = {
 K = LS.get('k', '');
 // 11/18 用户：只有登记过的 17 台手机能用 → 每台手机第一次打开时生成随机编号，每次读数据都带上（运营部 pj.html 同一个编号）
 const DV = (() => { let v = LS.get('dv', ''); if (!/^[0-9a-f]{32}$/.test(v)) { const a = new Uint8Array(16); crypto.getRandomValues(a); v = Array.from(a, b => b.toString(16).padStart(2, '0')).join(''); LS.set('dv', v); } return v; })();
-const DVUA = (() => { const u = navigator.userAgent, st = (navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) ? '主屏幕APP' : '浏览器'; let m;
+// 11/22 用户：「为什么现在 2〜3 天就要登录密码」→ 查出来：同一台 iPhone 4 天换了 3 个手机编号（3205b4→dc3aa6→ea0855），截图上方是 ✕ 和 …＝在聊天软件里面打开的网页。
+//   这种网页过一两天会把手机里存的密码和编号清掉 → 变成「新手机」又被挡、又要输密码。→ 认出来、提示改用 Safari「添加到主屏幕」，设备说明也写上是哪个软件
+const DVSTD = !!(navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches));
+const INAPP = (() => { if (DVSTD) return ''; const u = navigator.userAgent;
+  const f = [[/wxwork|WeCom/i, '企业微信'], [/MicroMessenger/i, '微信'], [/\bLine\//i, 'LINE'], [/FBAN|FBAV|FB_IAB/, 'Facebook'], [/Instagram/, 'Instagram'], [/Slack/, 'Slack'], [/KAKAOTALK/i, 'KakaoTalk'], [/DingTalk/i, '钉钉'], [/Lark|Feishu/i, '飞书'], [/\bGSA\//, 'Google APP']].find(x => x[0].test(u));
+  if (f) return f[1];
+  return /iPhone|iPad/.test(u) && !/Safari\//.test(u) ? '别的APP' : ''; })();
+const DVUA = (() => { const u = navigator.userAgent, st = DVSTD ? '主屏幕APP' : INAPP ? INAPP + '里的浏览器' : '浏览器'; let m;
   if ((m = u.match(/iPhone OS ([\d_]+)/))) return `iPhone iOS ${m[1].replace(/_/g, '.')}・${st}`;
   if ((m = u.match(/iPad.*? OS ([\d_]+)/))) return `iPad iOS ${m[1].replace(/_/g, '.')}・${st}`;
   if ((m = u.match(/Android ([\d.]+); ([^;)]+)/))) return `Android ${m[1]} ${m[2].trim()}・${st}`;
@@ -622,6 +632,16 @@ const KQ = () => '&k=' + encodeURIComponent(K) + '&dv=' + DV + '&ua=' + encodeUR
 function previewAs(r, page) { LS.set('asRole', r); ['asStaff', 'last', 'acrq'].forEach(k => LS.del(k)); if (page) location.href = page; else location.reload(); }
 function previewStaff() { previewAs('staff'); }
 function exitPreview() { ['asRole', 'asStaff', 'last', 'acrq'].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} }); location.href = './'; }
+function inappHow() {
+  const ios = /iPhone|iPad/.test(navigator.userAgent);
+  alert(`你现在是在「${INAPP}」里面打开的网页。这种网页过一两天会把手机里存的密码和手机编号清掉，所以又要输密码、又要重新登记。\n\n改成这样打开就不会掉：\n`
+    + (ios ? '1. 点右上角「…」，选「用 Safari 打开」（或「在浏览器打开」）。\n2. 在 Safari 下面点「分享」，选「添加到主屏幕」。\n'
+           : '1. 点右上角「…」，选「用浏览器打开」。\n2. 在 Chrome 右上角「⋮」选「添加到主屏幕」。\n')
+    + '3. 以后都点主屏幕上的「空桌一览」图标打开。\n\n第一次从图标打开要输一次密码，会显示新的手机编号：把编号发给负责人授权一次，以后就不会再掉。');
+}
+function inappX() { try { sessionStorage.setItem('inappX', '1'); } catch (e) {} const b = document.getElementById('iabar'); if (b) b.remove(); }
+if (INAPP && (() => { try { return !sessionStorage.getItem('inappX'); } catch (e) { return true; } })())
+  document.body.insertAdjacentHTML('afterbegin', `<div id="iabar" style="position:sticky;top:0;z-index:61;background:#fef3c7;color:#78350f;font-size:13.5px;font-weight:600;padding:calc(7px + env(safe-area-inset-top)) 10px 7px;display:flex;align-items:center;gap:6px;line-height:1.45"><span style="flex:1" onclick="inappHow()">⚠ 你是在「${INAPP}」里打开的：过一两天会掉登录、要重新登记。请改用 Safari「添加到主屏幕」。</span><button onclick="inappHow()" style="border:0;border-radius:999px;background:#78350f;color:#fff;padding:5px 10px;font-weight:700;white-space:nowrap">看做法</button><button onclick="inappX()" aria-label="关掉" style="border:0;background:none;color:#78350f;font-size:18px;padding:2px 4px">✕</button></div>`);
 if (ASSTAFF) document.body.insertAdjacentHTML('afterbegin', '<div id="pvbar" style="position:sticky;top:0;z-index:60;background:#facc15;color:#422006;font-size:14px;font-weight:700;padding:calc(8px + env(safe-area-inset-top)) 12px 8px;display:flex;align-items:center;gap:8px"><span style="flex:1">👀 正在看店长画面（店长・预约中心看到的样子）</span><button onclick="exitPreview()" style="border:0;border-radius:999px;background:#422006;color:#fff;padding:6px 12px;font-weight:700">回到股东画面</button></div>');
 // 密码：网址里的 #k=… 或 ?k=…，第一次带进来就记在这台手机上（加到主屏幕后 iPhone 要在 APP 里再输一次）
 const fromUrl = (location.hash.match(/k=([^&]+)/) || location.search.match(/[?&]k=([^&]+)/) || [])[1];
@@ -655,6 +675,7 @@ function showKey(msg) {
   document.getElementById('keybox').style.display = 'block';
   ['hdr', 'list', 'nav'].forEach(id => document.getElementById(id).style.display = 'none');
   document.getElementById('kerr').textContent = msg || '';
+  kinappShow();
 }
 // 11/18：没登记的手机——不显示任何数据（手机里存的也删掉），不再每分钟自动读
 let devBlk = false;
@@ -667,6 +688,9 @@ function devBlocked(d) {
   document.getElementById('ktip').innerHTML = `🔒 这台手机还没登记，不能使用。<br>已经通知负责人。<br>手机编号：<b>${esc(d.id || '—')}</b>`
     + '<br><small>是自己人换了手机：请负责人在 APP 里「📱 登录手机 → 开放登记」，然后按下面的「重新试一次」。</small>';
 }
+function kinappShow() { const e = document.getElementById('kinapp'); if (!e || !INAPP) return;
+  e.innerHTML = `⚠ 你是在「${esc(INAPP)}」里面打开的网页：这种网页过一两天会清掉存的密码和手机编号，所以要一直重新输密码、重新登记。<br><b>请改用 Safari 打开，再「添加到主屏幕」</b>，以后从主屏幕图标打开就不会掉。<u>点这里看做法</u>`;
+  e.style.display = 'block'; }
 function hideKey() {
   document.getElementById('keybox').classList.remove('blk');
   document.getElementById('keybox').style.display = 'none';
@@ -2636,6 +2660,12 @@ function devDo(q, ask) {
     .catch(e => devShow(`<div class="rlres">读不到：${esc(e.message)}</div><button class="rlgo" onclick="devDo('')">再试一次</button>`));
 }
 function devName(i) { const x = DVL.list[i], v = prompt('给这台手机起个名字（例：上野店长 王）', x.n || ''); if (v != null) devDo('&act=name&id=' + x.id + '&v=' + encodeURIComponent(v.trim())); }
+// 和后台 devNeed_ 同一个算法：这台要占哪个名额
+const devNeedJs = (r, ua) => { const pc = /^(Windows NT|Macintosh|Linux)・/.test(ua || '');
+  if (r === 'ac') return pc ? 'acw' : 'ac'; if (r === 'gg') return pc ? 'gw' : 'gp'; if (r === 'hr') return pc ? 'hw' : 'hp';
+  if (/・运营部APP/.test(ua || '')) return pc ? 'yc' : 'yp'; return pc ? 'pcw' : 'm'; };
+function devAllow(id, pool) { const p = (DVL.pools || []).find(o => o.k === pool);
+  devDo('&act=allow&id=' + id + '&pool=' + pool, `授权编号 ${id}（${p ? p.name : pool}）？\n\n只授权你已经确认过的那一台：对方屏幕上的「手机编号」要和 ${id} 一样。\n授权后 24 小时内，那台按「重新试一次」就能用。`); }
 function devDel(i) { const x = DVL.list[i]; devDo('&act=del&id=' + x.id, `删掉「${x.n || x.ua}」？删掉后这台手机就打不开了（要再用得重新登记）。`); }
 function devAcMax() { const v = prompt('会计部最多几台手机（现在 ' + DVL.acMax + ' 台）', DVL.acMax); if (v != null && +v > 0) devDo('&act=acmax&v=' + (+v)); }
 function devPcwMax() { const v = prompt('电脑最多几台（现在 ' + DVL.pcwMax + ' 台）', DVL.pcwMax); if (v != null && +v > 0) devDo('&act=pcwmax&v=' + (+v)); }
@@ -2651,8 +2681,13 @@ function devRender() {
   h += `<div class="dvbtns">${d.lock && !d.open ? `<button onclick="devDo('&act=open')">➕ 开放登记 30 分钟</button>` : ''}${d.lock ? `<button class="sub" onclick="devDo('&act=unlock','解锁后，任何用对密码的手机都会自动登记，直到满 ${d.max} 台。确定吗？')">解锁</button>` : `<button onclick="devDo('&act=lock','锁定后只有名单里这几台手机・电脑能用，别的设备一律打不开。确定吗？')">🔒 现在锁定（只留这几台）</button>`}</div>`;
   h += d.list.map((x, i) => `<div class="dvrow"><div><b>${i + 1}. ${esc(x.n || '（还没起名）')}</b>${x.me ? ' <span class="dvme">这台</span>' : ''}${x.pc ? ' <span class="dvme">电脑・不占名额</span>' : ''}${[['m', '空桌手机', '#2563eb'], ['pcw', '空桌电脑', '#0f766e'], ['yp', '运营部手机', '#c2410c'], ['yc', '运营部电脑', '#9a3412'], ['ac', '会计部手机', '#6d28d9'], ['acw', '会计部电脑', '#4c1d95'], ['gp', '广告预约部手机', '#b45309'], ['gw', '广告预约部电脑', '#92400e']].filter(t => x[t[0]]).map(t => ` <span class="dvme" style="background:${t[2]}">${t[1]}</span>`).join('')}<small>${esc(DV_ROLE[x.r] || x.r)}・${esc(x.ua)}<br>登记 ${esc(x.a)}　最后用 ${esc(x.t)}</small></div>`
     + `<span><button onclick="devName(${i})">改名</button>${x.me ? '' : `<button class="del" onclick="devDel(${i})">删</button>`}</span></div>`).join('') || '<div class="rlnote">还没有登记的手机</div>';
-  if (d.bad.length) h += '<div class="svsub2" style="margin-top:12px">⚠ 最近被挡住的手机</div>' + d.bad.map(x => `<div class="dvbad">${esc(x.t)}　${esc(DV_ROLE[x.r] || x.r)}・${esc(x.ua)}　编号 ${esc(x.id || '—')}<br>${esc(x.why)}</div>`).join('');
-  h += '<p class="rlnote">编号还绑定设备种类（iPhone・Android・Windows・Mac）：就算有人把登记过的编号抄到别的设备上，种类不对也会被挡、发邮件给你。<br>手机编号存在这台手机的 APP 里。删掉 APP、清除浏览器数据、或换个浏览器打开，都会变成「新手机」，要重新登记——请大家都用「加到主屏幕」的 APP。<br>被挡住的手机、1 小时内连续输错 3 次密码，都会发邮件到你的 Gmail。名单只有股东密码看得到。</p>';
+  // 11/22：被挡的手机旁边加「✅ 授权这台」（以前要叫 Claude 跑 设备管理.py allow）；已经登记的写「后来已登记」；已授权等打开的单独列出
+  const dvIn = new Set(d.list.map(x => x.id)), dvAl = new Set((d.allow || []).map(x => x.id));
+  if ((d.allow || []).length) h += '<div class="svsub2" style="margin-top:12px">⏳ 已授权、等那台打开（24 小时内按「重新试一次」就登记）</div>' + d.allow.map(x => `<div class="dvbad">编号 <b>${esc(x.id)}</b>　${esc(x.name)}</div>`).join('');
+  if (d.bad.length) h += '<div class="svsub2" style="margin-top:12px">⚠ 最近被挡住的手机</div>' + d.bad.map(x => `<div class="dvbad">${esc(x.t)}　${esc(DV_ROLE[x.r] || x.r)}・${esc(x.ua)}　编号 ${esc(x.id || '—')}<br>${esc(x.why)}`
+    + (dvIn.has(x.id) ? '　<span class="dvme">后来已登记</span>' : dvAl.has(x.id) ? '　<span class="dvme">已授权、等打开</span>'
+      : /^[0-9a-f]{6}$/.test(x.id || '') && !/另一种设备/.test(x.why || '') ? `<br><button class="dvok" onclick="devAllow('${x.id}','${devNeedJs(x.r, x.ua)}')">✅ 授权这台</button>` : '') + '</div>').join('');
+  h += '<p class="rlnote">编号还绑定设备种类（iPhone・Android・Windows・Mac）：就算有人把登记过的编号抄到别的设备上，种类不对也会被挡、发邮件给你。<br>手机编号存在这台手机的 APP 里。删掉 APP、清除浏览器数据、换个浏览器打开、或在 LINE・微信这类聊天软件里面打开（过一两天就被清掉），都会变成「新手机」，要重新登记——请大家都用「加到主屏幕」的 APP。<br>被挡住的手机、1 小时内连续输错 3 次密码，都会发邮件到你的 Gmail。名单只有股东密码看得到。</p>';
   devShow(h);
 }
 // ---- 11/18 用户：「APP 里面加入一个会计的键」；内容选了 资金余额・要付的钱・月度损益——「先有这些键，数据先不跑」----
