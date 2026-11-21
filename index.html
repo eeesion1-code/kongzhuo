@@ -421,6 +421,8 @@ nav button.on{color:var(--brand)}
 .svcard .svmini>div{background:var(--soft);border:0}
 .svmini b{display:block;color:var(--ink);font-size:16px;font-weight:800;margin:2px 0 1px}
 .svmini .dl{font-size:12px}
+.svlyst{font-size:12.5px;line-height:1.55;color:var(--sub);background:var(--card);border:1px solid var(--line);border-radius:10px;padding:7px 10px;margin:0 0 8px}
+.svlyst b{color:var(--ink)}
 .svcmpt{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:8px}
 .svcmpt th{font-size:11.5px;font-weight:500;color:var(--faint);text-align:left;padding:0 0 4px}
 .svcmpt th:nth-child(n+3),.svcmpt td:nth-child(n+3){text-align:right}
@@ -594,7 +596,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
 })();
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v107';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v108';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -1456,7 +1458,32 @@ function svDl(a, b) {
 }
 const svOku = n => n >= 1e8 ? (n / 1e8).toFixed(2) + '亿' : man(n);
 // 这些天和「去年同一周同星期几」那些天逐天对比（两边都有数据的天才算）
-function svLyMtd(days) { let a = 0, b = 0, n = 0; days.forEach(x => { const bd = svCmpDay(x.d, 'ly'), q = bd && SV.map[bd]; if (q) { a += x.t; b += q.t; n++; } }); return { a, b, n }; }
+function svLyMtd(days) { let a = 0, b = 0, n = 0; const P = []; days.forEach(x => { const bd = svCmpDay(x.d, 'ly'), q = bd && SV.map[bd]; if (q) { a += x.t; b += q.t; n++; P.push([x, q]); } }); return Object.assign({ a, b, n }, svLyShops(P)); }
+// 11/21 用户：「比去年同期 12% 是几家店铺写清楚」→ 两边各几家（立川一家两台收银算 1 家），再算同店（这段日子两年都开着的店：两边都有一半以上天数有营业额）
+const SV_ONE = ['立川'];
+function svLyShops(P) {
+  if (SV.sk || !P.length) return {};
+  const st = new Map(), ca = {}, cb = {}, half = P.length / 2, key = n => SV_ONE.includes(st.get(n)) ? '@' + st.get(n) : n;
+  P.forEach(([x, q]) => { x.s.forEach(r => { if (r[2] > 0) { ca[r[1]] = (ca[r[1]] || 0) + 1; st.set(r[1], r[0]); } }); q.s.forEach(r => { if (r[2] > 0) { cb[r[1]] = (cb[r[1]] || 0) + 1; st.set(r[1], r[0]); } }); });
+  const shops = ns => [...new Set(ns.map(key))];
+  const S = new Set(Object.keys(ca).filter(n => ca[n] >= half && (cb[n] || 0) >= half));
+  let sa = 0, sb = 0; P.forEach(([x, q]) => { x.s.forEach(r => { if (S.has(r[1])) sa += r[2]; }); q.s.forEach(r => { if (S.has(r[1])) sb += r[2]; }); });
+  // 短名：车站；同一个车站有几家就加店名第一段
+  const per = {}; st.forEach((v, n) => { per[v] = (per[v] || 0) + 1; });
+  const lab = k => k[0] === '@' ? k.slice(1) : per[st.get(k)] > 1 ? st.get(k) + ' ' + k.split(/[ 　(（]/)[0].slice(0, 9) : st.get(k);
+  const pick = f => shops(Object.keys(Object.assign({}, ca, cb)).filter(f)).map(lab);
+  return { nc: shops(Object.keys(ca)).length, nl: shops(Object.keys(cb)).length, ns: shops([...S]).length, sa, sb,
+    nw: pick(n => (ca[n] || 0) >= half && !cb[n]),                                  // 新店（去年这段没有）
+    pt: pick(n => (ca[n] || 0) >= half && cb[n] && cb[n] < half),                     // 去年这段营业不满一半天数
+    gone: pick(n => (cb[n] || 0) >= half && (ca[n] || 0) < half) };                 // 去年有、今年没有（已关）
+}
+// 比去年同期下面那行：几家・同店
+function svLyShopsTxt(L) {
+  if (!L.nc) return '';
+  const out = [L.nw.length && `新店 ${L.nw.join('・')}`, L.pt.length && `去年这段营业不满一半天数的 ${L.pt.join('・')}`, L.gone.length && `已关的 ${L.gone.join('・')}`].filter(Boolean);
+  return `<div class="svlyst">比去年同期 ${svDl(L.a, L.b)}＝今年 <b>${L.nc}</b> 家 对 去年 <b>${L.nl}</b> 家（全部店，立川两台收银算 1 家）。`
+    + `<br>同店（两年都开着的 <b>${L.ns}</b> 家）${svDl(L.sa, L.sb)}${out.length ? `；同店不算：${out.join('，')}` : ''}。</div>`;
+}
 const svWan = n => (n >= 0 ? '+' : '−') + man(Math.abs(n));
 function svLastRep() { return SV.days.length ? SV.days[SV.days.length - 1] : null; }
 function svLastHr(before, mk) { for (let i = SV.days.length - 1; i >= 0; i--) { const x = SV.days[i]; if (x[mk || 'ho'] && (!before || x.d < before)) return x; } return null; }
@@ -1721,7 +1748,7 @@ function svTabOv(today) {
   const bL = (d => d && SV.map[d])(svCmpDay(L.d, svCmpM)), bF = fin && (d => d && SV.map[d])(svCmpDay(fin.d, svCmpM));
   let h = `<div class="svcard svhero"><div class="lab">${m} 月累计（${mdays.length ? `1〜${last} 日，${mdays.length} 天${fin && fin.d.startsWith(mp) ? `，${+fin.d.slice(8)} 日是实时数` : ''}` : '还没有日报'}）</div>`
     + `<div class="val">${yen(msum)}</div>`
-    + `<div class="sub">日均 ${man(mdays.length ? msum / mdays.length : 0)}${LY.n ? `　去年同期 ${man(LY.b)} ${svDl(LY.a, LY.b)}` : ''}</div>${SV.sk ? (tk => tk ? `<div class="sub">其中外卖（Uber・便当）${man(tk)}，占 ${Math.round(100 * tk / msum)}%</div>` : '')(mdays.reduce((a, x) => a + (x.tk || 0), 0)) : ''}</div>`;
+    + `<div class="sub">日均 ${man(mdays.length ? msum / mdays.length : 0)}${LY.n ? `　去年同期 ${man(LY.b)} ${svDl(LY.a, LY.b)}` : ''}</div>${LY.nc ? `<div class="sub">今年 ${LY.nc} 家・去年 ${LY.nl} 家；同店（两年都开着的 ${LY.ns} 家）${svDl(LY.sa, LY.sb)}</div>` : ''}${SV.sk ? (tk => tk ? `<div class="sub">其中外卖（Uber・便当）${man(tk)}，占 ${Math.round(100 * tk / msum)}%</div>` : '')(mdays.reduce((a, x) => a + (x.tk || 0), 0)) : ''}</div>`;
   if (SV.sk) h += svTkCard(mdays, `${m} 月 1〜${last} 日`);
   h += '<div class="svtiles">'
     + (fin ? `<button class="svtile" onclick="svGo('day','${fin.d}')"><small>${svMD(fin.d)}（${svWk(fin.d)}）实时最终</small><b>${man(fin.t)}</b><em>${bF ? `比${SV_CMP[svCmpM]}（${svCmpTag(fin.d)}）${man(bF.t)} ${svDl(fin.t, bF.t)}` : '12 点日报后为准'}</em></button>`
@@ -1773,7 +1800,7 @@ function svTabDay(today) {
   const F = svMon >= curMon && svMon <= maxMon ? svMonthFc(y, m) : null;
   let h = `<div class="svmon"><button class="iconbtn" onclick="svMove(-1)" aria-label="上个月">‹</button><b>${y} 年 ${m} 月</b><button class="iconbtn" onclick="svMove(1)" aria-label="下个月">›</button></div>`;
   h += !vals.length ? `<div class="svnote">${svMon > today.slice(0, 7) ? '这个月还没开始' : '这个月没有存营业额'}</div>`
-    : `<div class="svmini"><div>合计（${full.length} 天）<b>${man(sum)}</b></div><div>日均<b>${man(full.length ? sum / full.length : 0)}</b></div><div>比去年同期<b>${LY.n ? svDl(LY.a, LY.b) : '—'}</b></div></div>`;
+    : `<div class="svmini"><div>合计（${full.length} 天）<b>${man(sum)}</b></div><div>日均<b>${man(full.length ? sum / full.length : 0)}</b></div><div>比去年同期<b>${LY.n ? svDl(LY.a, LY.b) : '—'}</b>${LY.nc ? `今年 ${LY.nc} 家・去年 ${LY.nl} 家` : ''}</div></div>` + (LY.n ? svLyShopsTxt(LY) : '');
   h += `<div class="svcmprule">对比：${SV_CMP[svCmpM]}＝${SV_CMP_RULE[svCmpM]}。每格<span class="c${svCmpM}">彩色小字</span>＝拿去比的那天${svCmpM === 'ly' ? '（去年的）' : ''}和那天的营业额（还没到的日子也先写出来）。</div>`;
   let cal = '<div class="svcal">' + [...'日一二三四五六'].map((w, i) => `<b class="${i === 0 ? 'rr' : i === 6 ? 'bl' : ''}">${w}</b>`).join('');
   for (let i = 0; i < d1.getDay(); i++) cal += '<span></span>';
