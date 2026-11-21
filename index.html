@@ -586,7 +586,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
 })();
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v105';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v106';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -922,6 +922,18 @@ function pwCmpSum(ds) {
   return `<div class="pwcmpsum">📊 全店总预约（午市＋晚市，去掉取消和直接来店）：本日 <b>${g}</b> 组 <b>${p}</b> 人<br>`
     + one('上周同星期', lw, c.lwDone ? '' : '（还没过完，截至现在）') + '<br>' + one(pwLyLab(ds, c), ly) + '</div>';
 }
+// 11/21 用户：「店铺结束时候凌晨6点再读一次」→ 电脑 6:00 读昨天关店后的最后总数（同期对比.json 的 yday），和上周同星期・去年同星期的最后总数比
+function pwYday(td) {
+  const c = (PW.rows || []).find(r => r.kind === 'cmp'), y = c && c.yday;
+  if (!y || !y.cur) return '';
+  const [Y, M, D0] = td.split('-').map(Number), pd = new Date(Y, M - 1, D0 - 1);
+  if (y.day !== pd.getFullYear() + '-' + String(pd.getMonth() + 1).padStart(2, '0') + '-' + String(pd.getDate()).padStart(2, '0')) return '';
+  const [g, p] = y.cur;
+  const one = (lab, x) => !x || x[1] == null ? `${lab} 没读到` : `${lab} ${pwMd(x[0])}：<b>${x[1]}</b> 组 <b>${x[2]}</b> 人（组数${pwChg(g, x[1])}　人数${pwChg(p, x[2])}）`;
+  return `<div class="pwsum">🌙 <b>昨天 ${pwMd(y.day)} 收尾</b>：全店总预约 <b>${g}</b> 组 <b>${p}</b> 人<br>`
+    + one('上周同星期', y.lw) + '<br>' + one(pwLyLab(y.day, y), y.ly)
+    + `<br><small>关店以后读的最后总数（${esc(String(y.at || '').slice(5).replace('-', '/'))} 读；午市＋晚市，去掉取消和直接来店，含当天才打电话订的），三个都是整天过完的数</small></div>`;
+}
 function pwStore(r) { return D.stores.find(s => s.rbKey && s.rbKey === r.key) || null; }
 // 今天：每家店用实时预约（没读到的店用 13:14 那次的）
 function pwTodayRows() {
@@ -950,7 +962,8 @@ function pwView() {
   if (!PW) { if (pwErr) { pwErr = false; return '<div id="msg">暂时读不到排位数据，过几分钟再点一次「繁忙日排位」</div>'; } loadPw(); return '<div id="msg">读取中…</div>'; }
   const rows = (PW.rows || []).filter(r => !r.kind), caps = pwCaps(), td = pwTodayStr();
   const dates = [...new Set([td, ...rows.map(r => r.date)])].filter(d => d >= td).sort();
-  let h = `<div class="pwintro">📋 <b>繁忙日排位检查</b>：今天起 14 天每一天（12 月看到 31 日），看各店有没有<b>提前把预约排到桌上</b>、2・3 回转有没有排在同一张桌、大团有没有连好桌。<br>每天 10:30・13:05・16:00 读 レストランボード 全部账号（只读，不改预约）。最后读取：${esc(PW.at || '—')}　「今天」用每 8 分钟的实时预约（${esc((D.rbStamp || '').replace(/^\d{4}\//, '').replace(/:\d{2}$/, '') || '—')}）</div>`;
+  let h = `<div class="pwintro">📋 <b>繁忙日排位检查</b>：今天起 14 天每一天（12 月看到 31 日），看各店有没有<b>提前把预约排到桌上</b>、2・3 回转有没有排在同一张桌、大团有没有连好桌。<br>每天 6:00（昨天关店后）・10:30・13:05・16:00 读 レストランボード 全部账号（只读，不改预约）。最后读取：${esc(PW.at || '—')}　「今天」用每 8 分钟的实时预约（${esc((D.rbStamp || '').replace(/^\d{4}\//, '').replace(/:\d{2}$/, '') || '—')}）</div>`;
+  h += pwYday(td);
   if (!dates.includes(pwDate)) pwDate = dates[0];
   const rowsOf = ds => ds === td ? pwTodayRows() : rows.filter(r => r.date === ds);
   h += '<div class="pwday">' + dates.map(ds => {
