@@ -596,7 +596,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
 })();
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v108';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v109';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -1472,7 +1472,7 @@ function svLyShops(P) {
   const per = {}; st.forEach((v, n) => { per[v] = (per[v] || 0) + 1; });
   const lab = k => k[0] === '@' ? k.slice(1) : per[st.get(k)] > 1 ? st.get(k) + ' ' + k.split(/[ 　(（]/)[0].slice(0, 9) : st.get(k);
   const pick = f => shops(Object.keys(Object.assign({}, ca, cb)).filter(f)).map(lab);
-  return { nc: shops(Object.keys(ca)).length, nl: shops(Object.keys(cb)).length, ns: shops([...S]).length, sa, sb,
+  return { nc: shops(Object.keys(ca)).length, nl: shops(Object.keys(cb)).length, ns: shops([...S]).length, sa, sb, d0: P[0][0].d, d1: P[P.length - 1][0].d,
     nw: pick(n => (ca[n] || 0) >= half && !cb[n]),                                  // 新店（去年这段没有）
     pt: pick(n => (ca[n] || 0) >= half && cb[n] && cb[n] < half),                     // 去年这段营业不满一半天数
     gone: pick(n => (cb[n] || 0) >= half && (ca[n] || 0) < half) };                 // 去年有、今年没有（已关）
@@ -1482,8 +1482,11 @@ function svLyShopsTxt(L) {
   if (!L.nc) return '';
   const out = [L.nw.length && `新店 ${L.nw.join('・')}`, L.pt.length && `去年这段营业不满一半天数的 ${L.pt.join('・')}`, L.gone.length && `已关的 ${L.gone.join('・')}`].filter(Boolean);
   return `<div class="svlyst">比去年同期 ${svDl(L.a, L.b)}＝今年 <b>${L.nc}</b> 家 对 去年 <b>${L.nl}</b> 家（全部店，立川两台收银算 1 家）。`
-    + `<br>同店（两年都开着的 <b>${L.ns}</b> 家）${svDl(L.sa, L.sb)}${out.length ? `；同店不算：${out.join('，')}` : ''}。</div>`;
+    + `<br>同店（两年都开着的 <b>${L.ns}</b> 家）${svDl(L.sa, L.sb)}${out.length ? `；同店不算：${out.join('，')}` : ''}。` + svStUpBtn(L) + '</div>';
 }
+// 11/21 用户：「这些（各店涨跌）和增长的哪里可以看」→ 一键去「各店」：期间＝这段日子（到最后一天日报）、比去年同期、按增减排
+function svStUpBtn(L) { if (!L.d0) return ''; const b = L.d1 < svRgEnd() ? L.d1 : svRgEnd(); return b < L.d0 ? '' : `<div class="svlinks"><button onclick="svGoStUp('${L.d0}','${b}')">🏪 看每家店涨跌（${svMD(L.d0)}〜${svMD(b)} 比去年，按增减排）›</button></div>`; }
+function svGoStUp(a, b) { svCmpM = 'ly'; LS.set('svCmp', 'ly'); svStSort = 'up'; LS.set('svStSort', 'up'); svRg = { a, b }; svRgCal = null; svGo('st'); }
 const svWan = n => (n >= 0 ? '+' : '−') + man(Math.abs(n));
 function svLastRep() { return SV.days.length ? SV.days[SV.days.length - 1] : null; }
 function svLastHr(before, mk) { for (let i = SV.days.length - 1; i >= 0; i--) { const x = SV.days[i]; if (x[mk || 'ho'] && (!before || x.d < before)) return x; } return null; }
@@ -1611,7 +1614,7 @@ function svStoreBlockR(R) {
     + `<div class="svseg2 wide"><button class="${svStSort === 'amt' ? 'on' : ''}" onclick="svSetSort('amt')">按营业额</button><button class="${svStSort === 'up' ? 'on' : ''}" onclick="svSetSort('up')">按增减</button></div>`
     + (R.short ? `<div class="svmiss">⚠ 这段日子里有 ${R.short} 天少了店的数据，那几天的店合计会偏少。</div>` : '')
     + svStoreRows(x, base)
-    + `<div class="svnote">${R.pn ? `增减＝期间里每一天和它的${SV_CMP[svCmpM]}那天比（同一家店，两边都有数据的天才算）；「—」＝对比的日子这家店没有数据。` : `${SV_CMP[svCmpM]}没有数据。`}点有「⏰」的店看它每小时的营业额。</div></div>`;
+    + `<div class="svnote">${R.pn ? `增减＝期间里每一天和它的${SV_CMP[svCmpM]}那天比（同一家店，两边都有数据的天才算）；「—」＝对比的日子这家店没有数据（新店）。${svCmpM === 'ly' ? '去年开着、现在已经关的店（品川 1 号店等）不在这个名单里。' : ''}` : `${SV_CMP[svCmpM]}没有数据。`}点有「⏰」的店看它每小时的营业额。</div></div>`;
 }
 // 总览的时段：15 点前一行，15 点起每小时一行（11/14 用户：原来的五段太粗）
 const svBands = (arr, cmp, h0) => svHrRows(arr, cmp, h0, { keep: true });
@@ -1685,7 +1688,9 @@ function svStoreRows(x, base, lim) {
   svStX = x;   // svSt 点开某店用
   const cur = r => r[8] != null ? r[8] : r[2];   // 期间：增减只用两边都有数据的天
   let rows = x.s.map((r, i) => ({ r, i, b: bm[r[1]] ? bm[r[1]][2] : 0 }));
-  if (svStSort === 'up') rows.sort((p, q) => (q.b ? (cur(q.r) - q.b) / q.b : -9) - (p.b ? (cur(p.r) - p.b) / p.b : -9));
+  // 11/21：期间里能比的天不到一半（例：池袋 団欒・本厚木 去年 11/18 起才有数，只有 4 天）＝涨跌不准，按增减排时放到最后（和新店一样）
+  const up = o => !o.b || (o.r[10] != null && o.r[10] < o.r[9] / 2) ? -9 : (cur(o.r) - o.b) / o.b;
+  if (svStSort === 'up') rows.sort((p, q) => up(q) - up(p));
   if (lim) rows = rows.slice(0, lim);
   return '<div class="svlist">' + rows.map(({ r, i, b }, k) => {
     const hr = r[ix], op = hr && svOpenSt.has(r[1]);
@@ -1748,7 +1753,7 @@ function svTabOv(today) {
   const bL = (d => d && SV.map[d])(svCmpDay(L.d, svCmpM)), bF = fin && (d => d && SV.map[d])(svCmpDay(fin.d, svCmpM));
   let h = `<div class="svcard svhero"><div class="lab">${m} 月累计（${mdays.length ? `1〜${last} 日，${mdays.length} 天${fin && fin.d.startsWith(mp) ? `，${+fin.d.slice(8)} 日是实时数` : ''}` : '还没有日报'}）</div>`
     + `<div class="val">${yen(msum)}</div>`
-    + `<div class="sub">日均 ${man(mdays.length ? msum / mdays.length : 0)}${LY.n ? `　去年同期 ${man(LY.b)} ${svDl(LY.a, LY.b)}` : ''}</div>${LY.nc ? `<div class="sub">今年 ${LY.nc} 家・去年 ${LY.nl} 家；同店（两年都开着的 ${LY.ns} 家）${svDl(LY.sa, LY.sb)}</div>` : ''}${SV.sk ? (tk => tk ? `<div class="sub">其中外卖（Uber・便当）${man(tk)}，占 ${Math.round(100 * tk / msum)}%</div>` : '')(mdays.reduce((a, x) => a + (x.tk || 0), 0)) : ''}</div>`;
+    + `<div class="sub">日均 ${man(mdays.length ? msum / mdays.length : 0)}${LY.n ? `　去年同期 ${man(LY.b)} ${svDl(LY.a, LY.b)}` : ''}</div>${LY.nc ? `<div class="sub">今年 ${LY.nc} 家・去年 ${LY.nl} 家；同店（两年都开着的 ${LY.ns} 家）${svDl(LY.sa, LY.sb)}</div>` + svStUpBtn(LY) : ''}${SV.sk ? (tk => tk ? `<div class="sub">其中外卖（Uber・便当）${man(tk)}，占 ${Math.round(100 * tk / msum)}%</div>` : '')(mdays.reduce((a, x) => a + (x.tk || 0), 0)) : ''}</div>`;
   if (SV.sk) h += svTkCard(mdays, `${m} 月 1〜${last} 日`);
   h += '<div class="svtiles">'
     + (fin ? `<button class="svtile" onclick="svGo('day','${fin.d}')"><small>${svMD(fin.d)}（${svWk(fin.d)}）实时最终</small><b>${man(fin.t)}</b><em>${bF ? `比${SV_CMP[svCmpM]}（${svCmpTag(fin.d)}）${man(bF.t)} ${svDl(fin.t, bF.t)}` : '12 点日报后为准'}</em></button>`
