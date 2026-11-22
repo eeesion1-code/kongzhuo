@@ -612,7 +612,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
 })();
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v115';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v116';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -893,7 +893,7 @@ function render() {
   if (!list.length) h += `<div id="msg">${tab === 'fav' ? '还没有「我的店」。在店名左边点 ☆ 就能加进来。' : tab === 'free' ? '现在没有空桌的店' : '没有符合的店'}</div>`;
   h += '<div class="legend">' + [['free', '空桌'], ['used', '使用中'], ['remind', '放题快结束'], ['lo', 'L.O.'], ['over', '放题超时'], ['held', '预约留桌（不算空桌）']]
     .map(([c, t]) => `<span><i style="background:${c === 'used' ? 'var(--usedBg);border:1px solid var(--line)' : COLOR[c]}"></i>${t}</span>`).join('') + '</div>';
-  h += '<div class="foot">桌子格子：桌号、人数、坐了多久（从开台算）。点格子看详细。营业额和预约客人姓名不显示。<br>每分钟自动更新；数据来自实时桌位程序，约每 8 分钟读一次收银台。<br><a class="keylink" onclick="changeKey()">🔑 换密码（股东 / 店长）</a>' + (D.owner ? '　<a class="keylink" onclick="openRelogin()">🖥️ 让电脑重新登录</a>' : '') + '　版本 ' + APPV.replace('kongzhuo-v', '') + '</div>';
+  h += '<div class="foot">桌子格子：桌号、人数、坐了多久（从开台算）。点格子看详细。营业额和预约客人姓名不显示。<br>每分钟自动更新；数据来自实时桌位程序，约每 8 分钟读一次收银台。<br><a class="keylink" onclick="changeKey()">🔑 换密码（股东 / 店长 / 运营部）</a>' + (D.owner ? '　<a class="keylink" onclick="openRelogin()">🖥️ 让电脑重新登录</a>' : '') + '　版本 ' + APPV.replace('kongzhuo-v', '') + '</div>';
   patchList(document.getElementById('list'), h);
 }
 // 11/14 用户：手机上不丝滑 → 以前每 30 秒、每点一下都把整页（晚上 32 家・600 多张桌子、约 1,500 个元素）全部重画，手机上一次 40〜70 毫秒。
@@ -2675,7 +2675,25 @@ function rlWait(req) {
   tick(); rlTimer = setInterval(tick, 10000);
 }
 // ---- 11/18 老板：登录手机名单（用户：「17 个人用，只能在这 17 台手机登录，其他手机不能登录；有被登录的时候显示异常，单独用邮件发给我」）----
-const DV_ROLE = { owner: '股东密码', staff: '店长密码', sk: '三幸園店长密码', ac: '会计部密码', gg: '广告预约部密码' };
+const DV_ROLE = { owner: '股东密码', staff: '店长密码', sk: '三幸園店长密码', ac: '会计部密码', gg: '广告预约部密码', hr: '人事部密码', yy: '运营部密码' };
+// 11/22 用户：「先帮我做一个运营部的密码」（选「不看营业额」）→ 股东在这里设，POST what=setyy（密码放在请求内容里，不放网址）
+function yyKeyForm() { const b = document.getElementById('yykbox'); if (!b) return;
+  b.innerHTML = '新的运营部密码（至少 8 个字，不能和别的密码一样）：'
+    + '<input id="yyk1" type="password" class="dvq" autocomplete="new-password" placeholder="新密码">'
+    + '<input id="yyk2" type="password" class="dvq" autocomplete="new-password" placeholder="再输一次">'
+    + '<div class="dvbtns"><button onclick="yyKeySave()">保存</button><button class="sub" onclick="devRender()">取消</button></div><div id="yykmsg" class="r"></div>';
+  document.getElementById('yyk1').focus(); }
+function yyKeySave() {
+  const a = document.getElementById('yyk1').value.trim(), b = document.getElementById('yyk2').value.trim(), m = document.getElementById('yykmsg');
+  if (a.length < 8) { m.textContent = '至少 8 个字'; return; }
+  if (a !== b) { m.textContent = '两次不一样，请再输一次'; return; }
+  m.textContent = '保存中…';
+  fetch(API, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ k: K, what: 'setyy', v: a }) })
+    .then(r => r.json())
+    .then(d => { if (!d.ok) throw new Error(d.error === 'owner' ? '要用股东密码' : d.error || '没保存');
+      document.getElementById('yykbox').innerHTML = '✅ 运营部密码已经设好。<br>请当面或私信告诉运营部的人：在 APP 首页最下面点「🔑 换密码」，输入运营部密码。手机・电脑<b>不用重新登记</b>。<br>大家都换好以后，再换一次股东密码。'; })
+    .catch(e => { m.textContent = '没保存：' + e.message; });
+}
 let DVL = null;
 function openDev() { if (!D || !D.owner) return; navPush('dv', closeDev); document.getElementById('dvView').style.display = 'flex'; devShow('<div class="rlst">读取中…</div>'); devDo(''); }
 function closeDev() { navDone('dv'); document.getElementById('dvView').style.display = 'none'; }
@@ -2718,6 +2736,7 @@ function devRender() {
   if (d.bad.length) h += '<div class="svsub2" style="margin-top:12px">⚠ 最近被挡住的手机</div>' + d.bad.map(x => `<div class="dvbad">${esc(x.t)}　${esc(DV_ROLE[x.r] || x.r)}・${esc(x.ua)}　编号 ${esc(x.id || '—')}<br>${esc(x.why)}`
     + (dvIn.has(x.id) ? '　<span class="dvme">后来已登记</span>' : dvAl.has(x.id) ? '　<span class="dvme">已授权、等打开</span>'
       : /^[0-9a-f]{6}$/.test(x.id || '') && !/另一种设备/.test(x.why || '') ? `<br><button class="dvok" onclick="devAllow('${x.id}','${devNeedJs(x.r, x.ua)}')">✅ 授权这台</button>` : '') + '</div>').join('');
+  h += `<div class="svsub2" style="margin-top:14px">🔑 运营部密码</div><div class="dvbad" id="yykbox">运营部的人用这个密码：看得到空桌・排位和运营部 APP 全部（评价・预约异常・回头客・人事评价・卫生・签证），<b>看不到营业额・人工・预测・登录手机</b>。<br><button class="dvok" style="background:var(--brand)" onclick="yyKeyForm()">设置／更换运营部密码</button></div>`;
   h += '<p class="rlnote">编号还绑定设备种类（iPhone・Android・Windows・Mac）：就算有人把登记过的编号抄到别的设备上，种类不对也会被挡、发邮件给你。<br>手机编号存在这台手机的 APP 里。删掉 APP、清除浏览器数据、换个浏览器打开、或在 LINE・微信这类聊天软件里面打开（过一两天就被清掉），都会变成「新手机」，要重新登记——请大家都用「加到主屏幕」的 APP。<br>被挡住的手机、1 小时内连续输错 3 次密码，都会发邮件到你的 Gmail。名单只有股东密码看得到。</p>';
   devShow(h);
   if (dvQ) devFilter(dvQ);
