@@ -285,7 +285,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
   addEventListener('touchcancel', () => { on = false; hide(); }, { passive: true });
 })();
 
-const APPV = 'yunying-v71';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v72';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);
 const PVST = IN_KZ && (localStorage.getItem('asRole') === 'staff' || localStorage.getItem('asStaff') === '1');   // 11/19 老板在空桌一览点「👀 运营部画面／店长画面」→ 按店长权限看
 function exitPreview() { ['asRole', 'asStaff', 'last', 'acrq'].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} }); location.href = './'; }
@@ -1351,7 +1351,7 @@ function renderTy() {
       (r.bbN ? '<div class="tyc" style="margin-bottom:4px"><b style="color:#8e44ad">已扣掉 BB ' + fmt(r.bbN) + ' 人</b>，下面都是真实的</div>' : '') + hourBars(r.B, '没有网上预约');
   };
   h += '<div class="card" style="margin-bottom:10px"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px"><b style="font-size:14px">⏰ 时间段</b>' +
-    '<span class="seg" style="margin:0">' + [['rb', 'レストランボード（T・H・G・R）'], ['pg', '每日食べログ时间段 预约人数＋保存数（T）']].map(([k, n]) => '<button class="' + (tyHrSrc === k ? 'on' : '') + '" onclick="tySet(\'src\',\'' + k + '\')">' + n + '</button>').join('') + '</span>' +
+    '<span class="seg" style="margin:0">' + [['rb', 'レストランボード（T・H・G・R）'], ['pg', '每日食べログ时间段网页数据预约人数＋保存数（T）']].map(([k, n]) => '<button class="' + (tyHrSrc === k ? 'on' : '') + '" onclick="tySet(\'src\',\'' + k + '\')">' + n + '</button>').join('') + '</span>' +
     (tyHrSrc === 'rb' ? '<span class="seg" style="margin:0">' + [['all', '全部'], ['T', 'T'], ['H', 'H'], ['G', 'G'], ['R', 'R']].map(([k, n]) => '<button class="' + (tyHrPl === k ? 'on' : '') + '" onclick="tySet(\'pl\',\'' + k + '\')">' + n + '</button>').join('') + '</span>' : '') +
     '<select class="tysel" onchange="tySet(\'hr\',this.value)"><option value="">全部店</option>' + hrList.map(k => '<option' + (hrSt === k ? ' selected' : '') + '>' + esc(k) + '</option>').join('') + '</select></div>' +
     '<div class="tyc" style="margin-bottom:6px">' + (tyHrSrc === 'rb' && tyHrPl === 'T' ? '那' + (range ? '段时间' : '天') + '进的 T（食べログ）网上预约，订的是哪个时段（按来店开始时间分 6 段：0〜11 点・昼 11〜14・14〜17・夕方 17〜19・夜 19〜22・22 点以后）。<b style="color:var(--t)">深色＝现在还留着的</b>，<span style="color:var(--faint)">灰色＝后来取消的</span>' : tyHrSrc === 'rb' ? '那' + (range ? '段时间每天' : '天') + '几点有人在网上下了预约（レストランボード 的受付时间，只算网上预约' + (range ? '，加起来' : '') + '）。<b style="color:var(--t)">深色＝现在还留着的</b>，<span style="color:var(--faint)">灰色＝后来取消的</span>（数字＝留着的人，「消」＝取消的人）' : '食べログ页面「本日 N 人」每小时增加多少，按下单（点保存）的时间分 6 段：0〜11 点・昼 11〜14・14〜17・夕方 17〜19・夜 19〜22・22〜23:55') + '</div>' +
