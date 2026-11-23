@@ -285,7 +285,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
   addEventListener('touchcancel', () => { on = false; hide(); }, { passive: true });
 })();
 
-const APPV = 'yunying-v67';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v68';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);
 const PVST = IN_KZ && (localStorage.getItem('asRole') === 'staff' || localStorage.getItem('asStaff') === '1');   // 11/19 老板在空桌一览点「👀 运营部画面／店长画面」→ 按店长权限看
 function exitPreview() { ['asRole', 'asStaff', 'last', 'acrq'].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} }); location.href = './'; }
@@ -1264,7 +1264,8 @@ function renderTy() {
       return '<div class="dim" style="grid-template-columns:' + (lw || 64) + 'px 1fr 112px"' + (hasC ? ' title="下单 ' + x[1][0] + ' 人，取消 ' + c + ' 人（' + Math.round(c / Math.max(x[1][0], 1) * 100) + '%）"' : '') + '><span>' + x[0] + '</span><span class="bar"><i style="width:' + Math.round(k / bm * 100) + '%;background:' + col + '"></i>' +
         (c ? '<i style="left:' + Math.round(k / bm * 100) + '%;width:' + Math.max(1, Math.round(c / bm * 100)) + '%;background:var(--faint);opacity:.45;border-radius:0 4px 4px 0"></i>' : '') + '</span><span class="v">' + fmt(k) + ' 人' +
         (hasC ? (c ? '<small style="color:var(--sub)">・消 ' + fmt(c) + '</small>' : '') : x[1][1] != null ? '<small style="color:var(--sub)">・存 ' + x[1][1] + '</small>' : '') +
-        (x[1][4] ? '<small style="color:var(--bad)">・AA ' + fmt(x[1][4]) + '</small>' : '') + '</span></div>';   // v61：x[1][4]＝这段扣掉的 AA 人（已不在数字里）
+        (x[1][4] ? '<small style="color:var(--bad)">・AA ' + fmt(x[1][4]) + '</small>' : '') +   // v61：x[1][4]＝这段扣掉的 AA 人（已不在数字里）
+        (x[1][5] ? '<small style="color:#8e44ad">・BB ' + fmt(x[1][5]) + '</small>' : '') + '</span></div>';   // v68（11/23）：x[1][5]＝这段扣掉的 BB 人
     }).join('');
   };
   const hsel = sel.filter(s => HRS[s]);
@@ -1274,15 +1275,15 @@ function renderTy() {
   const rbSt = (() => { const t = {}; sel.forEach(ds => Object.entries((PRD[ds] || {}).hs || {}).forEach(([key, m]) => { const [pp, k] = key.split('|'); if (tyHrPl !== 'all' && pp !== tyHrPl) return; t[k] = (t[k] || 0) + Object.values(m).reduce((a, n) => a + n, 0); })); return Object.keys(t).sort((a, b) => t[b] - t[a]); })();
   const hrList = tyHrSrc === 'rb' ? rbSt : stores, hrSt = hrList.includes(tyHrSt) ? tyHrSt : (SEL && hrList.includes(SEL) ? SEL : '');
   const rbHours = (list, onlyStore, pl) => {
-    const a = Array(24).fill(0), c = Array(24).fill(0), bz = Array(24).fill(0); let days = 0, inc = 0;   // a＝下单人数，c＝其中后来取消的（hc / hsc），bz＝其中 AA（hb / hsb，都在取消里，最后从 a、c 减掉）
+    const a = Array(24).fill(0), c = Array(24).fill(0), bz = Array(24).fill(0), bb = Array(24).fill(0), bbc = Array(24).fill(0); let days = 0, inc = 0;   // v68：bb＝BB（hbb/hsbb），bbc＝其中取消的 BB（hbbc/hsbbc）   // a＝下单人数，c＝其中后来取消的（hc / hsc），bz＝其中 AA（hb / hsb，都在取消里，最后从 a、c 减掉）
     const addSt = (src, arr) => Object.entries(src || {}).forEach(([key, m]) => { const [pp, k] = key.split('|'); if (k !== onlyStore || (pl !== 'all' && pp !== pl)) return; Object.entries(m).forEach(([hh, n]) => arr[+hh] += n); });
     const addAll = (src, arr) => Object.entries(src || {}).forEach(([pp, v]) => { if (pl !== 'all' && pp !== pl) return; v.forEach((n, i) => arr[i] += n); });
     list.forEach(ds => {
       const o = PRD[ds]; if (!o) return; days++; if (o['缺'] > 0) inc++;
-      if (onlyStore) { addSt(o.hs, a); addSt(o.hsc, c); addSt(o.hsb, bz); } else { addAll(o.h, a); addAll(o.hc, c); addAll(o.hb, bz); }
+      if (onlyStore) { addSt(o.hs, a); addSt(o.hsc, c); addSt(o.hsb, bz); addSt(o.hsbb, bb); addSt(o.hsbbc, bbc); } else { addAll(o.h, a); addAll(o.hc, c); addAll(o.hb, bz); addAll(o.hbb, bb); addAll(o.hbbc, bbc); }
     });
-    const boost = bz.reduce((s, n) => s + n, 0);
-    return { days, inc, boost, B: a.map((n, i) => [i + '-' + (i + 1) + '点', [n - bz[i], null, i, c[i] - bz[i]]]).filter(x => x[1][0] > 0) };
+    const boost = bz.reduce((s, n) => s + n, 0), bbN = bb.reduce((s, n) => s + n, 0);
+    return { days, inc, boost, bbN, B: a.map((n, i) => [i + '-' + (i + 1) + '点', [n - bz[i] - bb[i], null, i, c[i] - bz[i] - bbc[i], 0, bb[i]]]).filter(x => x[1][0] > 0) };
   };
   // 11/16 用户：T 的时间段只看 3 个（昼・夕方・夜）→ 11/17 用户：「忘记了统计 22〜23:55、0〜11 点…这 6 段」→ T 一天 6 段（H・G・R・全部 照旧按受付钟头）
   //   数据 pr 行 tb：店 → 7 格 [0〜11, 昼, 14〜17, 夕方, 夜, 22 点以后, 时间没写]，每格 [下单人, 取消人, AA 人]（11/16 以前上传的旧格式是 4 格 [昼, 夕方, 夜, 其他]）
@@ -1292,16 +1293,20 @@ function renderTy() {
   //   每段右边红字「AA n」＝这段扣掉的人，上面一行写 AA 总数和各段
   const aaLine = (aa, per) => '<div class="tyc" style="margin-bottom:4px"><b style="color:var(--bad)">AA 预约 ' + fmt(aa) + ' 人</b>（已从下面扣掉，下面都是真实的）' +
     (per.filter(x => x[1]).length ? '：' + per.filter(x => x[1]).map(x => esc(x[0]) + ' ' + fmt(x[1]) + ' 人').join('・') : '') + '</div>';
+  // v68（11/23 用户：预约台账上的那类预约显示 BB，时间段要减掉）：BB＝RB 预约备注里认出来的，逐组；每段右边紫字「BB n」＝这段扣掉的人
+  const bbLine = (bb, per) => '<div class="tyc" style="margin-bottom:4px"><b style="color:#8e44ad">BB 预约 ' + fmt(bb) + ' 人</b>（已从下面扣掉，下面都是真实的）' +
+    (per.filter(x => x[1]).length ? '：' + per.filter(x => x[1]).map(x => esc(x[0]) + ' ' + fmt(x[1]) + ' 人').join('・') : '') + '</div>';
   const tBands = (onlyStore, r) => {
-    const a = [0, 1, 2, 3, 4, 5, 6].map(() => [0, 0, 0]), old = [0, 0, 0];   // old＝旧格式的「其他」（分不了段）
-    const add = (dst, x) => { dst[0] += x[0]; dst[1] += x[1]; dst[2] += x[2]; };
+    const a = [0, 1, 2, 3, 4, 5, 6].map(() => [0, 0, 0, 0, 0]), old = [0, 0, 0, 0, 0];   // old＝旧格式的「其他」（分不了段）；v68 每格 [下单, 取消, AA, BB, 其中取消的 BB]（旧数据只有前 3 个）
+    const add = (dst, x) => { for (let j = 0; j < 5; j++) dst[j] += x[j] || 0; };
     sel.forEach(ds => Object.entries((PRD[ds] || {}).tb || {}).forEach(([k, v]) => { if (onlyStore && k !== onlyStore) return;
       if (v.length === 4) { add(a[1], v[0]); add(a[3], v[1]); add(a[4], v[2]); add(old, v[3]); } else v.forEach((x, i) => add(a[i], x)); }));
-    const B = TBN.map((nm, i) => [nm, [a[i][0] - a[i][2], null, i, a[i][1] - a[i][2], a[i][2]]]), aa = a.reduce((t, x) => t + x[2], 0) + old[2];
+    const B = TBN.map((nm, i) => [nm, [a[i][0] - a[i][2] - a[i][3], null, i, a[i][1] - a[i][2] - a[i][4], a[i][2], a[i][3]]]), aa = a.reduce((t, x) => t + x[2], 0) + old[2], bbT = a.reduce((t, x) => t + x[3], 0) + old[3];
     return (r.inc ? '<div class="tyc" style="margin-bottom:4px">⚠ 其中 ' + r.inc + ' 天还在补（之后来店的预约还没读全），数字还会变大</div>' : '') +
       (aa ? aaLine(aa, TBN.map((nm, i) => [nm, a[i][2]])) : '') +
+      (bbT ? bbLine(bbT, TBN.map((nm, i) => [nm, a[i][3]])) : '') +
       hourBars(B.every(x => !x[1][0]) ? [] : B, '没有 T 的网上预约', false, 104) +
-      (a[6][0] - a[6][2] > 0 ? '<div class="tyc" style="margin-top:4px">另有 ' + fmt(a[6][0] - a[6][2]) + ' 人的预约没写来店时间</div>' : '') +
+      (a[6][0] - a[6][2] - a[6][3] > 0 ? '<div class="tyc" style="margin-top:4px">另有 ' + fmt(a[6][0] - a[6][2] - a[6][3]) + ' 人的预约没写来店时间</div>' : '') +
       (old[0] - old[2] > 0 ? '<div class="tyc" style="margin-top:4px">另有 ' + fmt(old[0] - old[2]) + ' 人是旧数据（0〜11・14〜17・22 点以后混在一起，分不了段），读新数据后会分开</div>' : '');
   };
   // 11/17：食べログ页面（T）也按同样 6 段（「本日 N 人」每小时新增加起来）；第一次读取以前的累计（表头「此前」，或一格跨好几个钟头）分不了段，单独一行
@@ -1327,19 +1332,25 @@ function renderTy() {
     list.forEach(ds => Object.entries((PRD[ds] || {}).hsb || {}).forEach(([key, m]) => { const [pp, k] = key.split('|');
       if (pp !== 'T' || (onlyStore && k !== onlyStore)) return;
       Object.entries(m).forEach(([hh, n]) => { aaS[band(+hh)] += n; aaN += n; }); }));
-    return [TPN.map((nm, i) => [nm, [Math.max(0, seg[i][0] - aaS[i]), seg[i][1], i, undefined, Math.min(aaS[i], seg[i][0])]]), pre, aaN, TPN.map((nm, i) => [nm, aaS[i]])];
+    // v68：页面「本日 N 人」也含 BB（食べログ 网约的那类）→ 按 BB 在 RB 里的受付钟头（hsbb「T|店」）同样扣，扣到 0 为止
+    const bbS = TPN.map(() => 0); let bbN = 0;
+    list.forEach(ds => Object.entries((PRD[ds] || {}).hsbb || {}).forEach(([key, m]) => { const [pp, k] = key.split('|');
+      if (pp !== 'T' || (onlyStore && k !== onlyStore)) return;
+      Object.entries(m).forEach(([hh, n]) => { bbS[band(+hh)] += n; bbN += n; }); }));
+    return [TPN.map((nm, i) => { const aaX = Math.min(aaS[i], seg[i][0]), bbX = Math.min(bbS[i], seg[i][0] - aaX); return [nm, [seg[i][0] - aaX - bbX, seg[i][1], i, undefined, aaX, bbX]]; }), pre, aaN, TPN.map((nm, i) => [nm, aaS[i]]), bbN, TPN.map((nm, i) => [nm, bbS[i]])];
   };
   const slot = onlyStore => {
     if (tyHrSrc === 'pg') {
-      const [B, pre, aaN, aaPer] = tPgBands(hsel, onlyStore);
-      return (aaN ? aaLine(aaN, aaPer) : '') + hourBars(B, '这段时间没有食べログ页面的每小时数据（11/16 16 点起才有）', false, 104) +
+      const [B, pre, aaN, aaPer, bbN, bbPer] = tPgBands(hsel, onlyStore);
+      return (aaN ? aaLine(aaN, aaPer) : '') + (bbN ? bbLine(bbN, bbPer) : '') + hourBars(B, '这段时间没有食べログ页面的每小时数据（11/16 16 点起才有）', false, 104) +
         (pre[0] || pre[1] ? '<div class="tyc" style="margin-top:4px">另有第一次读取以前的累计（11/16 那天 16 点才开始读，分不了段）：预约 ' + fmt(pre[0]) + ' 人・保存 ' + fmt(pre[1]) + ' 人</div>' : '');
     }
     const r = rbHours(sel, onlyStore, tyHrPl);
     if (!r.days) return '<div class="tyc">这' + (range ? '段时间' : '天') + '还没有レストランボード 数据（10/1 起；每天早上 5 点自动读）</div>';
     if (tyHrPl === 'T') return tBands(onlyStore, r);
     return (r.inc ? '<div class="tyc" style="margin-bottom:4px">⚠ 其中 ' + r.inc + ' 天还在补（之后来店的预约还没读全），数字还会变大</div>' : '') +
-      (r.boost ? '<div class="tyc" style="margin-bottom:4px">已扣掉 AA ' + fmt(r.boost) + ' 人（T 订了又取消的，WPS 表 × レストランボード 逐组认出），下面都是真实的</div>' : '') + hourBars(r.B, '没有网上预约');
+      (r.boost ? '<div class="tyc" style="margin-bottom:4px">已扣掉 AA ' + fmt(r.boost) + ' 人（T 订了又取消的，WPS 表 × レストランボード 逐组认出），下面都是真实的</div>' : '') +
+      (r.bbN ? '<div class="tyc" style="margin-bottom:4px"><b style="color:#8e44ad">已扣掉 BB ' + fmt(r.bbN) + ' 人</b>，下面都是真实的</div>' : '') + hourBars(r.B, '没有网上预约');
   };
   h += '<div class="card" style="margin-bottom:10px"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px"><b style="font-size:14px">⏰ 时间段</b>' +
     '<span class="seg" style="margin:0">' + [['rb', 'レストランボード（T・H・G・R）'], ['pg', '食べログ页面（T）']].map(([k, n]) => '<button class="' + (tyHrSrc === k ? 'on' : '') + '" onclick="tySet(\'src\',\'' + k + '\')">' + n + '</button>').join('') + '</span>' +
