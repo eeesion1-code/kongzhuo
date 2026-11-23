@@ -320,7 +320,10 @@ function renderChk() {
 let tab = ['wc', 'chk', 'xq'].includes(LS.get('ggTab', 'ns')) ? LS.get('ggTab', 'ns') : 'ns';
 let WC = (() => { try { return JSON.parse(LS.get('ggwc', 'null')); } catch (e) { return null; } })(), wcErr = '', wcBusy = false, wcField = '', wcOpen = new Set();
 const WCP = { T: '食べログ', H: 'ホットペッパー', R: 'ぐるなび', G: '谷歌' };
-const WCF = ['住所', '电话', '营业时间', '定休日', '席数', '最大宴会人数'];
+// 11/23 用户：「像套餐，内容等所有网页信息哦」→ 加 套餐（每个套餐一项：价格・几道菜・饮放时间，哪个网站没有）＋ 禁烟吸烟・包间・包场・信用卡・扫码支付・停车场
+const WCF = ['住所', '电话', '营业时间', '定休日', '席数', '最大宴会人数', '套餐', '禁烟吸烟', '包间', '包场', '信用卡', '扫码支付', '停车场'];
+// 签名时选「不用改」（故意只放某个网站的套餐等）：说明前面加【不用改】，以后复查还不一样也不再变红
+const wcSkip = o => o['结果'] === '不一致' && !!o['签名・谁'] && /^【不用改】/.test(o['签名・说明'] || '');
 function setTab(t) { tab = t; LS.set('ggTab', t); render(); if (t === 'xq') loadXq(); else load(); window.scrollTo(0, 0); }
 function tabsHtml() {
   const nBad = WC ? wcObjs().filter(o => wcTodo(o)).length : 0;
@@ -355,8 +358,8 @@ function wcObjs() {
     try { o.links = JSON.parse(o['网址'] || '{}'); } catch (e) { o.links = {}; }
     o.odd = (o['不一样的平台'] || '').split(',').filter(Boolean); return o; });
 }
-const wcTodo = o => o['结果'] === '不一致' && (!o['签名・谁'] || /^签了名但/.test(o['复查']));
-const wcWait = o => o['结果'] === '不一致' && o['签名・谁'] && !/^签了名但/.test(o['复查']);
+const wcTodo = o => o['结果'] === '不一致' && (!o['签名・谁'] || (/^签了名但/.test(o['复查']) && !wcSkip(o)));
+const wcWait = o => o['结果'] === '不一致' && o['签名・谁'] && !/^签了名但/.test(o['复查']) && !wcSkip(o);
 async function wcAct(id, q, okText) {
   const who = (($('who') || {}).value || '').trim();
   if (!who) { msgs[id] = ['e', '请先在上面写你的名字']; return render(); }
@@ -370,6 +373,7 @@ async function wcAct(id, q, okText) {
   render();
 }
 function wcSign(id) { const how = (($('wh_' + id) || {}).value || '').trim(); wcAct(id, '&act=sign&how=' + encodeURIComponent(how), '已签名：已更改完成（下次检查自动复查）'); }
+function wcSkipSign(id) { const how = (($('wh_' + id) || {}).value || '').trim(); wcAct(id, '&act=sign&how=' + encodeURIComponent('【不用改】' + how), '已签名：确认不用改（以后不再提醒这一项）'); }
 function wcUndo(id) { wcAct(id, '&act=undo', '签名已撤销'); }
 async function wcReq() {
   msgs.__wc = ['', '发送中…']; render();
@@ -384,17 +388,22 @@ function wcSetField(f) { wcField = f; render(); }
 function wcTogStore(k) { wcOpen.has(k) ? wcOpen.delete(k) : wcOpen.add(k); render(); }
 function wcItem(o, mode) {
   const id = o['编号'], m = msgs[id], top = o.vals._多数 || '';
-  let h = `<div class="wi"><div class="wf">${esc(o['项目'])}${o['首次发现'] ? `<small>${esc(o['首次发现'].slice(5))} 发现</small>` : ''}</div>`;
+  const cn = o['项目'] === '套餐' ? ((Object.values(o.vals).find(v => v && v.v) || {}).v || '') : '';
+  let h = `<div class="wi"><div class="wf">${esc(o['项目'])}${cn ? `「${esc(cn.length > 40 ? cn.slice(0, 40) + '…' : cn)}」` : ''}${o['首次发现'] ? `<small>${esc(o['首次发现'].slice(5))} 发现</small>` : ''}</div>`;
   if (o['结果'] === '读不到') return h + `<div class="note">${esc(o['哪里不一样'])}</div></div>`;
   h += '<table class="wt2">' + 'THRG'.split('').filter(p => o.vals[p]).map(p => { const v = o.vals[p], odd = o.odd.includes(p);
     const raw = v.v.length > 90 ? v.v.slice(0, 90) + '…' : v.v;
     return `<tr class="${odd ? 'odd' : ''}"><td>${odd ? '❌ ' : ''}${WCP[p]}</td><td>${v.n ? `<b>${esc(v.n)}</b>` : `<span class="note">${v.v ? (o['项目'] === '电话' ? '（转接号，不比）' : '（看不出，不比）') : '（没写）'}</span>`}${raw && raw !== v.n ? `<span class="raw">${esc(raw)}</span>` : ''}</td></tr>`; }).join('') + '</table>';
-  if (o['结果'] === '不一致') h += `<div class="note" style="color:var(--bad)">${top ? `多数平台是「${esc(top)}」，❌ 的平台要改成一样（或确认哪个对，全部改成对的）` : '各平台都不一样，请确认哪个对，全部改成一样'}</div>`;
-  if (o['签名・谁']) h += `<div style="margin-top:6px"><span class="ok">✍ 已更改完成</span>　${esc(o['签名・谁'])}　<small>${esc(o['签名・时间'].slice(5))}</small>${o['签名・说明'] ? `<div class="note">说明：${esc(o['签名・说明'])}</div>` : ''}`
-    + (o['结果'] === '不一致' && !/^签了名但/.test(o['复查']) ? `<a class="undo" onclick="wcUndo('${esc(id)}')">撤销</a>` : '') + '</div>';
-  if (o['复查']) h += `<div class="msg ${/^✓/.test(o['复查']) ? 's' : /^签了名但/.test(o['复查']) ? 'e' : ''}">${/^签了名但/.test(o['复查']) ? '⚠ ' : ''}${esc(o['复查'])}</div>`;
+  const onlyMiss = o['项目'] === '套餐' && o.odd.length && o.odd.every(p => (o.vals[p] || {}).n === '（这个网站没有这个套餐）');
+  if (o['结果'] === '不一致' && onlyMiss) h += `<div class="note" style="color:var(--bad)">❌ 的网站没有这个套餐：要加上；如果是故意不放在那个网站，按「不用改」签名</div>`;
+  else if (o['结果'] === '不一致') h += `<div class="note" style="color:var(--bad)">${top ? `多数平台是「${esc(top)}」，❌ 的平台要改成一样（或确认哪个对，全部改成对的）` : '各平台都不一样，请确认哪个对，全部改成一样'}</div>`;
+  const sk = wcSkip(o);
+  if (o['签名・谁']) h += `<div style="margin-top:6px"><span class="ok">${sk ? '🔵 确认不用改' : '✍ 已更改完成'}</span>　${esc(o['签名・谁'])}　<small>${esc(o['签名・时间'].slice(5))}</small>${o['签名・说明'] && o['签名・说明'] !== '【不用改】' ? `<div class="note">说明：${esc(o['签名・说明'].replace(/^【不用改】/, ''))}</div>` : ''}`
+    + (o['结果'] === '不一致' && (sk || !/^签了名但/.test(o['复查'])) ? `<a class="undo" onclick="wcUndo('${esc(id)}')">撤销</a>` : '') + '</div>';
+  if (o['复查'] && !sk) h += `<div class="msg ${/^✓/.test(o['复查']) ? 's' : /^签了名但/.test(o['复查']) ? 'e' : ''}">${/^签了名但/.test(o['复查']) ? '⚠ ' : ''}${esc(o['复查'])}</div>`;
   if (mode === 'todo') h += `<div class="row2"><input id="wh_${esc(id)}" placeholder="说明（例：ぐるなび 席数改成125）可不写" maxlength="200"></div>`
-    + `<div class="row2"><button class="go" onclick="wcSign('${esc(id)}')">✍ 已更改完成，签名</button></div>`;
+    + `<div class="row2"><button class="go" onclick="wcSign('${esc(id)}')">✍ 已更改完成，签名</button></div>`
+    + `<div class="row2"><button onclick="wcSkipSign('${esc(id)}')">🔵 故意不一样，不用改（签名）</button></div>`;
   if (m) h += `<div class="msg ${m[0]}">${esc(m[1])}</div>`;
   return h + '</div>';
 }
@@ -409,8 +418,8 @@ function renderWc() {
   $('at').textContent = WC ? WC.at.slice(5) + (wcBusy ? ' 读取中…' : ' 更新') : (wcBusy ? '读取中…' : '');
   let h = tabsHtml();
   if (wcErr) h += `<div class="msg e">${esc(wcErr)}</div>`;
-  h += `<div class="card"><div class="ct">🔍 网页检查（各平台店铺信息是否一致）</div><div class="note">电脑每天 9 点后读一次各店 食べログ・ホットペッパー・ぐるなび・谷歌 的店铺页，比 住所・电话・营业时间・定休日・席数・最大宴会人数。`
-    + `不一样的标 ❌，改好网页后签名「已更改完成」，下次检查自动复查。<br>住所只比番地和楼层（楼名写法不比）；电话不比 050 转接号；营业时间不比 L.O.。</div>`;
+  h += `<div class="card"><div class="ct">🔍 网页检查（各平台店铺信息是否一致）</div><div class="note">电脑每天 9 点后读一次各店 食べログ・ホットペッパー・ぐるなび・谷歌 的店铺页，比 住所・电话・营业时间・定休日・席数・最大宴会人数・套餐・禁烟吸烟・包间・包场・信用卡・扫码支付・停车场。`
+    + `不一样的标 ❌，改好网页后签名「已更改完成」，下次检查自动复查；故意不一样的（例：只放在一个网站的套餐）按「不用改」签名，以后不再提醒。<br>住所只比番地和楼层（楼名写法不比）；电话不比 050 转接号；营业时间不比 L.O.；套餐按名字配对，比价格・几道菜・饮放几小时（谷歌没有套餐）。</div>`;
   const s = (WC && WC.state) || {}, last = WC ? WC.last : '';
   h += `<div class="wstat">上次检查：<b>${last ? esc(last.slice(5)) : '还没有'}</b>`
     + (s.state === 'running' ? `　<span class="wt">⏳ 电脑正在检查（${esc((s.at || '').slice(11))} 开始，约 10 分钟）</span>`
@@ -424,11 +433,13 @@ function renderWc() {
   const fail = all.filter(o => o['结果'] === '读不到'), okStores = [...stores].filter(n => !all.some(o => o['店名'] === n && o['结果'] === '不一致'));
   h += `<div class="kp"><div><small>检查店数</small><b>${stores.size}</b> 家</div><div class="r"><small>要更改（项）</small><b>${all.filter(wcTodo).length}</b>　<small style="display:inline">${new Set(all.filter(wcTodo).map(o => o['店名'])).size} 家</small></div>`
     + `<div><small>已签名・等复查</small><b>${all.filter(wcWait).length}</b></div><div class="g"><small>改好了（复查一致）</small><b>${all.filter(o => o['结果'] === '一致' && /^✓/.test(o['复查'])).length}</b></div></div>`;
-  h += '<div class="chips">' + ['', ...WCF].map(x => { const n = all.filter(o => wcTodo(o) && (!x || o['项目'] === x)).length;
+  h += '<div class="chips">' + ['', ...WCF].filter(x => !x || x === wcField || all.some(o => wcTodo(o) && o['项目'] === x)).map(x => { const n = all.filter(o => wcTodo(o) && (!x || o['项目'] === x)).length;
     return `<button class="${x === wcField ? 'on' : ''}" onclick="wcSetField('${x}')">${x || '全部'}${n ? ' ' + n : ''}</button>`; }).join('') + '</div>';
   h += `<div class="me">✍ 签名用的名字<input id="who" placeholder="例：广告部 李" maxlength="20" value="${esc(LS.get('ggWho', ''))}"></div>`;
   h += `<div class="sec">🔴 要更改（${todo.length} 项）</div>` + (todo.length ? groupBy(todo).map(l => wcStore(l, 'todo')).join('') : '<div class="note">没有要改的。</div>');
   h += `<div class="sec">🟡 已签名「已更改完成」，等下次检查确认（${wait.length}）</div>` + (wait.length ? groupBy(wait).map(l => wcStore(l, 'wait')).join('') : '<div class="note">没有。</div>');
+  const skip = f.filter(wcSkip);
+  if (skip.length) h += `<details><summary>🔵 确认不用改（${skip.length}）</summary>${groupBy(skip).map(l => wcStore(l, 'done')).join('')}</details>`;
   if (fail.length) h += `<div class="sec">⚠ 这次读不到的网页（${fail.length} 家）</div>` + groupBy(fail).map(l => wcStore(l, 'done')).join('');
   h += `<details><summary>🟢 改好了（${fixed.length}）</summary>${groupBy(fixed).map(l => wcStore(l, 'done')).join('') || '<div class="note">没有。</div>'}</details>`;
   h += `<details><summary>✅ 全部一致的店（${okStores.length} 家）</summary><div class="note" style="margin:0 4px 8px">${okStores.map(esc).join('、') || '没有'}</div></details>`;
