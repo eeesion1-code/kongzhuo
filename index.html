@@ -612,7 +612,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
 })();
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v119';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v120';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -965,8 +965,9 @@ function pwCmpChip(ds) {
   const c = pwCmp(ds); if (!c) return '';
   const f = (lab, x) => x && x[1] != null ? `<small class="pwcmp">${lab} ${x[1]}组 ${x[2]}人</small>` : '';
   // 11/21 用户：「全部」→「全店总预约」，上周・去年 →「上周同星期」「去年同星期」（三个同一个口径；上面那行是排位的口径）
+  // 11/23 用户：「全店总预约改成全店时段总预约（数据源预约台账）」
   //   以后几天（c.same）的上周・去年是「提前同样时间」订了多少（11/20 用户同意），📊 框里写明＋最后总数
-  return (c.cur ? f('全店总预约', [null, c.cur[0], c.cur[1]]) : '') + f('上周同星期', c.lw) + f(pwLyLab(ds, c), c.ly);
+  return (c.cur ? f('全店时段总预约（数据源预约台账）', [null, c.cur[0], c.cur[1]]) : '') + f('上周同星期', c.lw) + f(pwLyLab(ds, c), c.ly);
 }
 // 去年＝前 364 天同一个星期；12/31 那种 364 天前是今年元旦的，电脑改用去年同一天 → 写「去年同日」
 function pwLyLab(ds, c) {
@@ -978,10 +979,10 @@ function pwCmpSum(ds) {
   const [g, p] = c.cur, lw = c.lw || [], ly = c.ly || [];
   const all = x => x && x[0] != null ? `　最后共 ${x[0]} 组 ${x[1]} 人` : '';
   const one = (lab, x, note, fin) => x[1] == null ? `${lab} 没读到` : `${lab} ${pwMd(x[0])}${note || ''}：<b>${x[1]}</b> 组 <b>${x[2]}</b> 人（本日人数${pwChg(p, x[2])}）${all(fin)}`;
-  if (c.same) return `<div class="pwcmpsum">📊 全店总预约（午市＋晚市，去掉取消和直接来店）：本日到现在 <b>${g}</b> 组 <b>${p}</b> 人<br>`
+  if (c.same) return `<div class="pwcmpsum">📊 全店时段总预约（数据源：预约台账；午市＋晚市，去掉取消和直接来店）：本日到现在 <b>${g}</b> 组 <b>${p}</b> 人<br>`
     + one('上周同星期', lw, ' 提前同样时间', c.lwAll) + '<br>' + one(pwLyLab(ds, c), ly, ' 提前同样时间', c.lyAll)
     + '<br><small>「提前同样时间」＝离那一天还有一样多久的时候已经订了多少（后来取消的算不进去，会稍微偏低）；「最后共」＝那一天过完的总数，含当天才打电话订的</small></div>';
-  return `<div class="pwcmpsum">📊 全店总预约（午市＋晚市，去掉取消和直接来店）：本日 <b>${g}</b> 组 <b>${p}</b> 人<br>`
+  return `<div class="pwcmpsum">📊 全店时段总预约（数据源：预约台账；午市＋晚市，去掉取消和直接来店）：本日 <b>${g}</b> 组 <b>${p}</b> 人<br>`
     + one('上周同星期', lw, c.lwDone ? '' : '（还没过完，截至现在）') + '<br>' + one(pwLyLab(ds, c), ly) + '</div>';
 }
 // 11/21 用户：「店铺结束时候凌晨6点再读一次」→ 电脑 6:00 读昨天关店后的最后总数（同期对比.json 的 yday），和上周同星期・去年同星期的最后总数比
@@ -992,7 +993,7 @@ function pwYday(td) {
   if (y.day !== pd.getFullYear() + '-' + String(pd.getMonth() + 1).padStart(2, '0') + '-' + String(pd.getDate()).padStart(2, '0')) return '';
   const [g, p] = y.cur;
   const one = (lab, x) => !x || x[1] == null ? `${lab} 没读到` : `${lab} ${pwMd(x[0])}：<b>${x[1]}</b> 组 <b>${x[2]}</b> 人（组数${pwChg(g, x[1])}　人数${pwChg(p, x[2])}）`;
-  return `<div class="pwsum">🌙 <b>昨天 ${pwMd(y.day)} 收尾</b>：全店总预约 <b>${g}</b> 组 <b>${p}</b> 人<br>`
+  return `<div class="pwsum">🌙 <b>昨天 ${pwMd(y.day)} 收尾</b>：全店时段总预约（数据源预约台账） <b>${g}</b> 组 <b>${p}</b> 人<br>`
     + one('上周同星期', y.lw) + '<br>' + one(pwLyLab(y.day, y), y.ly)
     + `<br><small>关店以后读的最后总数（${esc(String(y.at || '').slice(5).replace('-', '/'))} 读；午市＋晚市，去掉取消和直接来店，含当天才打电话订的），三个都是整天过完的数</small></div>`;
 }
