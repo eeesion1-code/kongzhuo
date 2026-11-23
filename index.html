@@ -2530,12 +2530,12 @@ function svAccCard(today) {
     const done = k ? svMonAct(yy, mm) : 0;   // 这个月还没过完：和「现在预计」（已到的实际＋剩下的预测）比
     ms.push({ yy, mm, s, done, cur: k ? 0 : svMonthFc(yy, mm).t });
   }
-  if (ms.length) h += `<table class="svcmpt svacc"><tr><th>月</th><th>月初预测</th><th>实际</th><th>实际比预测</th></tr>`
-    + ms.map(r => `<tr><td>${r.mm} 月</td><td class="${r.s.rec ? '' : 'bt'}">约 ${svOku(r.s.v)}</td><td>${r.done ? svOku(r.done) : r.cur ? `现在预计<br>${svOku(r.cur)}` : '—'}</td><td>${r.done ? svDl(r.done, r.s.v) : r.cur ? svDl(r.cur, r.s.v) : ''}</td></tr>`).join('') + '</table>';
+  if (ms.length) h += `<table class="svcmpt svacc"><tr><th>月份</th><th>月初时预测结果</th><th>实际</th><th>实际比预测</th></tr>`   // 11/23 用户：「把改成26.11月月初时预测结果」
+    + ms.map(r => `<tr><td>${String(r.yy).slice(2)}.${r.mm} 月</td><td class="${r.s.rec ? '' : 'bt'}">约 ${svOku(r.s.v)}${r.s.rec ? '' : '<br><small>（倒推）</small>'}</td><td>${r.done ? svOku(r.done) : r.cur ? `现在预计<br>${svOku(r.cur)}` : '—'}</td><td>${r.done ? svDl(r.done, r.s.v) : r.cur ? svDl(r.cur, r.s.v) : ''}</td></tr>`).join('') + '</table>';
   h += `<table class="svcmpt svacc"><tr><th>日期</th><th>当天预测</th><th>实际</th><th>实际比预测</th></tr>`
     + L.slice(0, svAccN).map(o => `<tr onclick="svGo('day','${o.d}')"><td>${svMD(o.d)}${svWkH(o.d)}</td><td class="${o.rec ? '' : 'bt'}">${man(o.p)}</td><td class="${o.bad ? 'bad' : ''}">${man(o.a)}</td><td>${svDl(o.a, o.p)}</td></tr>`).join('') + '</table>';
   if (L.length > 14) h += `<div class="svlinks"><button onclick="svAccMore()">${svAccN > 14 ? '收起' : `看更多（最近 ${L.length} 天）`}</button></div>`;
-  return h + `<div class="svnote">当天预测＝那天早上 APP 显示的预测（只用前一天为止的日报，不看当天的数）；月初预测＝那个月 1 日算的整月合计。11/21 起电脑每天 13 点多日报做完后把当天的预测记下来，以后改算法也不会变；<span style="color:var(--sub)">灰字</span>＝那时还没有记录，用现在的算法倒推的。平均差只看差多少、不分多少；少店或有实时估计的日子（划线）不算。点一行看那天；「每日」日历每格的「预」也是这个数。</div></div>`;
+  return h + `<div class="svnote">当天预测＝那天早上 APP 显示的预测（只用前一天为止的日报，不看当天的数）；月初时预测结果＝那个月 1 日算的整月合计（26.11＝2026 年 11 月）。11/21 起电脑每天 13 点多日报做完后把当天的预测记下来，以后改算法也不会变；<span style="color:var(--sub)">灰字</span>＝那时还没有记录，用现在的算法倒推的。平均差只看差多少、不分多少；少店或有实时估计的日子（划线）不算。点一行看那天；「每日」日历每格的「预」也是这个数。</div></div>`;
 }
 function svTabFc(today) {
   const FS = svFcSame && !SV.sk;   // 三幸園只有一家：没有①同店
