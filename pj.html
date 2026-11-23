@@ -285,7 +285,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
   addEventListener('touchcancel', () => { on = false; hide(); }, { passive: true });
 })();
 
-const APPV = 'yunying-v72';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v73';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);
 const PVST = IN_KZ && (localStorage.getItem('asRole') === 'staff' || localStorage.getItem('asStaff') === '1');   // 11/19 老板在空桌一览点「👀 运营部画面／店长画面」→ 按店长权限看
 function exitPreview() { ['asRole', 'asStaff', 'last', 'acrq'].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} }); location.href = './'; }
@@ -981,7 +981,7 @@ function renderHr() {
         (t['人工多花'] ? row('人工超罚线', Math.round(t['人工多花'] / 1e4) + ' 万', 'dn') : '') +
         (t['损失'] ? row('损耗（删菜・优惠・改价）', Math.round(t['损失'] / 1e4) + ' 万', '') : '') +
         '</table></div>';
-    }).join('') + '</div><p class="note">「登记」是各店报在云端「各店评价业绩成本指标」里的数；「实际」是平台页面上读到的：Google＝店铺页这个月真正多了几条；HPG 真客人差评＝ホットペッパー 上 1〜2 星（订过位的客人才能写，最能反映真实服务）。实际比登记多，说明差评没有如实登记。</p></div>';
+    }).join('') + '</div><p class="note">「登记」是各店报在云端「各店评价业绩成本指标」里的数；「实际」是平台页面上读到的：Google＝店铺页这个月真正多了几条；HPG 真客人差评＝ホットペッパー 上的差评，和「⭐ 评价」页同一标准（不到 3 星都算；3 星内容里有不满才算；4〜5 星有不满、确认「算差评」的也算。订过位的客人才能写，最能反映真实服务）。实际比登记多，说明差评没有如实登记。</p></div>';
   }
   // 排名
   h += '<div class="sec"><h2>①考核排名<small>点店看每一项</small></h2><div class="card rows">' + rows.map(r => hrRow(r, prev[r['店']], D.he[hrMonth] && D.he[hrMonth][r['店']], M)).join('') + '</div></div>';
