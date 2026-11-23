@@ -285,7 +285,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
   addEventListener('touchcancel', () => { on = false; hide(); }, { passive: true });
 })();
 
-const APPV = 'yunying-v69';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v70';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);
 const PVST = IN_KZ && (localStorage.getItem('asRole') === 'staff' || localStorage.getItem('asStaff') === '1');   // 11/19 老板在空桌一览点「👀 运营部画面／店长画面」→ 按店长权限看
 function exitPreview() { ['asRole', 'asStaff', 'last', 'acrq'].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} }); location.href = './'; }
@@ -1226,13 +1226,11 @@ function renderTy() {
     (range && sel.length ? '<div class="d">日均 ' + fmt(Math.round(cur.tot.r / sel.length)) + ' 人</div>' : '') + '<div class="d">' + cmp(cN.tot.r, okp.length ? cP.tot.r : null) + '</div></div>' +
     '<div class="card kpi"><small>保存</small><b>' + fmt(cur.tot.s) + '</b><span class="u">人</span>' + (range && sel.length ? '<div class="d">日均 ' + fmt(Math.round(cur.tot.s / sel.length)) + ' 人</div>' : '') +
     '<div class="d">' + cmp(cN.tot.s, okp.length ? cP.tot.s : null) + '</div></div></div>';
-  // ③ 每天合计
+  // ③ 每天（v70，11/23 用户「改为每日食べログ时间段页面预约人数＋保存数数据，AA 数据也要显示，预约当天预约了 7 天也算预约日为时间线」；「BB 也显示在 AA 这」）
+  //   原来的「每天网上预约合计」柱状图 → 每天一行：食べログ页面 6 个时段的预约・保存（已扣 AA・BB），合计，当天订的 AA・BB（按订的那天算：一次订好几天的位子，全算在订的那天）
+  //   表在 ④ 后面才算得出（要用 tPgBands），先放占位
   const show = range ? days.filter(d => d['日'] >= tyA && d['日'] <= tyB) : days;
-  const tot1 = d => Object.values(d.p).reduce((a, v) => a + (v[1] || 0), 0);
-  const mx = Math.max(1, ...show.map(tot1));
-  const multiM = show.length > 0 && show[0]['日'].slice(0, 7) !== show[show.length - 1]['日'].slice(0, 7);
-  if (show.length) h += '<div class="card" style="margin-bottom:10px"><div class="tyc" style="margin-bottom:6px">每天网上预约合计' + (range ? '' : '（点柱子换日子）') + '</div><div style="display:flex;gap:6px;align-items:flex-end;height:96px">' +
-    show.map(d => { const t = tot1(d), on = range || d['日'] === tyDay; return '<div style="flex:1;min-width:0;text-align:center;cursor:pointer" onclick="tySet(\'day\',\'' + d['日'] + '\');tySet(\'mode\',\'day\')"><div style="font-size:11px">' + fmt(t) + '</div><div style="height:' + Math.round(t / mx * 60) + 'px;background:' + (on ? 'var(--t)' : 'var(--line)') + ';border-radius:4px 4px 0 0"></div><div style="font-size:11px;color:var(--sub)">' + (multiM ? +d['日'].slice(5, 7) + '/' + +d['日'].slice(8) : +d['日'].slice(8) + '日') + WKD[dOf(d['日']).getDay()] + '</div></div>'; }).join('') + '</div></div>';
+  if (show.length) h += '%%TYDAYS%%';
   // ④ 时间段（每个钟头进了多少预约）
   const stores = Object.keys(cur.st).sort((a, b) => (cur.st[b].r || 0) - (cur.st[a].r || 0));
   const hb = (list, onlyStore) => {   // 时段 → [预约, 保存]
@@ -1358,6 +1356,40 @@ function renderTy() {
     '<select class="tysel" onchange="tySet(\'hr\',this.value)"><option value="">全部店</option>' + hrList.map(k => '<option' + (hrSt === k ? ' selected' : '') + '>' + esc(k) + '</option>').join('') + '</select></div>' +
     '<div class="tyc" style="margin-bottom:6px">' + (tyHrSrc === 'rb' && tyHrPl === 'T' ? '那' + (range ? '段时间' : '天') + '进的 T（食べログ）网上预约，订的是哪个时段（按来店开始时间分 6 段：0〜11 点・昼 11〜14・14〜17・夕方 17〜19・夜 19〜22・22 点以后）。<b style="color:var(--t)">深色＝现在还留着的</b>，<span style="color:var(--faint)">灰色＝后来取消的</span>' : tyHrSrc === 'rb' ? '那' + (range ? '段时间每天' : '天') + '几点有人在网上下了预约（レストランボード 的受付时间，只算网上预约' + (range ? '，加起来' : '') + '）。<b style="color:var(--t)">深色＝现在还留着的</b>，<span style="color:var(--faint)">灰色＝后来取消的</span>（数字＝留着的人，「消」＝取消的人）' : '食べログ页面「本日 N 人」每小时增加多少，按下单（点保存）的时间分 6 段：0〜11 点・昼 11〜14・14〜17・夕方 17〜19・夜 19〜22・22〜23:55') + '</div>' +
     slot(hrSt) + '</div>';
+  // v70 每日表（全部店，或最上面选的店）
+  if (show.length) {
+    const st0 = SEL || '';
+    const aaOf = (ds, key) => Object.entries((PRD[ds] || {})[key] || {}).reduce((a, [kk, m]) => { const [pp, k] = kk.split('|'); return pp === 'T' && (!st0 || k === st0) ? a + Object.values(m).reduce((x, n) => x + n, 0) : a; }, 0);
+    // 中间缺的日子（程序没读到）也列出来，写「没有读取到」
+    const byD = {}; show.forEach(d => byD[d['日']] = d);
+    const allD = []; { const t = new Date(show[0]['日'] + 'T00:00:00'), e = show[show.length - 1]['日']; for (let i = 0; i < 400; i++) { const x = t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0'); if (x > e) break; allD.push(x); t.setDate(t.getDate() + 1); } }
+    const rowsD = allD.slice().reverse().map(x => {
+      const d = byD[x];
+      if (!d) return '<tr><td style="white-space:nowrap"><b>' + mdw(x) + '</b></td><td colspan="9" class="tyc">没有读取到（这天程序没有读食べログ页面）</td></tr>';
+      const ds = d['日'], raw = Object.entries(d.p).reduce((a, [pg, v]) => (!st0 || (page2st[pg] || pg) === st0) ? a + (v[1] || 0) : a, 0),
+        sv = Object.entries(d.p).reduce((a, [pg, v]) => (!st0 || (page2st[pg] || pg) === st0) ? a + (v[0] || 0) : a, 0);
+      const aa = aaOf(ds, 'hsb'), bb = aaOf(ds, 'hsbb');
+      let cells, note = '';
+      if (HRS[ds]) {
+        const [B, pre] = tPgBands([ds], st0);
+        cells = B.map(x => '<td style="white-space:nowrap"><b>' + fmt(x[1][0]) + '</b><small style="color:var(--sub)"> 存' + fmt(x[1][1] || 0) + '</small></td>').join('');
+        // 读取开始前（那天第一次读到时已经有的数）：合计减 6 段，AA・BB 已扣
+        const bR = B.reduce((a, x) => a + x[1][0], 0), bS = B.reduce((a, x) => a + (x[1][1] || 0), 0);
+        const pR = Math.max(0, raw - aa - bb) - bR, pS = sv - bS;
+        if (pre[0] || pre[1] || pR > 0 || pS > 0) note = '<div class="tyc">读取前已有 ' + fmt(Math.max(0, pR)) + '・存' + fmt(Math.max(0, pS)) + '</div>';
+      } else {
+        cells = '<td colspan="6" class="tyc">只有全天数（11/16 起才有时段）</td>';
+      }
+      const real = Math.max(0, raw - aa - bb);
+      return '<tr' + (!range && ds === tyDay ? ' style="background:var(--soft)"' : '') + '><td style="white-space:nowrap;cursor:pointer" onclick="tySet(\'day\',\'' + ds + '\');tySet(\'mode\',\'day\')"><b>' + mdw(ds) + '</b>' + (d['标'] && d['标'].includes('截至') ? '<div class="tyc">' + esc(d['标']) + '</div>' : '') + '</td>' +
+        '<td style="white-space:nowrap"><b style="color:var(--t)">' + fmt(real) + '</b><small style="color:var(--sub)"> 存' + fmt(sv) + '</small><div class="tyc">页面原始 ' + fmt(raw) + '</div>' + note + '</td>' +
+        '<td style="color:var(--bad);font-weight:700">' + (aa ? fmt(aa) : '<span class="tyc">0</span>') + '</td><td style="color:#8e44ad;font-weight:700">' + (bb ? fmt(bb) : '<span class="tyc">0</span>') + '</td>' + cells + '</tr>';
+    }).join('');
+    const tbl = '<div class="card" style="margin-bottom:10px;overflow-x:auto;padding:6px 10px"><div class="tyc" style="margin:2px 0 6px">每天 食べログ页面的预约・保存，按 6 个时段（下单／点保存的时间）' + (st0 ? '・' + esc(st0) : '・全部店') +
+      '。合计和各时段的预约都已扣掉当天订的 AA・BB；「读取前已有」＝那天开始读取前页面上已经有的数，分不了时段；<b style="color:var(--bad)">AA</b>・<b style="color:#8e44ad">BB</b>＝那天订的人数（一次订好几天的位子，全算在订的那天）；「存」＝保存。点日期看那一天</div>' +
+      '<table class="tbl"><tr><th>日期</th><th>合计</th><th style="color:var(--bad)">AA</th><th style="color:#8e44ad">BB</th>' + TPN.map(n => '<th>' + n + '</th>').join('') + '</tr>' + rowsD + '</table></div>';
+    h = h.replace('%%TYDAYS%%', tbl);
+  }
   // ⑤ 各店：预约・保存并排，下面灰字上月同期
   let L = Object.entries(cur.st).filter(([k]) => selOk(k));
   L.sort(tySort === 'r' ? (a, b) => (b[1].r ?? -1) - (a[1].r ?? -1) : (a, b) => (b[1].s ?? -1) - (a[1].s ?? -1));
