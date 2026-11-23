@@ -612,7 +612,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
 })();
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v116';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v119';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -1024,7 +1024,7 @@ function pwView() {
   if (!PW) { if (pwErr) { pwErr = false; return '<div id="msg">暂时读不到排位数据，过几分钟再点一次「繁忙日排位」</div>'; } loadPw(); return '<div id="msg">读取中…</div>'; }
   const rows = (PW.rows || []).filter(r => !r.kind), caps = pwCaps(), td = pwTodayStr();
   const dates = [...new Set([td, ...rows.map(r => r.date)])].filter(d => d >= td).sort();
-  let h = `<div class="pwintro">📋 <b>繁忙日排位检查</b>：今天起 14 天每一天（12 月看到 31 日），看各店有没有<b>提前把预约排到桌上</b>、2・3 回转有没有排在同一张桌、大团有没有连好桌。<br>每天 6:00（昨天关店后）・10:30・13:05・16:00 读 レストランボード 全部账号（只读，不改预约）。最后读取：${esc(PW.at || '—')}　「今天」用每 8 分钟的实时预约（${esc((D.rbStamp || '').replace(/^\d{4}\//, '').replace(/:\d{2}$/, '') || '—')}）</div>`;
+  let h = `<div class="pwintro">📋 <b>繁忙日排位检查</b>：今天起 14 天每一天（12 月看到 31 日），看各店有没有<b>提前把预约排到桌上</b>、2・3 回转有没有排在同一张桌、大团有没有连好桌。<br>每天 1:00（今天快收尾）・6:00（昨天关店后）・10:30・13:05・16:00 读 レストランボード 全部账号（只读，不改预约）。最后读取：${esc(PW.at || '—')}　「今天」用每 8 分钟的实时预约（${esc((D.rbStamp || '').replace(/^\d{4}\//, '').replace(/:\d{2}$/, '') || '—')}）</div>`;
   h += pwYday(td);
   if (!dates.includes(pwDate)) pwDate = dates[0];
   const rowsOf = ds => ds === td ? pwTodayRows() : rows.filter(r => r.date === ds);
