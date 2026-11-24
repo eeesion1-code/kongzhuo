@@ -101,7 +101,7 @@ textarea{min-height:120px;resize:vertical}
 // 11/18 用户：「单独的会计部键这个 APP 也做出来，因为给会计部看，然后让他们说有什么想更新的」。
 // 数据接口和「空桌一览」同一个后台（Apps Script）；会计部密码（或老板密码）才看得到。只有登记过的手机能用（手机编号 dv）。
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kuaiji-v19';
+const APPV = 'kuaiji-v20';
 // 11/19 自检：提需求「测试版 → 老板确认 → 正式版」流程跑通（这一行就是自检时上线的改动）
 const TEST = /\/test\//.test(location.pathname);
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 11/19 用户：「会计部跟运营部一样，不是 2 个网页」→ 空桌一览「🧾 会计」打开的是这份网页的副本 kongzhuo/kj.html（内容完全一样）   // 11/19 测试版（kuaiji/test/）：Claude 按需求改好先放这里，老板确认后才换成正式版   // 版本号：和 sw.js 的 V 一起改
@@ -127,7 +127,7 @@ const PVAC = IN_KZ && LS.get('asRole', '') === 'ac';
 function exitPreview() { ['asRole', 'asStaff', 'last', 'acrq'].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} }); location.href = './'; }
 const api = q => fetch(API + '?fmt=json' + q + '&k=' + encodeURIComponent(K) + '&dv=' + DV + '&ua=' + encodeURIComponent(DVUA) + (PVAC ? '&as=ac' : ''), { cache: 'no-store' }).then(r => r.json());
 
-const TABS = [['sx', '📋 事项汇报'], ['ns', '💴 取消料'], ['cy', '🔎 成本异常'], ['pt', '🎫 积分对账'], ['msg', '💡 提需求'], ['cash', '资金余额'], ['pay', '要付的钱'], ['pl', '月度损益']];   // 11/19 用户：「没有提需求这个键」——第 5 个在手机上被挤到右边看不见 → 放第 2 个，标签换行全部看得到
+const TABS = [['sx', '📋 事项汇报'], ['ns', '💴 取消料'], ['cy', '🔎 成本异常'], ['pt', '🎫 积分对账'], ['bb', '🎁 BB 费用'], ['msg', '💡 提需求'], ['cash', '资金余额'], ['pay', '要付的钱'], ['pl', '月度损益']];   // 11/19 用户：「没有提需求这个键」——第 5 个在手机上被挤到右边看不见 → 放第 2 个，标签换行全部看得到
 const INFO = {
   cash: ['各公司银行・现金余额，这个月进了多少、出了多少。', 'Google Drive「11家流水」整理出来的现金流（残高）表。'],
   pay: ['请求书・信用卡要付的钱：哪天付、付多少，快到期的标出来。', '公司档案里的请求书、信用卡明细。'],
@@ -166,9 +166,9 @@ async function load() {
   if (tab === 'msg') loadRq();
   if (tab === 'ns') loadNs();
   if (tab === 'cy') loadCy();
-  if (tab === 'pt') loadPt();
+  if (tab === 'pt' || tab === 'bb') loadPt();
 }
-function go(t) { tab = t; LS.set('acTab', t); sendMsg = ''; render(); window.scrollTo(0, 0); if (t === 'sx') loadSx(); if (t === 'msg') loadRq(); if (t === 'ns') loadNs(); if (t === 'cy') loadCy(); if (t === 'pt') loadPt(); }
+function go(t) { tab = t; LS.set('acTab', t); sendMsg = ''; render(); window.scrollTo(0, 0); if (t === 'sx') loadSx(); if (t === 'msg') loadRq(); if (t === 'ns') loadNs(); if (t === 'cy') loadCy(); if (t === 'pt' || t === 'bb') loadPt(); }
 function ask(t) { const nm = TABS.find(x => x[0] === t)[1]; draft = `【${nm}】`; go('msg'); setTimeout(() => { const e = $('mv'); if (e) { e.focus(); e.setSelectionRange(e.value.length, e.value.length); } }, 50); }
 function render() {
   $('keybox').style.display = 'none'; $('main').style.display = 'block';
@@ -180,6 +180,7 @@ function render() {
   else if (tab === 'ns') h += renderNs();
   else if (tab === 'cy') h += renderCy();
   else if (tab === 'pt') h += renderPt();
+  else if (tab === 'bb') h += renderBb();
   else {
     const nm = TABS.find(x => x[0] === tab)[1], [what, src] = INFO[tab];
     h += `<div class="miss">🧾 ${nm}：<b>数据源无</b>——还没接上数据（先把页面做出来，请会计部先看看想要什么）。</div>`
@@ -491,7 +492,7 @@ async function loadPt(force) {
     if (d && d.rows) { PT = d; ptErr = ''; LS.set('acpt', JSON.stringify(d)); }
     else ptErr = d && d.error === 'device' ? '这台手机没登记' : '读不到（' + ((d && d.error) || '') + '）';
   } catch (e) { ptErr = '读不到（' + e.message + '）'; }
-  ptBusy = false; if (tab === 'pt') render();
+  ptBusy = false; if (tab === 'pt' || tab === 'bb') render();
 }
 function ptItems() { return PT ? (PT.rows || []).filter(x => x && x.k === 'it') : []; }
 function ptPick(s) { ptStore = ptStore === s ? '' : s; render(); const e = $('ptlist'); if (e) e.scrollIntoView(); }
@@ -555,6 +556,49 @@ function renderPt() {
   if (fo.length) h += '<div class="grp">还没处理</div>' + fo.map(card).join('');
   else if (all.length) h += '<div class="card"><div class="ok" style="margin:0">✓ 全部处理完了</div></div>';
   if (fd.length) h += `<div class="grp"><a onclick="ptTog()" style="color:var(--brand);cursor:pointer">✅ 已处理 ${fd.length} 条（${ptShowDone ? '收起' : '展开'}）</a></div>` + (ptShowDone ? fd.map(card).join('') : '');
+  h += `<button class="btn sub" onclick="loadPt(1)">🔄 重新读取</button>`;
+  return h;
+}
+
+// ===== 11/25 🎁 BB 费用（用户：「还有BB费用，1人3000。做到会计APP上面费用一人3000，然后他们免单的费用金额也算出来」）=====
+// BB＝レストランボード 预约备注写着 口コミ投稿・レビュアー・無償提供・インフルエンサー 的客人。电脑 会计部\BB费用\BB费用.py 算，
+// 每天 13:30 跟「积分对账」同一张表上传（行 k＝bbh 总头、bbs 每店），所以这里也读 what=pt（不用改后台）。
+// 费用＝没取消、来店日已过的 BB 人数×3,000；免单＝收银 レビュアー割引・口コミ割引 等＋整单 0 円的单（那天有 BB 预约的，原价＝点的菜合计）。
+let bbM = LS.get('acbbm', ''), bbStore = '';
+function bbPickM(m) { bbM = m; LS.set('acbbm', m); bbStore = ''; render(); }
+function bbPick(s) { bbStore = bbStore === s ? '' : s; render(); const e = $('bbdet'); if (e && bbStore) e.scrollIntoView(); }
+function renderBb() {
+  const n = v => (Number(v) || 0).toLocaleString('ja-JP');
+  let h = `<div class="card"><div class="ct">🎁 BB 费用（口コミ招待）</div><div class="note"><b>BB</b>＝レストランボード 预约备注写着「口コミ投稿・レビュアー・無償提供・インフルエンサー」的客人。<br><b>费用</b>＝BB 人数 × <b>3,000 円</b>（没取消、来店日已过的）；<b>免单</b>＝收银台的 レビュアー割引・口コミ割引 等，加上整单打成 0 円的单（那天有 BB 预约的，原价＝点的菜合计）。电脑每天 <b>13:30</b> 更新。</div></div>`;
+  if (!PT) return h + `<div class="card"><div class="note">${ptBusy ? '读取中…' : esc(ptErr || '还没有数据')}</div></div>`;
+  if (ptErr) h += `<div class="miss">${esc(ptErr)}（显示的是上次读到的）</div>`;
+  const rows = PT.rows || [], hd = rows.find(x => x && x.k === 'bbh');
+  if (!hd) return h + '<div class="card"><div class="note">还没有生成（电脑每天 13:30 生成）</div></div>';
+  const ms = hd.ms || [];
+  if (ms.indexOf(bbM) < 0) bbM = ms[ms.length - 1] || '';
+  const T = (hd.tot || {})[bbM] || {}, sts = rows.filter(x => x && x.k === 'bbs' && x.m === bbM);
+  h += `<div class="note" style="margin:2px 2px 6px">${esc(hd.at || '')} 算・收银到 ${esc(String(hd.pos_last || '').slice(5))}</div>`;
+  h += `<div class="tabs" style="position:static;margin:0 0 6px;padding:0">${ms.map(m => `<button class="${m === bbM ? 'on' : ''}" onclick="bbPickM(${jq(m)})">${esc(m.slice(0, 4))}年${Number(m.slice(5))}月</button>`).join('')}</div>`;
+  h += `<div class="kp" style="grid-template-columns:repeat(4,1fr)"><div><b>${n(T.n)}</b><small>BB 人（${n(T.g)} 组）</small></div><div><b>${n(T.fee / 10000)}</b><small>费用 万円</small></div><div><b>${n(Math.round(T.amt / 10000))}</b><small>免单 万円</small></div><div class="r"><b>${n(Math.round((T.fee + T.amt) / 10000))}</b><small>合计 万円</small></div></div>`;
+  h += `<div class="card"><div class="ct">🧠 负责人分析</div><ul class="an">${((hd.sum || {})[bbM] || []).map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>`;
+  h += `<div class="card"><div class="ct">各店（点店名看明细）</div><table class="ptm"><tr><th>店</th><th>BB</th><th>费用</th><th>免单</th><th>合计</th></tr>`
+    + sts.map(s => `<tr class="${bbStore === s.st ? 'on' : ''}" onclick="bbPick(${jq(s.st)})"><td>${esc(s.st)}</td><td><b>${n(s.n)}</b><small>${n(s.g)} 组</small></td><td>${n(s.fee)}</td><td>${n(s.amt)}<small>${n(s.c)} 张</small></td><td><b>${n(s.fee + s.amt)}</b></td></tr>`).join('')
+    + `<tr><td><b>合计</b></td><td><b>${n(T.n)}</b><small>${n(T.g)} 组</small></td><td><b>${n(T.fee)}</b></td><td><b>${n(T.amt)}</b><small>${n(T.c)} 张</small></td><td><b>${n(T.fee + T.amt)}</b></td></tr></table></div>`;
+  h += '<div id="bbdet"></div>';
+  const s = sts.find(x => x.st === bbStore);
+  if (s) {
+    const days = [...new Set([...(s.rv || []).map(x => x[0]), ...(s.od || []).map(x => x[0])])].sort((a, b) => a - b), bad = new Set(s.bad || []), mo = Number(bbM.slice(5));
+    h += `<div class="card"><div class="ct">${esc(s.st)} ${mo}月 明细 <a onclick="bbPick(${jq(s.st)})" style="float:right;font-size:13px;color:var(--brand);cursor:pointer;font-weight:400">收起</a></div><div class="note" style="margin-top:0">每天：上面是 BB 预约（时间・人数・状态・来源），下面是免单的单（单号・金额・怎么免的）。<b>△</b>＝那天 BB 组数和免单单数不一样（店里没按レビュアー割引、或预约没写口コミ，参考用）。</div>`;
+    days.forEach(d => {
+      const R = (s.rv || []).filter(x => x[0] === d), O = (s.od || []).filter(x => x[0] === d);
+      h += `<div class="row"><b>${mo}/${d}</b>${bad.has(d) ? ' <span class="pill p2">△ BB ' + R.length + ' 组・免单 ' + O.length + ' 张</span>' : ''}`
+        + R.map(x => `<br><small>BB ${esc(x[1])}　${n(x[2])} 人　${esc(x[3])}　${esc(x[4])}</small>`).join('')
+        + O.map(x => `<br>免单 ${n(x[2])} 円 <small>${esc(x[3])}・${esc(x[1])}</small>`).join('') + '</div>';
+    });
+    if ((s.zx || []).length) h += `<div class="grp">整单 0 円、但那天没有 BB 预约（没算进来）</div>` + s.zx.map(x => `<div class="row">${mo}/${x[0]}　${n(x[2])} 円 <small>${esc(x[3])}・${esc(x[1])}</small></div>`).join('');
+    if (s.fut) h += `<div class="note">这个月还有 ${n(s.fut)} 人 BB 预约没到来店日。</div>`;
+    h += '</div>';
+  }
   h += `<button class="btn sub" onclick="loadPt(1)">🔄 重新读取</button>`;
   return h;
 }
