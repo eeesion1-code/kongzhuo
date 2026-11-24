@@ -98,6 +98,7 @@ const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qs
 const LS = { get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const jq = s => esc(JSON.stringify(String(s == null ? '' : s)));   // 11/24 安全：数据放进按钮点击代码一律用 ${jq(x)}，不要写 '${x}'（esc 防不了代码里的引号）
 const yen = n => '¥' + (Number(n) || 0).toLocaleString('ja-JP');
 // 11/19 用户：「广告部的 APP 只能让广告部和预约中心看的链接发一个…只能最开始的 2 台手机看，和 2 台电脑」
 //   单独打开（https://eeesion1-code.github.io/kongzhuo/gg.html）时用「广告预约部密码」（后台角色 gg，名额：广告预约部手机 2・电脑 2，先登录先占）；
@@ -226,7 +227,7 @@ function caseCard(o) {
     // 11/19 用户：「点击打开这，就是显示客人电话的预约台账页面」→ 电脑程序（rb配对.py，只读）配上 レストランボード 的这组预约；电话只给老板・广告预约部・会计部
     + (o['RB预约编号'] ? `<div class="m">📒 レストランボード：${esc(o['RB店'])}・<b style="color:${o['RB状态'] === '已取消' ? 'var(--good)' : 'var(--warn)'}">${esc(o['RB状态'])}</b>`
         + (o['电话'] ? `　📞 <a href="tel:${esc(o['电话'])}" style="color:var(--brand);font-weight:700">${esc(o['电话'])}</a>` : '')
-        + (o['RB详情'] ? `　<a class="undo" style="margin:0;color:var(--brand);font-weight:700" onclick="togDet('${id}')">📒 ${detOpen.has(id) ? '收起预约台账 ▲' : '点开看预约台账 ▼'}</a>` : '') + '</div>'
+        + (o['RB详情'] ? `　<a class="undo" style="margin:0;color:var(--brand);font-weight:700" onclick="togDet(${jq(id)})">📒 ${detOpen.has(id) ? '收起预约台账 ▲' : '点开看预约台账 ▼'}</a>` : '') + '</div>'
         + (detOpen.has(id) ? detPanel(o) : '')
       : '<div class="m">📒 レストランボード里还没找到这组（电脑每天 10:30・18:00 再找）</div>')
     // 11/20 用户：「查一下能不能跳到台账」→ 实测：レストランボード 不能从外面指定店（选的店不存网址也不存 storage，详情页跨店会报错），
@@ -235,20 +236,20 @@ function caseCard(o) {
     + `<div class="note">打开后在店铺下拉选「${esc(o['RB店'] || o['店'])}」→ 点「${esc(o['客人'])} 様」。要先在这台手机／电脑登录过レストランボード（HCL@888）。</div></div>`;
   // ① 预约中心：预约系统里取消
   h += '<div class="step"><div class="t">① 预约中心：在预约系统里取消这组</div>' + (o['取消・谁']
-    ? `<span class="ok">✓ 已取消</span>　${esc(o['取消・谁'])}　<small>${esc(o['取消・时间'].slice(5))}</small><a class="undo" onclick="undo('${id}','yc')">撤销</a>`
+    ? `<span class="ok">✓ 已取消</span>　${esc(o['取消・谁'])}　<small>${esc(o['取消・时间'].slice(5))}</small><a class="undo" onclick="undo(${jq(id)},'yc')">撤销</a>`
     : (o['RB状态'] === '已取消' ? '<div class="note">レストランボード里已经是「已取消」，确认后签名。</div>' : o['RB状态'] ? `<div class="note" style="color:var(--warn)">⚠ レストランボード里还是「${esc(o['RB状态'])}」，请先在预约系统取消。</div>` : '')
-      + `<div class="row2"><button class="go" onclick="signYc('${id}')">✍ 已取消，签名</button></div>`) + '</div>';
+      + `<div class="row2"><button class="go" onclick="signYc(${jq(id)})">✍ 已取消，签名</button></div>`) + '</div>';
   // ② 打电话收取消料
   h += '<div class="step"><div class="t">② 打电话给客人收取消料</div>';
   if (o['联系・结果'] && o['联系・结果'] !== '请求中') {
     const pay = PAY.includes(o['联系・结果']);
     h += `<span class="${pay ? 'ok' : 'no'}">✓ ${esc(o['联系・结果'])}</span>${o['请求额'] ? '　请求 <b>' + yen(o['请求额']) + '</b>' : ''}　${esc(o['联系・谁'])}　<small>${esc(o['联系・时间'].slice(5))}</small>`
-      + (o['联系・说明'] ? `<div class="note">说明：${esc(o['联系・说明'])}</div>` : '') + (o['到账・金额'] ? '' : `<a class="undo" onclick="undo('${id}','call')">撤销</a>`);
+      + (o['联系・说明'] ? `<div class="note">说明：${esc(o['联系・说明'])}</div>` : '') + (o['到账・金额'] ? '' : `<a class="undo" onclick="undo(${jq(id)},'call')">撤销</a>`);
   } else {
     if (o['联系・结果'] === '请求中') h += `<div><span class="wt">⏳ 请求中 ${yen(o['请求额'])}</span>　${esc(o['联系・谁'])}　<small>${esc(o['联系・时间'].slice(5))}</small>${o['联系・说明'] ? '<div class="note">说明：' + esc(o['联系・说明']) + '</div>' : ''}<div class="note">客人回复了就在下面选结果再签名。</div></div>`;
     h += '<div class="res">' + RES.map(r => `<label><input type="radio" name="r_${esc(id)}" value="${r}">${r}</label>`).join('') + '</div>'
       + `<div class="row2"><input id="a_${esc(id)}" inputmode="numeric" placeholder="请求金额" value="${esc(o['请求额'] || o['合计'])}"><input id="h_${esc(id)}" placeholder="说明（拒绝・联系不上・不收必填）" maxlength="200"></div>`
-      + `<div class="row2"><button class="go" onclick="signCall('${id}')">✍ 签名</button></div><div class="note">请求金额先填了 Slack 上的合计，按实际跟客人说的金额改。</div>`;
+      + `<div class="row2"><button class="go" onclick="signCall(${jq(id)})">✍ 签名</button></div><div class="note">请求金额先填了 Slack 上的合计，按实际跟客人说的金额改。</div>`;
   }
   h += '</div>';
   // ③ 会计部确认到账
@@ -257,8 +258,8 @@ function caseCard(o) {
     : PAY.includes(o['联系・结果']) ? '<span class="wt">⏳ 等会计部确认回款</span><div class="note">会计部在「💴 取消料」按「回款成功」或「没回款」。</div>'
     : o['联系・结果'] === '请求中' ? '<span class="note">—（客人还没回复）</span>' : o['联系・结果'] ? '<span class="note">不用收</span>' : '<span class="note">—（先做完 ②）</span>') + '</div>';
   if (NS.owner) h += offOpen === id
-    ? `<div class="row2"><input id="o_${esc(id)}" placeholder="为什么不算（例：重复、店里搞错）" maxlength="100"><button class="go" style="background:var(--bad)" onclick="offGo('${id}')">不算这单</button></div>`
-    : `<div class="note"><a class="undo" style="margin:0" onclick="offOpen='${id}';render()">（股东）这单不算</a></div>`;
+    ? `<div class="row2"><input id="o_${esc(id)}" placeholder="为什么不算（例：重复、店里搞错）" maxlength="100"><button class="go" style="background:var(--bad)" onclick="offGo(${jq(id)})">不算这单</button></div>`
+    : `<div class="note"><a class="undo" style="margin:0" onclick="offOpen=${jq(id)};render()">（股东）这单不算</a></div>`;
   if (m) h += `<div class="msg ${m[0]}">${esc(m[1])}</div>`;
   return h + '</div>';
 }
@@ -293,7 +294,7 @@ function renderChk() {
   if (!days.includes(chkDay)) chkDay = days[0];
   const wd = d => '日一二三四五六'[new Date(d + 'T00:00:00').getDay()];
   h += '<div class="chips">' + days.slice(0, 14).map(d => { const n = all.filter(o => o['营业日'] === d && CHK_BAD(o['结果']) && !o['处理・谁']).length;
-    return `<button class="${d === chkDay ? 'on' : ''}" onclick="chkSetDay('${d}')">${+d.slice(5, 7)}/${+d.slice(8)}(${wd(d)})${n ? ` <span class="bd">${n}</span>` : ''}</button>`; }).join('') + '</div>';
+    return `<button class="${d === chkDay ? 'on' : ''}" onclick="chkSetDay(${jq(d)})">${+d.slice(5, 7)}/${+d.slice(8)}(${wd(d)})${n ? ` <span class="bd">${n}</span>` : ''}</button>`; }).join('') + '</div>';
   const rows = all.filter(o => o['营业日'] === chkDay).sort((a, b) => +a['店No'] - +b['店No']);
   const ok = rows.filter(o => !CHK_BAD(o['结果'])), miss = rows.filter(o => o['结果'] === '未报'), bad = rows.filter(o => o['结果'] === '写得不全');
   const nsN = rows.reduce((t, o) => t + (+((o['结果'].match(/有\s*(\d+)/) || [])[1]) || 0), 0);
@@ -307,8 +308,8 @@ function renderChk() {
     const id = o['编号'], m = msgs[id], done = !!o['处理・谁'];
     return `<div class="case ${done ? 'done' : 'todo'}"><div class="h">No.${esc(o['店No'])} ${esc(o['店'])}　<span class="${o['结果'] === '未报' ? 'no' : 'wt'}">${esc(o['结果'])}</span></div>`
       + (o['说明'] ? `<div class="m">${esc(o['说明'])}</div>` : '') + (o['Slack链接'] ? `<div class="m"><a href="${esc(o['Slack链接'])}" target="_blank" style="color:var(--brand)">Slack 原文</a></div>` : '')
-      + '<div class="step">' + (done ? `<span class="ok">✓ 已处理</span>　${esc(o['处理・谁'])}　<small>${esc(o['处理・时间'].slice(5))}</small><div class="note">怎么处理：${esc(o['怎么处理'])}</div><a class="undo" onclick="chkAct('${id}','&act=chkundo','已撤销')">撤销</a>`
-        : `<div class="row2"><input id="ch_${esc(id)}" placeholder="怎么处理的（必填，例：已提醒店长补报）" maxlength="200"><button class="go" onclick="chkSign('${id}')">✍ 签名</button></div>`) + '</div>'
+      + '<div class="step">' + (done ? `<span class="ok">✓ 已处理</span>　${esc(o['处理・谁'])}　<small>${esc(o['处理・时间'].slice(5))}</small><div class="note">怎么处理：${esc(o['怎么处理'])}</div><a class="undo" onclick="chkAct(${jq(id)},'&act=chkundo','已撤销')">撤销</a>`
+        : `<div class="row2"><input id="ch_${esc(id)}" placeholder="怎么处理的（必填，例：已提醒店长补报）" maxlength="200"><button class="go" onclick="chkSign(${jq(id)})">✍ 签名</button></div>`) + '</div>'
       + (m ? `<div class="msg ${m[0]}">${esc(m[1])}</div>` : '') + '</div>';
   }).join('') : '<div class="note">这天没有异常。</div>');
   h += `<div class="note" style="margin-top:10px">检查时间：${esc((rows[0] || {})['检查时间'] || '')}。No.12 大宮 群里还没有账号，先算未报。</div>`;
@@ -426,7 +427,7 @@ function wcItem(o, mode) {
   else if (o['结果'] === '不一致') h += `<div class="note" style="color:var(--bad)">${top ? `多数平台是「${esc(top)}」，❌ 的平台要改成一样（或确认哪个对，全部改成对的）` : '各平台都不一样，请确认哪个对，全部改成一样'}</div>`;
   const sk = wcSkip(o), ap = wcApply(o), again = /^签了名但/.test(o['复查'] || ''), ckAt = ((o['复查'] || '').match(/（(\d\d-\d\d \d\d:\d\d)/) || [])[1] || '';
   if (o['签名・谁']) h += `<div style="margin-top:6px"><span class="ok">${sk ? '🔵 确认不用改' : ap ? '🟠 已申请修改' : '✍ 已更改完成'}</span>　${esc(o['签名・谁'])}　<small>${esc(o['签名・时间'].slice(5))}</small>${o['签名・说明'] && o['签名・说明'] !== '【不用改】' ? `<div class="note">说明：${esc(o['签名・说明'].replace(/^【不用改】/, ''))}</div>` : ''}`
-    + (o['结果'] === '不一致' && (sk || ap || !again) ? `<a class="undo" onclick="wcUndo('${esc(id)}')">撤销</a>` : '') + '</div>';
+    + (o['结果'] === '不一致' && (sk || ap || !again) ? `<a class="undo" onclick="wcUndo(${jq(id)})">撤销</a>` : '') + '</div>';
   // 复查结果：说清楚是哪次检查、哪个网站还不一样
   if (sk) { /* 不用改：不再提示 */ }
   else if (o['结果'] === '一致' && /^✓/.test(o['复查'] || '')) h += `<div class="msg s">✓ 改好了：${esc(ckAt)} 检查各平台已经一致</div>`;
@@ -436,8 +437,8 @@ function wcItem(o, mode) {
   else if (o['结果'] === '不一致' && o['签名・谁']) h += `<div class="msg">🟡 等下次检查确认</div>`;
   else if (o['复查']) h += `<div class="msg">${esc(o['复查'])}</div>`;
   if (mode === 'todo') h += `<div class="row2"><input id="wh_${esc(id)}" placeholder="说明（例：ぐるなび 席数改成125）可不写" maxlength="200"></div>`
-    + `<div class="row2"><button class="go" onclick="wcSign('${esc(id)}')">✍ 已更改完成，签名</button></div>`
-    + `<div class="row2"><button onclick="wcSkipSign('${esc(id)}')">🔵 故意不一样，不用改（签名）</button></div>`;
+    + `<div class="row2"><button class="go" onclick="wcSign(${jq(id)})">✍ 已更改完成，签名</button></div>`
+    + `<div class="row2"><button onclick="wcSkipSign(${jq(id)})">🔵 故意不一样，不用改（签名）</button></div>`;
   if (m) h += `<div class="msg ${m[0]}">${esc(m[1])}</div>`;
   return h + '</div>';
 }
@@ -467,7 +468,7 @@ function renderWc() {
   const stores = new Set(all.filter(o => o['结果'] !== '没有了').map(o => o['店名'])), todo = f.filter(wcTodo), wait = f.filter(wcWait), fixed = f.filter(wcFixed), apply = f.filter(wcApply), gone = f.filter(wcGone);
   const fail = all.filter(o => o['结果'] === '读不到'), okStores = [...stores].filter(n => !all.some(o => o['店名'] === n && o['结果'] === '不一致'));
   // 11/23 用户：「任意选择期间，当天，本月选择。这3项也要添加」→ 全部・当天・本月・📅 自选期间；签过名的按签名日，没签的按首次发现日
-  h += '<div class="chips">' + [['all', '全部'], ['today', '当天'], ['month', '本月'], ['range', '📅 自选期间']].map(([k, n]) => `<button class="${k === wcPer ? 'on' : ''}" onclick="wcSetPer('${k}')">${n}</button>`).join('') + '</div>';
+  h += '<div class="chips">' + [['all', '全部'], ['today', '当天'], ['month', '本月'], ['range', '📅 自选期间']].map(([k, n]) => `<button class="${k === wcPer ? 'on' : ''}" onclick="wcSetPer(${jq(k)})">${n}</button>`).join('') + '</div>';
   if (wcPer === 'range') h += `<div class="row2" style="align-items:center"><input id="wcFrom" type="date" value="${esc(P.from)}" onchange="wcSetRange()"><span>〜</span><input id="wcTo" type="date" value="${esc(P.to)}" onchange="wcSetRange()"></div><div class="note">只看一天：起止选同一天。</div>`;
   if (wcPer !== 'all') { const sg = pa.filter(o => o['签名・谁']), who = {}; sg.forEach(o => who[o['签名・谁']] = (who[o['签名・谁']] || 0) + 1);
     h += `<div class="note" style="margin:0 4px 6px">${esc(P.label)}：签过名的按签名日算，没签名的按首次发现日算。</div>`
@@ -487,14 +488,14 @@ function renderWc() {
     + (rAp.length ? `<div>🟠 申请中、网站还没变 <b>${rAp.length}</b> 项</div>` : '')
     + (rGone.length ? `<div>⚪ 这次找不到（套餐改名・删掉）<b>${rGone.length}</b> 项</div>` : '') + '</div></div>';
   h += '<div class="chips">' + ['', ...WCF].filter(x => !x || x === wcField || pa.some(o => wcTodo(o) && o['项目'] === x)).map(x => { const n = pa.filter(o => wcTodo(o) && (!x || o['项目'] === x)).length;
-    return `<button class="${x === wcField ? 'on' : ''}" onclick="wcSetField('${x}')">${x || '全部'}${n ? ' ' + n : ''}</button>`; }).join('') + '</div>';
+    return `<button class="${x === wcField ? 'on' : ''}" onclick="wcSetField(${jq(x)})">${x || '全部'}${n ? ' ' + n : ''}</button>`; }).join('') + '</div>';
   h += `<div class="me">✍ 签名用的名字<input id="who" placeholder="例：广告部 李" maxlength="20" value="${esc(LS.get('ggWho', ''))}"></div>`;
   h += `<div class="sec">🔴 要更改（${todo.length} 项）</div>` + (todo.length ? groupBy(todo).map(l => wcStore(l, 'todo')).join('') : '<div class="note">没有要改的。</div>');
   h += `<div class="sec">🟡 已签名「已更改完成」，等下次检查确认（${wait.length}）</div>` + (wait.length ? groupBy(wait).map(l => wcStore(l, 'wait')).join('') : '<div class="note">没有。</div>');
   if (apply.length) h += `<div class="sec">🟠 已申请修改，等网站审核（${apply.length}）</div><div class="note" style="margin:0 4px 6px">签名说明写了「申请中」的。网站审核通过、下次检查一致了会自动进 🟢；还不一样也不变红。</div>` + groupBy(apply).map(l => wcStore(l, 'wait')).join('');
   // 🟢 改好了：一行一项（店・项目・谁签的・哪次检查确认一致），点店名展开看各平台的值
   h += `<div class="sec">🟢 改好了（签名后检查确认一致）（${fixed.length}）</div>` + (fixed.length ? groupBy(fixed).map(l => { const k = 'fx|' + l[0]['店名'];
-    return `<div class="case wcs done"><div class="h" onclick="wcTogStore('${esc(k)}')" style="cursor:pointer">✓ ${esc(l[0]['店名'])}　<small style="color:var(--sub);font-weight:400">${esc(l[0]['店区'])}・${l.length} 项 ${wcOpen.has(k) ? '▲' : '▼'}</small></div>`
+    return `<div class="case wcs done"><div class="h" onclick="wcTogStore(${jq(k)})" style="cursor:pointer">✓ ${esc(l[0]['店名'])}　<small style="color:var(--sub);font-weight:400">${esc(l[0]['店区'])}・${l.length} 项 ${wcOpen.has(k) ? '▲' : '▼'}</small></div>`
       + (wcOpen.has(k) ? l.map(o => wcItem(o, 'done')).join('') : l.map(o => { const cn = o['项目'] === '套餐' ? ((Object.values(o.vals).find(v => v && v.v) || {}).v || '') : '';
         return `<div class="fx"><b>${esc(o['项目'])}</b>${cn ? `「${esc(cn.length > 24 ? cn.slice(0, 24) + '…' : cn)}」` : ''}<span>${esc(o['签名・谁'])} ${esc((o['签名・时间'] || '').slice(5))} 签 → ${esc(((o['复查'] || '').match(/（(\d\d-\d\d \d\d:\d\d)/) || [])[1] || '')} 检查一致</span></div>`; }).join('')) + '</div>'; }).join('') : '<div class="note">还没有。签名后下次检查各平台一致了，会显示在这里。</div>');
   if (gone.length) h += `<details><summary>⚪ 签过名、这次检查找不到的项（${gone.length}）</summary><div class="note" style="margin:0 4px 6px">一般是套餐名改了或删掉了（改名后会变成新的一项重新比）。保留 7 天。</div>${groupBy(gone).map(l => wcStore(l, 'done')).join('')}</details>`;
@@ -581,8 +582,8 @@ function renderXq() {
       + `<div style="white-space:pre-wrap;word-break:break-word">${esc(r.v)}</div>`
       + (r.note ? `<div class="note">${ask ? '❓ Claude 问：' : '🛠 Claude：'}${esc(r.note)}</div>` : '')
       + (r.back ? `<div class="note">意见：${esc(r.back)}</div>` : '')
-      + (ask || xqOpen === r.id ? `<div class="row2"><input id="xqr_${r.id}" placeholder="${ask ? '回答 Claude 的问题' : '补充一句'}" maxlength="500"><button class="go" onclick="xqReply('${r.id}')">补充</button></div>`
-        : (r.st !== '不做' && r.st !== '已上线' ? `<div class="note"><a onclick="xqOpen='${r.id}';xqMsg='';render()" style="color:var(--brand);cursor:pointer">➕ 补充</a></div>` : ''))
+      + (ask || xqOpen === r.id ? `<div class="row2"><input id="xqr_${esc(r.id)}" placeholder="${ask ? '回答 Claude 的问题' : '补充一句'}" maxlength="500"><button class="go" onclick="xqReply(${jq(r.id)})">补充</button></div>`
+        : (r.st !== '不做' && r.st !== '已上线' ? `<div class="note"><a onclick="xqOpen=${jq(r.id)};xqMsg='';render()" style="color:var(--brand);cursor:pointer">➕ 补充</a></div>` : ''))
       + '</div>';
   }).join('') : '<div class="note">还没有。</div>') + '</div>';
   if (XQ.owner) h += `<div class="note" style="text-align:center;margin:10px">股东：所有部门等上线的都在 <a href="./sp.html" style="color:var(--brand);font-weight:700">✅ 上线审批</a></div>`;
@@ -610,7 +611,7 @@ function render() {
   if (err) h += `<div class="msg e">${esc(err)}</div>`;
   h += `<div class="card"><div class="ct">🚫 无断取消（Slack #经营汇报）</div><div class="note">各店在 Slack #经营汇报 发的无断取消，Claude 每天 10:00 读进来。每一单要：① 预约中心在预约系统取消并签名 → ② 打电话收取消料并签名 → ③ 会计部确认钱到账。</div></div>`;
   h += '<div class="chips">' + [['today', '今天'], ['yday', '昨天'], ['week', '本周']].concat(months.map(m => [m, +m.slice(5) + '月']), [['range', '📅 自选期间']])
-    .map(([k, n]) => `<button class="${k === month ? 'on' : ''}" onclick="setMonth('${k}')">${n}</button>`).join('') + '</div>';
+    .map(([k, n]) => `<button class="${k === month ? 'on' : ''}" onclick="setMonth(${jq(k)})">${n}</button>`).join('') + '</div>';
   if (month === 'range') h += `<div class="row2" style="align-items:center"><input id="nsFrom" type="date" value="${esc(P.from)}" onchange="setRange()"><span>〜</span><input id="nsTo" type="date" value="${esc(P.to)}" onchange="setRange()"></div><div class="note">只看一天：起止选同一天。按预约日算。</div>`;
   h += `<div class="kp"><div><small>${esc(PL)} 无断取消</small><b>${ms.length}</b> 组　<small style="display:inline">${sum(ms, '人数')} 名</small></div>`
     + `<div><small>预约合计（损失）</small><b>${yen(sum(ms, '合计'))}</b></div>`

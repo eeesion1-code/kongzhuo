@@ -285,7 +285,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
   addEventListener('touchcancel', () => { on = false; hide(); }, { passive: true });
 })();
 
-const APPV = 'yunying-v73';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v74';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);
 const PVST = IN_KZ && (localStorage.getItem('asRole') === 'staff' || localStorage.getItem('asStaff') === '1');   // 11/19 老板在空桌一览点「👀 运营部画面／店长画面」→ 按店长权限看
 function exitPreview() { ['asRole', 'asStaff', 'last', 'acrq'].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} }); location.href = './'; }
@@ -314,6 +314,7 @@ const fromUrl = (location.hash.match(/k=([^&]+)/) || [])[1];
 if (fromUrl) { K = decodeURIComponent(fromUrl); LS.set('k', K); history.replaceState(null, '', location.pathname + location.search); }
 
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const jq = s => esc(JSON.stringify(String(s == null ? '' : s)));   // 11/24 安全：数据放进按钮点击代码一律用 ${jq(x)}，不要写 '${x}'（esc 防不了代码里的引号）
 const $ = id => document.getElementById(id);
 const PC = { 'Google': 'var(--g)', '食べログ': 'var(--t)', 'ホットペッパー': 'var(--h)' };
 const PS = { 'Google': 'Google', '食べログ': '食べログ', 'ホットペッパー': 'HPG' };
@@ -394,7 +395,7 @@ function render() {
   const tabs = HRONLY ? [['hr', '👔 人事'], ['hy', '🧹 卫生'], ['vz', '🛂 签证名簿']] : [['pj', '⭐ 评价'], ['qr', '📲 谷歌扫码'], ['ty', '📅 预约'], ['rk', '🔁 回头客'], ['cl', '📝 处理记录'], ['yc', '🚨 预约异常' + (ycN ? ' <b style="color:#fff;background:var(--bad);border-radius:9px;padding:0 6px;font-size:12px">' + ycN + '</b>' : '')], ...(owner ? [['hr', '👔 人事'], ['sy', '👤 社员'], ['hy', '🧹 卫生']] : [])];
   { const xb = $('xqb'); if (xb) xb.className = 'xqb' + (tab === 'xq' ? ' on' : ''); }
   { const h1 = document.querySelector('header h1'); if (h1 && h1.textContent !== (HRONLY ? '人事部' : '运营部')) h1.textContent = HRONLY ? '人事部' : '运营部'; }   // 11/20 人事部密码
-  $('tabs').innerHTML = tabs.map(([k, n]) => '<button class="' + (tab === k ? 'on' : '') + '" onclick="setTab(\'' + k + '\')">' + n + '</button>').join('');
+  $('tabs').innerHTML = tabs.map(([k, n]) => '<button class="' + (tab === k ? 'on' : '') + '" onclick="setTab(' + jq(k) + ')">' + n + '</button>').join('');
   const at = tab === 'xq' ? (XQ && XQ.now) : tab === 'rk' ? (RK && RK.at) : tab === 'qr' ? (QRD && QRD.updated) : tab === 'pj' || tab === 'ty' || tab === 'yc' ? (PJ && PJ.at) : (HR && HR.at);
   $('at').textContent = (at ? at.slice(5).replace('-', '/') + ' 更新' : '') + (tab === 'rk' ? (rkBusy ? '・读取最新中…' : '') : tab === 'qr' ? (qrBusy ? '・读取最新中…' : '') : LOADING ? '・读取最新中…' : (pjErr && tab !== 'hr' && tab !== 'sy' && tab !== 'hy') ? '・⚠ 没读到最新（显示的是上次的）' : '');
   { const sb = tab !== 'hr' && tab !== 'sy' && tab !== 'hy' && tab !== 'xq' ? selBar() : '', sh = $('selh'); if (sh && sh.innerHTML !== sb && !(document.activeElement && sh.contains(document.activeElement))) sh.innerHTML = sb; }   // v55：店铺选择放进顶上固定栏，往下滑也一直在
@@ -507,7 +508,7 @@ function renderXq() {
   if (XQ.owner && boss.length) {
     h += `<div class="card" style="border:2px solid #d97706"><div class="ct">🔒 等你决定（${boss.length} 条）</div><div class="note">碰到 营业额谁能看・密码登录・删数据・改后台 的，Claude 不自己做。</div>`
       + boss.map(r => `<div class="row"><b>${esc(r.id)}</b>　<small>${esc(r.who)}　${esc(r.t.slice(5))}</small><div style="white-space:pre-wrap">${esc(r.v)}</div>${r.note ? `<div class="note">🛠 Claude：${esc(r.note)}</div>` : ''}`
-        + `<div class="two"><button class="g" onclick="xqYes('${r.id}',1)">同意做</button><button class="r" onclick="xqYes('${r.id}',0)">不做</button></div></div>`).join('') + '</div>';
+        + `<div class="two"><button class="g" onclick="xqYes(${jq(r.id)},1)">同意做</button><button class="r" onclick="xqYes(${jq(r.id)},0)">不做</button></div></div>`).join('') + '</div>';
   }
   h += `<div class="card"><div class="ct">全部需求（${rows.length} 条）</div>` + (rows.length ? rows.map(r => {
     const [pc, pt] = XQ_PILL[r.st] || ['p0', r.st], ask = r.st === '要问你';
@@ -516,8 +517,8 @@ function renderXq() {
       + (r.note ? `<div class="note">${ask ? '❓ Claude 问：' : '🛠 Claude：'}${esc(r.note)}</div>` : '')
       + (r.back ? `<div class="note">意见：${esc(r.back)}</div>` : '')
       + ((r.st === '做好待确认' || r.st === '部门确认中') && r.test ? `<div class="note"><a class="lnk" href="${esc(r.test)}" target="_blank">🧪 打开测试版看看</a></div>` : '')
-      + (ask || xqOpen === r.id ? `<input id="xqr_${r.id}" placeholder="${ask ? '回答 Claude 的问题' : '补充一句'}" maxlength="500"><button class="xbtn" onclick="xqReply('${r.id}')">补充</button>`
-        : (r.st !== '不做' ? `<div class="note"><a class="lnk" onclick="xqToggle('${r.id}')">➕ 补充</a></div>` : ''))
+      + (ask || xqOpen === r.id ? `<input id="xqr_${esc(r.id)}" placeholder="${ask ? '回答 Claude 的问题' : '补充一句'}" maxlength="500"><button class="xbtn" onclick="xqReply(${jq(r.id)})">补充</button>`
+        : (r.st !== '不做' ? `<div class="note"><a class="lnk" onclick="xqToggle(${jq(r.id)})">➕ 补充</a></div>` : ''))
       + (xqOpen === r.id ? xqMsg : '') + '</div>';
   }).join('') : '<div class="note">还没有。</div>') + '</div>' + (xqOpen ? '' : '') + '</div>';
   return h;
@@ -550,7 +551,7 @@ let clCat = '', clSt = '', clQ = '';
 function renderCl() {
   const H = (YCD.h || []).filter(r => selOk(r[3])), cats = [...new Set(H.map(r => r[2]).filter(Boolean))], sts = [...new Set(H.map(r => r[3]).filter(Boolean))].sort();
   return '<div class="sec"><h2>📝 处理记录<small>每次按「已处理」写的做法，同样的问题可以照着做</small></h2>' +
-    '<div class="seg">' + [['', '全部 ' + H.length]].concat(cats.map(c => [c, c + ' ' + H.filter(r => r[2] === c).length])).map(([k, t]) => '<button class="' + (clCat === k ? 'on' : '') + '" onclick="clCat=\'' + esc(k) + '\';render()">' + esc(t) + '</button>').join('') + '</div>' +
+    '<div class="seg">' + [['', '全部 ' + H.length]].concat(cats.map(c => [c, c + ' ' + H.filter(r => r[2] === c).length])).map(([k, t]) => '<button class="' + (clCat === k ? 'on' : '') + '" onclick="clCat=' + jq(k) + ';render()">' + esc(t) + '</button>').join('') + '</div>' +
     '<div style="display:flex;gap:6px;margin:8px 0">' +
     '<input id="clq" placeholder="搜：做法・内容・名字" value="' + esc(clQ) + '" oninput="clQ=this.value;$(\'cll\').innerHTML=clList()" style="flex:1;min-width:0;border:1px solid var(--line);border-radius:8px;padding:6px 8px;background:var(--card);color:var(--ink);font-size:14px"></div>' +
     '<div id="cll">' + clList() + '</div><p class="note">在「⭐ 评价」的差评、「🚨 预约异常」里按「✅ 已处理」时写的「怎么处理的」都会存在这里（一年内）。11/18 以前只写了名字的不在这里。</p></div>';
@@ -581,7 +582,7 @@ function renderRk() {
   const mLab = mm => mm.slice(2, 4) + '年' + +mm.slice(5) + '月';
   const partial = mm => mm >= cur;
   const mRange = (x, y) => months.filter(mm => mm >= x && mm <= y);
-  let h = '<div class="seg">' + [['m', '📅 按月'], ['y', '🔁 同比（同月份）'], ['r', '↔ 区间对比']].map(([k, n]) => '<button class="' + (rkMode === k ? 'on' : '') + '" onclick="rkSetMode(\'' + k + '\')">' + n + '</button>').join('') + '</div>';
+  let h = '<div class="seg">' + [['m', '📅 按月'], ['y', '🔁 同比（同月份）'], ['r', '↔ 区间对比']].map(([k, n]) => '<button class="' + (rkMode === k ? 'on' : '') + '" onclick="rkSetMode(' + jq(k) + ')">' + n + '</button>').join('') + '</div>';
   if (rkErr) h += '<p class="note wn">⚠ ' + esc(rkErr) + '</p>';
   const note = '<div class="sec"><p class="note">📌 怎么看：<br>・<b>回头率</b>＝回头客 ÷ 扫码登录的客人。只有扫码登录 ダイニー 的客人才认得出是不是来过，所以用登录的人当分母，各店才比得了（ダイニー 页面上的「リピーター比率」是除以全部客数，数字会小很多）。<br>・<b>登录率</b>＝扫码登录的客人 ÷ 客数，大约一半。登录率越高，回头客认得越全。<br>・ダイニー 最早 2025 年 4 月起有数据，各店陆续上线（那之前的月份写「—」）。回头率往上走有一部分是因为 ダイニー 记住的客人越来越多，<b>同比</b>要考虑这一点，各店之间比更公平。<br>・只有用 ダイニー 收银的 5 家店；三幸園的客人不扫码登录，没有数据。ダイニー 的「再来店意欲」分数忽高忽低，不显示。<br>・每天 12:15 更新，来源：' + esc(meta.src || 'ダイニー') + '。</p></div>';
   const storeTable = (A, B, la, lb) => {
@@ -599,7 +600,7 @@ function renderRk() {
     const m = cand.includes(rkMonth) ? rkMonth : (cand.filter(x => x < cur).pop() || cand[cand.length - 1]);
     if (!m) return h + '<div class="sec"><p class="note">还没有能同比的月份（要去年同月也有数据）。</p></div>' + note;
     const ly = (+m.slice(0, 4) - 1) + m.slice(4);
-    h += '<div class="seg">' + cand.map(mm => '<button class="' + (mm === m ? 'on' : '') + '" onclick="rkSet(\'' + mm + '\')">' + +mm.slice(5) + '月' + (partial(mm) ? '（进行中）' : '') + '</button>').join('') + '</div>';
+    h += '<div class="seg">' + cand.map(mm => '<button class="' + (mm === m ? 'on' : '') + '" onclick="rkSet(' + jq(mm) + ')">' + +mm.slice(5) + '月' + (partial(mm) ? '（进行中）' : '') + '</button>').join('') + '</div>';
     const SL = both([m], [ly]), A = aggS([m], SL), B = aggS([ly], SL);
     h += '<div class="sec"><h2>🔁 ' + +m.slice(5) + '月 同比<small>' + mLab(m) + (partial(m) ? '（截至 ' + esc((meta.upto || '').slice(5).replace('-', '/')) + '，还没过完）' : '') + ' 对比 ' + mLab(ly) + '</small></h2>' + kpi3(A, B, mLab(m), mLab(ly)) + sameNote(SL) + '</div>';
     h += '<div class="sec"><h2>🏪 各店同比</h2>' + storeTable(st => agg([m], st), st => agg([ly], st), mLab(m), mLab(ly)) + '</div>';
@@ -622,8 +623,8 @@ function renderRk() {
     const R = {}; ['a0', 'a1', 'b0', 'b1'].forEach(k => R[k] = months.includes(rkR[k]) ? rkR[k] : dflt[k]);
     if (R.a0 > R.a1) [R.a0, R.a1] = [R.a1, R.a0];
     if (R.b0 > R.b1) [R.b0, R.b1] = [R.b1, R.b0];
-    const sel = k => '<select onchange="rkSetR(\'' + k + '\', this.value)" style="padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font-size:14px">' + months.map(mm => '<option value="' + mm + '"' + (mm === R[k] ? ' selected' : '') + '>' + mLab(mm) + (partial(mm) ? '（进行中）' : '') + '</option>').join('') + '</select>';
-    const qk = (a0, a1, b0, b1) => '<button onclick="rkR={a0:\'' + a0 + '\',a1:\'' + a1 + '\',b0:\'' + b0 + '\',b1:\'' + b1 + '\'};LS.set(\'rkR\',JSON.stringify(rkR));render()">';
+    const sel = k => '<select onchange="rkSetR(' + jq(k) + ', this.value)" style="padding:5px 8px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);font-size:14px">' + months.map(mm => '<option value="' + mm + '"' + (mm === R[k] ? ' selected' : '') + '>' + mLab(mm) + (partial(mm) ? '（进行中）' : '') + '</option>').join('') + '</select>';
+    const qk = (a0, a1, b0, b1) => '<button onclick="rkR={a0:' + jq(a0) + ',a1:' + jq(a1) + ',b0:' + jq(b0) + ',b1:' + jq(b1) + '};LS.set(\'rkR\',JSON.stringify(rkR));render()">';
     const yb = x => (+x.slice(0, 4) - 1) + x.slice(4), pm = (x, n) => { const d = new Date(+x.slice(0, 4), +x.slice(5) - 1 + n, 1); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0'); };
     h += '<div class="card" style="margin-bottom:10px;font-size:14px;line-height:2.2"><b style="color:var(--brand)">A 段</b> ' + sel('a0') + ' 〜 ' + sel('a1') + '<br><b style="color:var(--sub)">B 段</b> ' + sel('b0') + ' 〜 ' + sel('b1') +
       '<div class="seg" style="margin:6px 0 0">' + qk(full[i3], lastF, yb(full[i3] || lastF), yb(lastF)) + '近 3 个月 对 去年同期</button>' + qk(lastF, lastF, pm(lastF, -1), pm(lastF, -1)) + '上个月 对 再上个月</button>' + qk(pm(lastF, -2), lastF, pm(lastF, -5), pm(lastF, -3)) + '近 3 个月 对 再前 3 个月</button></div></div>';
@@ -639,7 +640,7 @@ function renderRk() {
   const prevM = months[months.indexOf(m) - 1], lyM = (+m.slice(0, 4) - 1) + m.slice(4);
   const g = mm => agg([mm]);
   const G = g(m), GP = prevM ? g(prevM) : null, GL = months.includes(lyM) ? g(lyM) : null;
-  h += '<div class="seg">' + months.map(mm => '<button class="' + (mm === m ? 'on' : '') + '" onclick="rkSet(\'' + mm + '\')">' + mLab(mm) + (partial(mm) ? '（进行中）' : '') + '</button>').join('') + '</div>';
+  h += '<div class="seg">' + months.map(mm => '<button class="' + (mm === m ? 'on' : '') + '" onclick="rkSet(' + jq(mm) + ')">' + mLab(mm) + (partial(mm) ? '（进行中）' : '') + '</button>').join('') + '</div>';
   const gr = rate(G.r, G.c), trend = months.map(mm => { const x = g(mm); return rate(x.r, x.c); });
   h += '<div class="sec"><h2>🔁 ' + mLab(m) + ' 回头客<small>' + (SEL ? esc(SEL) : 'ダイニー 5 家店') + (partial(m) ? '・截至 ' + esc((meta.upto || '').slice(5).replace('-', '/')) : '') + '</small></h2><div class="grid g3">' +
     '<div class="card kpi"><span class="plat">登录客里的回头率</span><br><b>' + P(gr) + '</b> ' + (GP ? '比上月 ' + pp(gr, rate(GP.r, GP.c)) : '') + (GL ? '　同比 ' + pp(gr, rate(GL.r, GL.c)) : '') + spark(trend, 200, 34, 'var(--good)', true) + '</div>' +
@@ -705,7 +706,7 @@ function renderQr() {
   return qrSelNote + (qrErr ? '<div class="err">' + esc(qrErr) + '</div>' : '') +
     '<div class="sec"><h2>📲 谷歌扫码 <small>' + esc(name) + '</small></h2>' +
     (list.length > 1 ? '<select class="tysel" style="margin:0 0 8px" onchange="qrSetStore(this.value)">' + list.map(s => '<option value="' + esc(s.code) + '"' + (s.code === cur ? ' selected' : '') + '>' + esc(s.name) + '</option>').join('') + '</select>' : '') +
-    '<div class="seg">' + Object.keys(PER).map(k => '<button class="' + (k === qrPer ? 'on' : '') + '" onclick="qrSetPer(\'' + k + '\')">' + PER[k] + '</button>').join('') +
+    '<div class="seg">' + Object.keys(PER).map(k => '<button class="' + (k === qrPer ? 'on' : '') + '" onclick="qrSetPer(' + jq(k) + ')">' + PER[k] + '</button>').join('') +
     '<button style="margin-left:auto" onclick="loadQr()">' + (qrBusy ? '读取中…' : '↻ 刷新') + '</button></div>' +
     '<div class="grid">' +
       '<div class="card kpi"><small>扫码组数</small><b>' + p.grp + '</b><span class="u">组</span></div>' +
@@ -844,7 +845,7 @@ function renderPj() {
   const bc = p => bad.filter(r => r['平台'] === p).length;
   const badF = rvPlat ? bad.filter(r => r['平台'] === rvPlat) : bad;
   h += '<div class="sec"><h2>⚠ 要处理的差评<small>' + (SEL ? esc(SEL) + '・' : '') + '近 30 天 ' + bad.length + ' 条' + (unrep ? '・<span class="dn">还没回复 ' + unrep + '</span>' : '') + '</small></h2>';
-  h += '<div class="seg">' + [['', '全部 ' + bad.length], ['Google', 'Google ' + bc('Google')], ['ホットペッパー', 'HPG ' + bc('ホットペッパー')], ['食べログ', '食べログ ' + bc('食べログ')]].map(([k, n]) => '<button class="' + (rvPlat === k ? 'on' : '') + '" onclick="rvPlat=\'' + k + '\';render()">' + n + '</button>').join('') + '</div>';
+  h += '<div class="seg">' + [['', '全部 ' + bad.length], ['Google', 'Google ' + bc('Google')], ['ホットペッパー', 'HPG ' + bc('ホットペッパー')], ['食べログ', '食べログ ' + bc('食べログ')]].map(([k, n]) => '<button class="' + (rvPlat === k ? 'on' : '') + '" onclick="rvPlat=' + jq(k) + ';render()">' + n + '</button>').join('') + '</div>';
   // 差评的签名键：优先评价库的固定 id；没有就用每条评价自己的链接（食べログ・HPG 都有、不重复）；Google 没有链接→平台|品牌页|作者|第一次读到的日子（不用文字・分数，它们会被改）
   const rvId = r => 'rv|' + (r.id || r['链'] || sgHash([r['平台'], r['品牌页'], r['作者'] || '', r['首'] || r['日'] || ''].join('|')));
   const ask = D.rv.filter(r => selOk(r['店']) && rvAsk(r) && (!rvPlat || r['平台'] === rvPlat));
@@ -866,7 +867,7 @@ function renderPj() {
   const sts = D.st.filter(x => selOk(x['店']));
   if (stSort !== 'area') sts.sort((a, b) => val(a, stSort) - val(b, stSort));
   if (!SEL) h += '<div class="sec"><h2>各店<small>点店名看各平台页面和最新评价</small></h2>' +
-    '<div class="seg">' + [['g', 'Google 分'], ['t', '食べログ 近期'], ['bad', '差评多'], ['area', '按地区']].map(([k, n]) => '<button class="' + (stSort === k ? 'on' : '') + '" onclick="stSort=\'' + k + '\';LS.set(\'pjSort\',\'' + k + '\');render()">' + n + '</button>').join('') + '</div>' +
+    '<div class="seg">' + [['g', 'Google 分'], ['t', '食べログ 近期'], ['bad', '差评多'], ['area', '按地区']].map(([k, n]) => '<button class="' + (stSort === k ? 'on' : '') + '" onclick="stSort=' + jq(k) + ';LS.set(\'pjSort\',' + jq(k) + ');render()">' + n + '</button>').join('') + '</div>' +
     '<div class="card rows">' + sts.map(s => stRow(s, pgBy[s['店']] || [], rvBy[s['店']] || [])).join('') + '</div></div>';
   h += '<p class="note">' + esc(M['说明'] || '') + '<br>Google 不登录只看得到每家「关联度最高的 5 条」，看不到最新的：新增条数按评价数的增长算，新增差评按每天星级分布（几个 1 星、2 星…）的变化算（从 11/16 开始比）。<br>数据：各平台公开页面，电脑每天读一次（' + Object.entries(M['平台'] || {}).map(([k, v]) => k + ' ' + String(v).slice(5)).join('、') + '）。</p>';
   return h;
@@ -876,7 +877,7 @@ function stRow(s, pgs, rvs) {
   const brands = [...new Set(pgs.filter(p => p['平台'] === '食べログ').map(p => brandShort(p['品牌页'])))].join('・');
   let big = g && g['评分'] != null ? '<span style="color:var(--g)">' + f2(g['评分']) + '</span>' : t && t['近90天均分'] != null ? '<span style="color:var(--t)">' + f2(t['近90天均分']) + '</span>' : '—';
   const nbad = (g ? (g['新增差评'] || 0) : 0) + rvs.filter(r => rvBad(r) && r['平台'] !== 'Google').length;
-  let h = '<div class="r' + (open ? ' open' : '') + '" onclick="tgSt(\'' + esc(k) + '\',event)"><div class="nm">' + esc(k) + '<small>' + esc(brands) + '</small></div><div class="big">' + big + '</div><div class="meta">' +
+  let h = '<div class="r' + (open ? ' open' : '') + '" onclick="tgSt(' + jq(k) + ',event)"><div class="nm">' + esc(k) + '<small>' + esc(brands) + '</small></div><div class="big">' + big + '</div><div class="meta">' +
     (g ? '<span><span class="dot" style="background:var(--g)"></span> Google <b>' + f2(g['评分']) + '</b>（' + fmt(g['件数']) + (g['30天件数增'] ? '，30 天 +' + g['30天件数增'] : '') + '）' + (g['新增差评'] ? ' <span class="dn">新 1〜3 星 ' + g['新增差评'] + '</span>' : '') + (g['差评未回复'] ? ' <span class="dn">没回 ' + g['差评未回复'] + '</span>' : '') + '</span>' : '') +
     (t ? '<span><span class="dot" style="background:var(--t)"></span> 食べログ 近期 <b>' + f2(t['近90天均分']) + '</b>（' + fmt(t['件数']) + '）</span>' : '') +
     (hp ? '<span><span class="dot" style="background:var(--h)"></span> HPG <b>' + f2(hp['评分']) + '</b>（' + fmt(hp['件数']) + '）</span>' : '') +
@@ -930,7 +931,7 @@ function renderDk(DK) {
   const LC = ['var(--sub)', 'var(--faint)', 'var(--warn)', 'var(--bad)'], LI = ['ℹ', '⚪', '🟠', '🔴'];
   const bad = st.filter(r => r['级'] >= 2), n3 = st.filter(r => r['级'] >= 3).length, ok = st.filter(r => !(r['问题'] || []).length);
   let h = '<div class="sec"><h2>🖐 指纹打卡（' + md(dkDay) + '）<small>每天 6:00 查前一天（6:00〜次日 6:00）：哪家没打好卡、没用指纹</small></h2>';
-  if (days.length > 1) h += '<div class="seg">' + days.slice(-7).map(d => '<button class="' + (d === dkDay ? 'on' : '') + '" onclick="dkDay=\'' + d + '\';render()">' + md(d) + '</button>').join('') + '</div>';
+  if (days.length > 1) h += '<div class="seg">' + days.slice(-7).map(d => '<button class="' + (d === dkDay ? 'on' : '') + '" onclick="dkDay=' + jq(d) + ';render()">' + md(d) + '</button>').join('') + '</div>';
   if (R['读取出错']) h += '<p class="note wn">⚠ 这次没读到指纹打卡后台（' + esc(R['读取出错']) + '），下面用的是 ' + esc(R['后台读取']) + ' 读到的数据</p>';
   h += '<div class="card" style="font-size:14px;margin-bottom:8px">' + st.length + ' 家店里 <b style="color:' + (bad.length ? 'var(--bad)' : 'var(--good)') + '">' + bad.length + ' 家有问题</b>' + (n3 ? '（其中 🔴 ' + n3 + ' 家：没用指纹或机子没连上）' : '') + '<div class="tyc" style="margin-top:2px">' + esc(R.at) + ' 查；开门＝RB 那天有到店的客人或收银台有营业额；平时＝前 4 个同一星期几打卡人数的中位数</div></div>';
   h += st.filter(r => (r['问题'] || []).length).map(r => '<div class="card" style="border-left:4px solid ' + LC[r['级']] + ';margin-bottom:6px;font-size:13px">' +
@@ -954,7 +955,7 @@ function renderHr() {
   (D.hs[prevM] || []).forEach(r => prev[r['店']] = r);
   let h = hrErr ? '<div class="err">' + esc(hrErr) + '</div>' : '';
   h += renderDk(D.dk);
-  h += '<div class="seg">' + months.map(m => '<button class="' + (m === hrMonth ? 'on' : '') + '" onclick="hrMonth=\'' + m + '\';render()">' + +m.slice(5) + ' 月' + (D.hm[m]['完整'] ? '' : '（进行中）') + '</button>').join('') + '</div>';
+  h += '<div class="seg">' + months.map(m => '<button class="' + (m === hrMonth ? 'on' : '') + '" onclick="hrMonth=' + jq(m) + ';render()">' + +m.slice(5) + ' 月' + (D.hm[m]['完整'] ? '' : '（进行中）') + '</button>').join('') + '</div>';
   // 总览
   const cnt = { S: 0, A: 0, B: 0, C: 0, D: 0 }; rows.forEach(r => r['等级'] && cnt[r['等级']]++);
   const tot = rows.filter(r => r['等级']).length || 1;
@@ -995,7 +996,7 @@ function hrRow(r, p, staff, M) {
   const k = r['店'], open = hrOpen.has(k);
   const dims = Object.entries(r['项']);
   const delta = p && p['总分'] != null && r['总分'] != null ? r['总分'] - p['总分'] : null;
-  let h = '<div class="r' + (open ? ' open' : '') + '" onclick="tgHr(\'' + esc(k) + '\')"><div class="nm">' + (r['名次'] ? '<span style="color:var(--sub);font-weight:400;font-size:13px;display:inline-block;width:22px">' + r['名次'] + '</span>' : '') + esc(k) +
+  let h = '<div class="r' + (open ? ' open' : '') + '" onclick="tgHr(' + jq(k) + ')"><div class="nm">' + (r['名次'] ? '<span style="color:var(--sub);font-weight:400;font-size:13px;display:inline-block;width:22px">' + r['名次'] + '</span>' : '') + esc(k) +
     '<small>' + esc(r['站']) + (r['负责人'] ? '・' + esc(r['负责人']) : '') + '</small></div><div class="big">' + (r['总分'] ?? '—') + ' ' + (r['等级'] ? '<span class="grade g' + r['等级'] + '">' + r['等级'] + '</span>' : '') + '</div>' +
     '<div class="meta" style="gap:3px;flex-wrap:nowrap">' + dims.map(([d, it]) => {
       // 11/16 用户问「业绩为什么是 0」：业绩旁边直接写达成率；0 分画一小截红（和「没数据」分开），没数据写 —
@@ -1050,9 +1051,9 @@ function renderSy() {
   const ord = s => { const i = D.order.indexOf(s); return i < 0 ? 999 : i; };
   const q = syQ.trim();
   const hit = r => !q || String(r['名']).includes(q) || String(r['店']).includes(q) || (r['店历'] || []).some(x => String(x).includes(q));
-  let h = '<div class="seg">' + [['year', '全年']].concat(months.map(m => [m, +m.slice(5) + ' 月'])).map(([k, n]) => '<button class="' + (syMonth === k ? 'on' : '') + '" onclick="setSyMonth(\'' + k + '\')">' + n + '</button>').join('') + '</div>';
+  let h = '<div class="seg">' + [['year', '全年']].concat(months.map(m => [m, +m.slice(5) + ' 月'])).map(([k, n]) => '<button class="' + (syMonth === k ? 'on' : '') + '" onclick="setSyMonth(' + jq(k) + ')">' + n + '</button>').join('') + '</div>';
   h += '<input class="syq" id="syq" placeholder="🔍 搜姓名 / 店名" value="' + esc(syQ) + '" oninput="onSyQ(this.value, event)" oncompositionstart="window._syComp=1" oncompositionend="window._syComp=0;onSyQ(this.value)">';
-  h += '<div class="seg">' + [['store', '按店'], ['score', '按分数']].map(([k, n]) => '<button class="' + (sySort === k ? 'on' : '') + '" onclick="setSySort(\'' + k + '\')">' + n + '</button>').join('') + '</div>';
+  h += '<div class="seg">' + [['store', '按店'], ['score', '按分数']].map(([k, n]) => '<button class="' + (sySort === k ? 'on' : '') + '" onclick="setSySort(' + jq(k) + ')">' + n + '</button>').join('') + '</div>';
   if (syMonth === 'year') {
     let L = D.sya.filter(hit);
     const got = L.filter(r => zAvg(r) != null);
@@ -1071,7 +1072,7 @@ function renderSy() {
         const other = e && (e.length > 1 || e[0][0] !== cur || (rl(e[0]) && rl(e[0]) !== role)) ? e.map(q => esc(q[0]) + (rl(q) ? ' ' + esc(rl(q)) : '') + (e.length > 1 ? ' ' + q[2] : '')).join('・') : '';
         return '<span class="mcell" title="' + (e ? e.map(q => esc(q[0] + ' ' + q[1] + ' ' + q[2])).join('、') : '没有分') + '">' + +m.slice(5) + '月<b style="color:' + scCol(v) + '">' + (v == null ? '—' : v) + '</b>' + (other ? '<small style="display:block;font-size:9.5px;color:var(--sub)">' + other + '</small>' : '') + '</span>'; }).join('') : '';
       const bCells = r['各月'].map(m => '<span class="mcell">' + +m[0].slice(5) + '月<b style="color:' + scCol(m[1]) + '">' + (m[1] == null ? '—' : m[1]) + '</b></span>').join('');
-      x += '<div class="card' + (open ? ' open' : '') + '" style="margin:0 0 6px;cursor:pointer" onclick="tgSy(\'' + esc(key) + '\')"><div style="display:flex;align-items:center;gap:8px">' +
+      x += '<div class="card' + (open ? ' open' : '') + '" style="margin:0 0 6px;cursor:pointer" onclick="tgSy(' + jq(key) + ')"><div style="display:flex;align-items:center;gap:8px">' +
         (sySort === 'score' ? '<span style="color:var(--sub);width:22px">' + (i + 1) + '</span>' : '') +
         '<div style="flex:1;min-width:0"><b style="font-size:16px">' + esc(r['名']) + '</b> ' + (/^(①|②)$/.test(role || '') ? '<span style="font-size:11px;font-weight:700;color:var(--brand);border:1px solid var(--brand);border-radius:6px;padding:0 5px;margin-right:4px">' + esc(role) + '</span>' : '') + '<small style="color:var(--sub)">' + esc(r['店历'].join('→')) + '</small><div style="margin-top:4px">' +
         (Z ? zCells : '<small style="color:var(--sub)">没有年涨分数・奖金表评分：</small>' + bCells) + '</div></div>' +
@@ -1211,12 +1212,12 @@ function renderTy() {
     return '<span class="tyc">' + (short ? '上月 ' : esc(refLab) + ' ') + fmt(was) + ' <span class="' + (d >= 0 ? 'up' : 'dn') + '">' + (d >= 0 ? '▲' : '▼') + fmt(Math.abs(d)) + (p != null && !short ? '（' + (d >= 0 ? '+' : '−') + Math.abs(p) + '%）' : '') + '</span></span>';
   };
   // ① 单日 / 期间
-  let h = (SEL ? '<p class="note" style="margin-top:0">🏪 ' + esc(SEL) + '：下面「各店」只列这家，时段默认看这家；最上面的合计还是全部店。</p>' : '') + '<div class="seg">' + [['day', '单日'], ['range', '📅 期间（自己选）']].map(([k, n]) => '<button class="' + (tyMode === k ? 'on' : '') + '" onclick="tySet(\'mode\',\'' + k + '\')">' + n + '</button>').join('') + '</div>';
+  let h = (SEL ? '<p class="note" style="margin-top:0">🏪 ' + esc(SEL) + '：下面「各店」只列这家，时段默认看这家；最上面的合计还是全部店。</p>' : '') + '<div class="seg">' + [['day', '单日'], ['range', '📅 期间（自己选）']].map(([k, n]) => '<button class="' + (tyMode === k ? 'on' : '') + '" onclick="tySet(\'mode\',' + jq(k) + ')">' + n + '</button>').join('') + '</div>';
   if (!range) {
-    h += '<div class="seg" style="flex-wrap:nowrap;overflow-x:auto">' + ALL.slice().reverse().map(d => '<button class="' + (d === tyDay ? 'on' : '') + '" onclick="tySet(\'day\',\'' + d + '\')">' + mdw(d) + (DM[d] && DM[d]['标'] && DM[d]['标'].includes('截至') ? ' 进行中' : '') + '</button>').join('') + '</div>';
+    h += '<div class="seg" style="flex-wrap:nowrap;overflow-x:auto">' + ALL.slice().reverse().map(d => '<button class="' + (d === tyDay ? 'on' : '') + '" onclick="tySet(\'day\',' + jq(d) + ')">' + mdw(d) + (DM[d] && DM[d]['标'] && DM[d]['标'].includes('截至') ? ' 进行中' : '') + '</button>').join('') + '</div>';
   } else {
     h += '<div class="card typick"><input type="date" value="' + tyA + '" min="' + first + '" max="' + latest + '" onchange="tySet(\'a\',this.value)"><span>〜</span><input type="date" value="' + tyB + '" min="' + first + '" max="' + latest + '" onchange="tySet(\'b\',this.value)">' +
-      '<span class="seg" style="margin:0">' + [['7', '最近 7 天'], ['30', '最近 30 天'], ['m', '本月'], ['pm', '上个月'], ['all', '全部']].map(([q, n]) => '<button onclick="tyQuick(\'' + q + '\',\'' + first + '\',\'' + latest + '\')">' + n + '</button>').join('') + '</span>' +
+      '<span class="seg" style="margin:0">' + [['7', '最近 7 天'], ['30', '最近 30 天'], ['m', '本月'], ['pm', '上个月'], ['all', '全部']].map(([q, n]) => '<button onclick="tyQuick(' + jq(q) + ',' + jq(first) + ',' + jq(latest) + ')">' + n + '</button>').join('') + '</span>' +
       '<span class="tyc" style="margin-left:auto">' + sel.length + ' 天有数据' + (sel.length ? '（' + sel.map(s => +s.slice(8)).join('・') + ' 日）' : '') + '</span></div>';
   }
   const title = range ? mdw(tyA) + '〜' + mdw(tyB) : mdw(tyDay) + (DM[tyDay] && DM[tyDay]['标'] ? '（' + DM[tyDay]['标'] + '）' : '');
@@ -1351,8 +1352,8 @@ function renderTy() {
       (r.bbN ? '<div class="tyc" style="margin-bottom:4px"><b style="color:#8e44ad">已扣掉 BB ' + fmt(r.bbN) + ' 人</b>，下面都是真实的</div>' : '') + hourBars(r.B, '没有网上预约');
   };
   h += '<div class="card" style="margin-bottom:10px"><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:6px"><b style="font-size:14px">⏰ 时间段</b>' +
-    '<span class="seg" style="margin:0">' + [['rb', 'レストランボード（T・H・G・R）'], ['pg', '每日食べログ时间段网页数据预约人数＋保存数（T）']].map(([k, n]) => '<button class="' + (tyHrSrc === k ? 'on' : '') + '" onclick="tySet(\'src\',\'' + k + '\')">' + n + '</button>').join('') + '</span>' +
-    (tyHrSrc === 'rb' ? '<span class="seg" style="margin:0">' + [['all', '全部'], ['T', 'T'], ['H', 'H'], ['G', 'G'], ['R', 'R']].map(([k, n]) => '<button class="' + (tyHrPl === k ? 'on' : '') + '" onclick="tySet(\'pl\',\'' + k + '\')">' + n + '</button>').join('') + '</span>' : '') +
+    '<span class="seg" style="margin:0">' + [['rb', 'レストランボード（T・H・G・R）'], ['pg', '每日食べログ时间段网页数据预约人数＋保存数（T）']].map(([k, n]) => '<button class="' + (tyHrSrc === k ? 'on' : '') + '" onclick="tySet(\'src\',' + jq(k) + ')">' + n + '</button>').join('') + '</span>' +
+    (tyHrSrc === 'rb' ? '<span class="seg" style="margin:0">' + [['all', '全部'], ['T', 'T'], ['H', 'H'], ['G', 'G'], ['R', 'R']].map(([k, n]) => '<button class="' + (tyHrPl === k ? 'on' : '') + '" onclick="tySet(\'pl\',' + jq(k) + ')">' + n + '</button>').join('') + '</span>' : '') +
     '<select class="tysel" onchange="tySet(\'hr\',this.value)"><option value="">全部店</option>' + hrList.map(k => '<option' + (hrSt === k ? ' selected' : '') + '>' + esc(k) + '</option>').join('') + '</select></div>' +
     '<div class="tyc" style="margin-bottom:6px">' + (tyHrSrc === 'rb' && tyHrPl === 'T' ? '那' + (range ? '段时间' : '天') + '进的 T（食べログ）网上预约，订的是哪个时段（按来店开始时间分 6 段：0〜11 点・昼 11〜14・14〜17・夕方 17〜19・夜 19〜22・22 点以后）。<b style="color:var(--t)">深色＝现在还留着的</b>，<span style="color:var(--faint)">灰色＝后来取消的</span>' : tyHrSrc === 'rb' ? '那' + (range ? '段时间每天' : '天') + '几点有人在网上下了预约（レストランボード 的受付时间，只算网上预约' + (range ? '，加起来' : '') + '）。<b style="color:var(--t)">深色＝现在还留着的</b>，<span style="color:var(--faint)">灰色＝后来取消的</span>（数字＝留着的人，「消」＝取消的人）' : '食べログ页面「本日 N 人」每小时增加多少，按下单（点保存）的时间分 6 段：0〜11 点・昼 11〜14・14〜17・夕方 17〜19・夜 19〜22・22〜23:55') + '</div>' +
     slot(hrSt) + '</div>';
@@ -1381,7 +1382,7 @@ function renderTy() {
         cells = '<td colspan="6" class="tyc">只有全天数（11/16 起才有时段）</td>';
       }
       const real = Math.max(0, raw - aa - bb);
-      return '<tr' + (!range && ds === tyDay ? ' style="background:var(--soft)"' : '') + '><td style="white-space:nowrap;cursor:pointer" onclick="tySet(\'day\',\'' + ds + '\');tySet(\'mode\',\'day\')"><b>' + mdw(ds) + '</b>' + (d['标'] && d['标'].includes('截至') ? '<div class="tyc">' + esc(d['标']) + '</div>' : '') + '</td>' +
+      return '<tr' + (!range && ds === tyDay ? ' style="background:var(--soft)"' : '') + '><td style="white-space:nowrap;cursor:pointer" onclick="tySet(\'day\',' + jq(ds) + ');tySet(\'mode\',\'day\')"><b>' + mdw(ds) + '</b>' + (d['标'] && d['标'].includes('截至') ? '<div class="tyc">' + esc(d['标']) + '</div>' : '') + '</td>' +
         '<td style="white-space:nowrap"><b style="color:var(--t)">' + fmt(real) + '</b><small style="color:var(--sub)"> 存' + fmt(sv) + '</small><div class="tyc">页面原始 ' + fmt(raw) + '</div>' + note + '</td>' +
         '<td style="color:var(--bad);font-weight:700">' + (aa ? fmt(aa) : '<span class="tyc">0</span>') + '</td><td style="color:#8e44ad;font-weight:700">' + (bb ? fmt(bb) : '<span class="tyc">0</span>') + '</td>' + cells + '</tr>';
     }).join('');
@@ -1393,10 +1394,10 @@ function renderTy() {
   // ⑤ 各店：预约・保存并排，下面灰字上月同期
   let L = Object.entries(cur.st).filter(([k]) => selOk(k));
   L.sort(tySort === 'r' ? (a, b) => (b[1].r ?? -1) - (a[1].r ?? -1) : (a, b) => (b[1].s ?? -1) - (a[1].s ?? -1));
-  if (L.length) h += '<div class="sec"><div class="tyhd"><h2 style="margin:0">各店</h2><div class="seg" style="margin:0">' + [['r', '按预约'], ['s', '按保存']].map(([k, n]) => '<button class="' + (tySort === k ? 'on' : '') + '" onclick="tySet(\'sort\',\'' + k + '\')">' + n + '</button>').join('') + '</div><span class="tyc" style="margin-left:auto">点店看品牌页和时间段</span></div><div class="card rows">' +
+  if (L.length) h += '<div class="sec"><div class="tyhd"><h2 style="margin:0">各店</h2><div class="seg" style="margin:0">' + [['r', '按预约'], ['s', '按保存']].map(([k, n]) => '<button class="' + (tySort === k ? 'on' : '') + '" onclick="tySet(\'sort\',' + jq(k) + ')">' + n + '</button>').join('') + '</div><span class="tyc" style="margin-left:auto">点店看品牌页和时间段</span></div><div class="card rows">' +
     L.map(([k, x], i) => {
       const open = tyOpen.has(k), cn = cN.st[k] || {}, cp = cP.st[k] || {};
-      let r = '<div class="r tyr' + (open ? ' open' : '') + '" onclick="tyOpen.has(\'' + esc(k) + '\')?tyOpen.delete(\'' + esc(k) + '\'):tyOpen.add(\'' + esc(k) + '\');render()">' +
+      let r = '<div class="r tyr' + (open ? ' open' : '') + '" onclick="tyOpen.has(' + jq(k) + ')?tyOpen.delete(' + jq(k) + '):tyOpen.add(' + jq(k) + ');render()">' +
         '<div class="nm"><span style="color:var(--sub);font-weight:400;font-size:13px;display:inline-block;width:22px">' + (i + 1) + '</span>' + esc(k) + '</div>' +
         '<div class="tyn"><b style="color:var(--t)">' + (x.r ?? '—') + '</b><small>人预约</small>' + cmp(cn.r ?? null, okp.length ? (cp.r ?? null) : null, true) + '</div>' +
         '<div class="tyn"><b>' + (x.s ?? '—') + '</b><small>人保存</small>' + cmp(cn.s ?? null, okp.length ? (cp.s ?? null) : null, true) + '</div>';
@@ -1513,7 +1514,7 @@ function prBlock(R, sel, range) {
   const incB = base.filter(d => PR[d]['缺'] > 0).length, reliable = !inc.length && !incB;
   const pctS = v => v == null ? '<span class="tyc">—</span>' : '<span style="font-weight:700;color:' + (!reliable ? 'var(--faint)' : v <= -0.2 ? 'var(--bad)' : v >= 0.2 ? 'var(--good)' : 'var(--ink)') + '">' + (v >= 0 ? '+' : '−') + Math.abs(Math.round(v * 100)) + '%</span>';
   const anyB = SR.some(r => r.x.b), anyBB = SR.some(r => r.x.bb);
-  h += '<div class="tyhd" style="margin-top:14px"><h2 style="margin:0;font-size:16px">各店（' + SR.length + ' 家）</h2><div class="seg" style="margin:0">' + [['bad', '差的在前'], ['hi', '留着多→少'], ['lo', '留着少→多']].map(([k, n]) => '<button class="' + (prSort === k ? 'on' : '') + '" onclick="tySet(\'prs\',\'' + k + '\')">' + n + '</button>').join('') + '</div></div>';
+  h += '<div class="tyhd" style="margin-top:14px"><h2 style="margin:0;font-size:16px">各店（' + SR.length + ' 家）</h2><div class="seg" style="margin:0">' + [['bad', '差的在前'], ['hi', '留着多→少'], ['lo', '留着少→多']].map(([k, n]) => '<button class="' + (prSort === k ? 'on' : '') + '" onclick="tySet(\'prs\',' + jq(k) + ')">' + n + '</button>').join('') + '</div></div>';
   h += '<div class="card" style="margin-bottom:8px;font-size:13px">' + (!reliable ? '⏳ 选的日子' + (inc.length ? '有 ' + inc.length + ' 天' : '') + (incB ? (inc.length ? '、' : '') + '前 28 天里有 ' + incB + ' 天' : '') + '还在补读（之后来店的预约没读全），现在比会把没读到的当成「少了」——先不列进得差的店，补完自动判断（每天早上 5 点补读、12 点更新）。'
       : badL.length ? '🔻 <b>预约进得差的店</b>（下单比近 4 周日均或上月同期少 20% 以上，' + badL.length + ' 家）：' + badL.map(r => '<b style="color:var(--bad)">' + esc(r.k) + '</b> ' + pctS(worst(r))).join('、')
       : (base.length >= 14 || pairs.length ? '✅ 没有比近 4 周日均・上月同期少 20% 以上的店' : '要比较还需要更多天的数据（选的日子前面要有 14 天以上，或上个月同期读全）')) +
@@ -1659,7 +1660,7 @@ async function sgSend(n, act) {
 function ycChk(b, j) {
   if (j !== '没满' && j !== '待确认') return '';
   const Y = ycRowAll();
-  return sgBox([ycId(b)].concat((Y['订不了'] || []).filter(x => x['链接'] === b['链接']).map(ycId)), '', { 店: b['店'], 摘: (b['平台'] || '') + ' ' + (b['品牌'] || '') + ' ' + md(b['日']) + ' 订不了（' + (b['判断'] || '') + '）' });   // 同一网页列着的几天一起签
+  return sgBox([ycId(b)].concat((Y['订不了'] || []).filter(x => x['链接'] === b['链接']).map(ycId)), '', { 店: b['店'], 摘: (b['平台'] || '') + ' ' + (b['品牌'] || '') + ' ' + (b['日'] ? +String(b['日']).slice(5, 7) + '/' + +String(b['日']).slice(8, 10) : '') + ' 订不了（' + (b['判断'] || '') + '）' });   // 同一网页列着的几天一起签
 }
 function renderYc() {
   const Y = ycRow();
@@ -1769,7 +1770,7 @@ function renderHy() {
     const l = by[c['店']], p = l.length > 1 ? l[l.length - 2] : null, open = hyOpen.has(c['店']);
     const d = p ? c['合计'] - p['合计'] : null;
     const col = c['合计'] >= 180 ? 'var(--good)' : c['合计'] >= 150 ? 'var(--warn)' : 'var(--bad)';
-    let x = '<div class="r' + (open ? ' open' : '') + '" onclick="tgHy(\'' + esc(c['店']) + '\')"><div class="nm">' + esc(c['店']) + '<small>' + (c['日期是推的'] ? +c['日期'].slice(5, 7) + '月' : c['日期'].slice(5).replace('-', '/')) + ' 检查' + (c['负责人'] ? '・' + esc(c['负责人']) : '') + '</small></div>' +
+    let x = '<div class="r' + (open ? ' open' : '') + '" onclick="tgHy(' + jq(c['店']) + ')"><div class="nm">' + esc(c['店']) + '<small>' + (c['日期是推的'] ? +c['日期'].slice(5, 7) + '月' : c['日期'].slice(5).replace('-', '/')) + ' 检查' + (c['负责人'] ? '・' + esc(c['负责人']) : '') + '</small></div>' +
       '<div class="big" style="color:' + col + '">' + c['合计'] + '</div><div class="meta"><span>前厅 <b>' + c['前厅'] + '</b></span><span>后厨 <b>' + c['后厨'] + '</b></span><span>扣分 ' + c['扣分项'] + ' 项</span>' +
       (d != null ? '<span>比上次（' + p['日期'].slice(5).replace('-', '/') + ' ' + p['合计'] + '）<b class="' + (d >= 0 ? 'up' : 'dn') + '">' + (d >= 0 ? '▲' : '▼') + Math.abs(d) + '</b></span>' : '') +
       ((c['严重'] || []).length ? '<span class="dn">严重：' + c['严重'].map(i => esc(i['项'])).join('、') + '</span>' : '') + '</div>';

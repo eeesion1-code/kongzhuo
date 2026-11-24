@@ -88,7 +88,7 @@ textarea{min-height:120px;resize:vertical}
 // 11/18 用户：「单独的会计部键这个 APP 也做出来，因为给会计部看，然后让他们说有什么想更新的」。
 // 数据接口和「空桌一览」同一个后台（Apps Script）；会计部密码（或老板密码）才看得到。只有登记过的手机能用（手机编号 dv）。
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kuaiji-v14';
+const APPV = 'kuaiji-v15';
 // 11/19 自检：提需求「测试版 → 老板确认 → 正式版」流程跑通（这一行就是自检时上线的改动）
 const TEST = /\/test\//.test(location.pathname);
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 11/19 用户：「会计部跟运营部一样，不是 2 个网页」→ 空桌一览「🧾 会计」打开的是这份网页的副本 kongzhuo/kj.html（内容完全一样）   // 11/19 测试版（kuaiji/test/）：Claude 按需求改好先放这里，老板确认后才换成正式版   // 版本号：和 sw.js 的 V 一起改
@@ -99,6 +99,7 @@ const LS = {
 };
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const jq = s => esc(JSON.stringify(String(s == null ? '' : s)));   // 11/24 安全：数据放进按钮点击代码一律用 ${jq(x)}，不要写 '${x}'（esc 防不了代码里的引号）
 let K = LS.get('k', '');
 const fromUrl = (location.hash.match(/k=([^&]+)/) || [])[1];
 if (fromUrl) { K = decodeURIComponent(fromUrl); LS.set('k', K); history.replaceState(null, '', location.pathname); }
@@ -157,7 +158,7 @@ function ask(t) { const nm = TABS.find(x => x[0] === t)[1]; draft = `【${nm}】
 function render() {
   $('keybox').style.display = 'none'; $('main').style.display = 'block';
   $('age').textContent = AC && AC.now ? AC.now.slice(5) + ' 更新' : '';
-  $('tabs').innerHTML = TABS.map(([k, n]) => `<button class="${tab === k ? 'on' : ''}" onclick="go('${k}')">${n}</button>`).join('');
+  $('tabs').innerHTML = TABS.map(([k, n]) => `<button class="${tab === k ? 'on' : ''}" onclick="go(${jq(k)})">${n}</button>`).join('');
   let h = '';
   if (tab === 'sx') h += renderSx();
   else if (tab === 'msg') h += renderRq();
@@ -166,7 +167,7 @@ function render() {
     const nm = TABS.find(x => x[0] === tab)[1], [what, src] = INFO[tab];
     h += `<div class="miss">🧾 ${nm}：<b>数据源无</b>——还没接上数据（先把页面做出来，请会计部先看看想要什么）。</div>`
       + `<div class="card"><div class="ct">接上以后这里显示</div><div class="note">${what}</div><div class="ct" style="margin-top:10px">数据从哪里来</div><div class="note">${src}</div>`
-      + `<button class="btn sub" onclick="ask('${tab}')">💬 对这一页提意见</button></div>`;
+      + `<button class="btn sub" onclick="ask(${jq(tab)})">💬 对这一页提意见</button></div>`;
   }
   $('body').innerHTML = h;
   $('foot').innerHTML = `只有会计部密码和股东密码看得到。<br><a onclick="changeKey()">🔑 换密码</a>　版本 ${APPV.replace('kuaiji-v', '')}`;
@@ -207,7 +208,7 @@ function renderSx() {
 }
 function renderSxMe() {
   const P = SX.people || [];
-  if (!sxWho || P.indexOf(sxWho) < 0) return '<div class="card"><div class="ct">你是谁？</div><div class="note">选一次就记住，以后打开直接是你的事项。</div><div class="who">' + P.map(n => '<button onclick="sxSetWho(\'' + esc(n) + '\')">' + esc(n) + '</button>').join('') + '</div></div>';
+  if (!sxWho || P.indexOf(sxWho) < 0) return '<div class="card"><div class="ct">你是谁？</div><div class="note">选一次就记住，以后打开直接是你的事项。</div><div class="who">' + P.map(n => '<button onclick="sxSetWho(' + jq(n) + ')">' + esc(n) + '</button>').join('') + '</div></div>';
   const mine = SX.items.filter(it => it.who === sxWho);
   let h = '<div class="me">我是 <b>' + esc(sxWho) + '</b><a onclick="sxSetWho(\'\')">换人</a><span style="flex:1"></span><small style="color:var(--sub)">' + esc(SX.day.slice(5).replace('-', '/')) + '</small></div>';
   ['每日', '每月', '不定期'].forEach(cat => {
@@ -222,8 +223,8 @@ function sxItem(it) {
   const r = sxRep(it), late = sxLate(it), cur = r ? r[2] : '', busy = sxSaving === it.id;
   return '<div class="it' + (late ? ' late' : '') + (cur === '完成' ? ' done' : '') + '"><div class="nm">' + (it.imp ? '⭐ ' : '') + esc(it.n) + '</div>' +
     '<div class="dl">' + esc(sxDue(it)) + (late ? '　<b>已过期限，还没报完成</b>' : '') + '</div><div class="now">' + sxNow(r) + '</div>' +
-    '<div class="bt3"><button class="b1' + (cur === '完成' ? ' cur' : '') + '"' + (busy ? ' disabled' : '') + ' onclick="sxSend(\'' + it.id + '\',\'完成\')">完成</button><button class="b2' + (cur === '进行中' ? ' cur' : '') + '"' + (busy ? ' disabled' : '') + ' onclick="sxSend(\'' + it.id + '\',\'进行中\')">进行中</button><button class="b3' + (cur === '卡住' ? ' cur' : '') + '"' + (busy ? ' disabled' : '') + ' onclick="sxStuckOpen(\'' + it.id + '\')">卡住</button></div>' +
-    (sxStuck === it.id ? '<div class="stk"><input id="sxk_' + it.id + '" placeholder="卡在哪里？（必填，一句话）" maxlength="200" enterkeyhint="send" onkeydown="if(event.key===\'Enter\')sxSend(\'' + it.id + '\',\'卡住\')"><button class="btn"' + (busy ? ' disabled' : '') + ' onclick="sxSend(\'' + it.id + '\',\'卡住\')">' + (busy ? '提交中…' : '提交「卡住」') + '</button></div>' : '') +
+    '<div class="bt3"><button class="b1' + (cur === '完成' ? ' cur' : '') + '"' + (busy ? ' disabled' : '') + ' onclick="sxSend(' + jq(it.id) + ',\'完成\')">完成</button><button class="b2' + (cur === '进行中' ? ' cur' : '') + '"' + (busy ? ' disabled' : '') + ' onclick="sxSend(' + jq(it.id) + ',\'进行中\')">进行中</button><button class="b3' + (cur === '卡住' ? ' cur' : '') + '"' + (busy ? ' disabled' : '') + ' onclick="sxStuckOpen(' + jq(it.id) + ')">卡住</button></div>' +
+    (sxStuck === it.id ? '<div class="stk"><input id="sxk_' + esc(it.id) + '" placeholder="卡在哪里？（必填，一句话）" maxlength="200" enterkeyhint="send" onkeydown="if(event.key===\'Enter\')sxSend(' + jq(it.id) + ',\'卡住\')"><button class="btn"' + (busy ? ' disabled' : '') + ' onclick="sxSend(' + jq(it.id) + ',\'卡住\')">' + (busy ? '提交中…' : '提交「卡住」') + '</button></div>' : '') +
     (busy && sxStuck !== it.id ? '<div class="note">保存中…</div>' : '') + '</div>';
 }
 function sxStuckOpen(id) { sxStuck = sxStuck === id ? '' : id; sxMsg = ''; render(); setTimeout(() => { const e = $('sxk_' + id); if (e) e.focus(); }, 30); }
@@ -362,7 +363,7 @@ function renderRq() {
   if (RQ.owner && boss.length) {
     h += `<div class="card" style="border:2px solid #d97706"><div class="ct">🔒 等你决定（${boss.length} 条）</div><div class="note">碰到 营业额谁能看・密码登录・删数据・改后台 的，Claude 不自己做。</div>`
       + boss.map(r => `<div class="row"><b>${esc(r.id)}</b>　<small>${esc(r.who)}　${esc(r.t.slice(5))}</small><div>${esc(r.v)}</div>${r.note ? `<div class="note">🛠 Claude：${esc(r.note)}</div>` : ''}`
-        + `<div class="bt3" style="grid-template-columns:1fr 1fr"><button class="b1" onclick="rqYes('${r.id}',1)">同意做</button><button class="b3" onclick="rqYes('${r.id}',0)">不做</button></div></div>`).join('')
+        + `<div class="bt3" style="grid-template-columns:1fr 1fr"><button class="b1" onclick="rqYes(${jq(r.id)},1)">同意做</button><button class="b3" onclick="rqYes(${jq(r.id)},0)">不做</button></div></div>`).join('')
       + (wait.length ? '' : rqMsg) + '</div>';
   }
   h += `<div class="card"><div class="ct">全部需求（${rows.length} 条）</div>` + (rows.length ? rows.map(r => {
@@ -372,8 +373,8 @@ function renderRq() {
       + (r.note ? `<div class="note">${ask ? '❓ Claude 问：' : '🛠 Claude：'}${esc(r.note)}</div>` : '')
       + (r.back ? `<div class="note">意见：${esc(r.back)}</div>` : '')
       + ((r.st === '做好待确认' || r.st === '部门确认中') && r.test ? `<div class="note"><a href="${esc(r.test)}" target="_blank" style="color:var(--brand)">🧪 打开测试版看看</a></div>` : '')
-      + (ask || rqOpen === r.id ? `<div class="stk"><input id="rqr_${r.id}" placeholder="${ask ? '回答 Claude 的问题' : '补充一句'}" maxlength="500"><button class="btn" style="background:var(--brand)" onclick="rqReply('${r.id}')">补充</button></div>`
-        : (r.st !== '不做' ? `<div class="note"><a onclick="rqToggle('${r.id}')" style="color:var(--brand);cursor:pointer">➕ 补充</a></div>` : ''))
+      + (ask || rqOpen === r.id ? `<div class="stk"><input id="rqr_${esc(r.id)}" placeholder="${ask ? '回答 Claude 的问题' : '补充一句'}" maxlength="500"><button class="btn" style="background:var(--brand)" onclick="rqReply(${jq(r.id)})">补充</button></div>`
+        : (r.st !== '不做' ? `<div class="note"><a onclick="rqToggle(${jq(r.id)})" style="color:var(--brand);cursor:pointer">➕ 补充</a></div>` : ''))
       + (rqOpen === r.id || (ask && !rqOpen) ? rqMsg : '') + '</div>';
   }).join('') : '<div class="note">还没有。</div>') + '</div>';
   return h;
@@ -457,7 +458,7 @@ function renderNs() {
   const hist = (NS.hist || []).filter(x => mIn(x[1]));
   const sum = (a, f) => a.reduce((t, o) => t + (Number(o[f]) || 0), 0), hsum = hist.reduce((t, x) => t + (+x[2] || 0), 0);
   // 时间选择
-  h += '<div class="seg2" style="flex-wrap:wrap">' + [['m0', '本月'], ['m1', '上月'], ['y', '今年'], ['all', '全部'], ['c', '自选']].map(([k, n]) => `<button class="${nsP === k ? 'on' : ''}" style="flex:1 0 18%" onclick="nsSetP('${k}')">${n}</button>`).join('') + '</div>';
+  h += '<div class="seg2" style="flex-wrap:wrap">' + [['m0', '本月'], ['m1', '上月'], ['y', '今年'], ['all', '全部'], ['c', '自选']].map(([k, n]) => `<button class="${nsP === k ? 'on' : ''}" style="flex:1 0 18%" onclick="nsSetP(${jq(k)})">${n}</button>`).join('') + '</div>';
   if (nsP === 'c') h += `<div class="stk" style="display:grid;grid-template-columns:1fr auto 1fr auto;gap:6px;align-items:center"><input id="nsf" type="date" value="${esc(nsFrom)}"><span>〜</span><input id="nst" type="date" value="${esc(nsTo)}"><button class="btn" style="margin:0;padding:10px 12px;width:auto" onclick="nsSetC()">看</button></div>`
     + (nsFrom && nsTo ? '' : '<div class="note">选好开始和结束日期，按「看」。</div>');
   h += `<div class="note" style="margin:2px 2px 6px">期间：<b>${esc(lab)}</b>${fr !== '0000-00-00' ? '（' + fr + ' 〜 ' + to + '）' : ''}</div>`;
@@ -475,12 +476,12 @@ function renderNs() {
     const id = o['编号'], days = Math.floor((today - new Date(o['联系・时间'].slice(0, 10).replace(/\//g, '-'))) / 864e5);
     return `<div class="it${days >= 7 ? ' late' : ''}"><div class="nm">${esc(o['公司'])} ${esc(o['店'])}　${esc(o['客人'])} 様　<span style="color:var(--bad)">${yen(o['请求额'])}</span></div>`
       + `<div class="dl">预约 ${esc(o['预约日'].slice(5).replace('-', '/'))} ${esc(o['时间'])}　${esc(o['人数'])}名　合计 ${yen(o['合计'])}</div>`
-      + (o['电话'] || o['RB预约编号'] ? `<div class="dl">${o['电话'] ? `📞 <a href="tel:${esc(o['电话'])}" style="color:var(--brand);font-weight:700">${esc(o['电话'])}</a>　` : ''}${o['RB详情'] ? `<a onclick="togDet('${id}')" style="color:var(--brand);font-weight:700;cursor:pointer">📒 预约台账 ${detOpen.has(id) ? '▲' : '▼'}</a>` : ''}</div>` : '') + (detOpen.has(id) ? detPanel(o) : '')   // 11/19 跟进汇款用：客人电话・预约台账
+      + (o['电话'] || o['RB预约编号'] ? `<div class="dl">${o['电话'] ? `📞 <a href="tel:${esc(o['电话'])}" style="color:var(--brand);font-weight:700">${esc(o['电话'])}</a>　` : ''}${o['RB详情'] ? `<a onclick="togDet(${jq(id)})" style="color:var(--brand);font-weight:700;cursor:pointer">📒 预约台账 ${detOpen.has(id) ? '▲' : '▼'}</a>` : ''}</div>` : '') + (detOpen.has(id) ? detPanel(o) : '')   // 11/19 跟进汇款用：客人电话・预约台账
       + `<div class="dl">${esc(o['联系・结果'])}：${esc(o['联系・谁'])} ${esc(o['联系・时间'].slice(5))}（${days} 天前${days >= 7 ? '，<b>超过一周还没到账</b>' : ''}）${o['联系・说明'] ? '　' + esc(o['联系・说明']) : ''}</div>`
-      + `<div class="bt3" style="grid-template-columns:1fr 1fr"><button class="b1${nsOpen[id] === 'ok' ? ' cur' : ''}" onclick="nsPick('${id}','ok')">✅ 回款成功</button><button class="b3${nsOpen[id] === 'ng' ? ' cur' : ''}" onclick="nsPick('${id}','ng')">✗ 没回款</button></div>`
+      + `<div class="bt3" style="grid-template-columns:1fr 1fr"><button class="b1${nsOpen[id] === 'ok' ? ' cur' : ''}" onclick="nsPick(${jq(id)},'ok')">✅ 回款成功</button><button class="b3${nsOpen[id] === 'ng' ? ' cur' : ''}" onclick="nsPick(${jq(id)},'ng')">✗ 没回款</button></div>`
       + (nsOpen[id] === 'ok' ? `<div class="stk" style="display:grid;grid-template-columns:1fr 1fr;gap:6px"><input id="na_${esc(id)}" inputmode="numeric" placeholder="到账金额" value="${esc(o['请求额'])}"><input id="nd_${esc(id)}" type="date" value="${td}"></div>`
-        + `<div class="stk"><input id="nh_${esc(id)}" placeholder="备注（例：银行汇款、现金）" maxlength="200"><button class="btn" style="background:#16a34a" onclick="nsPaid('${id}')">确认：回款成功</button></div>` : '')
-      + (nsOpen[id] === 'ng' ? `<div class="stk"><input id="nr_${esc(id)}" placeholder="为什么没回款（例：客人不付了、联系不上）必填" maxlength="200"><button class="btn" onclick="nsNg('${id}')">确认：没回款</button></div>` : '')
+        + `<div class="stk"><input id="nh_${esc(id)}" placeholder="备注（例：银行汇款、现金）" maxlength="200"><button class="btn" style="background:#16a34a" onclick="nsPaid(${jq(id)})">确认：回款成功</button></div>` : '')
+      + (nsOpen[id] === 'ng' ? `<div class="stk"><input id="nr_${esc(id)}" placeholder="为什么没回款（例：客人不付了、联系不上）必填" maxlength="200"><button class="btn" onclick="nsNg(${jq(id)})">确认：没回款</button></div>` : '')
       + `${nsMsg[id] || ''}</div>`;
   }).join('') : '<div class="note">这段时间没有等汇款的。</div>');
   // 按店
@@ -488,7 +489,7 @@ function renderNs() {
   rows.forEach(o => { const k = o['公司'] + ' ' + o['店'], b = by[k] = by[k] || { n: 0, a: 0, q: 0, g: 0 }; b.n++; b.a += +o['合计'] || 0; if (NS_PAY.includes(o['联系・结果'])) b.q += +o['请求额'] || 0; b.g += +o['到账・金额'] || 0; });
   const ks = Object.keys(by).sort((x, y) => by[y].n - by[x].n || by[y].a - by[x].a);
   if (ks.length) h += `<div class="grp">🏪 按店（${esc(lab)}）</div><div class="card">` + ks.map(k => `<div class="row"><b>${esc(k)}</b>　${by[k].n} 组　预约合计 ${yen(by[k].a)}<br><small>请求 ${yen(by[k].q)}・已收回 ${yen(by[k].g)}</small></div>`).join('') + '</div>';
-  h += `<div class="grp">✓ 会计已确认（${paid.length}）</div>` + (paid.length ? '<div class="card">' + paid.slice(0, 50).map(o => `<div class="row">${esc(paidDay(o))}　${+o['到账・金额'] ? '<b>' + yen(o['到账・金额']) + '</b>' : '<b style="color:var(--bad)">✗ 没回款</b>'}　${esc(o['公司'])} ${esc(o['店'])} ${esc(o['客人'])} 様<br><small>确认：${esc(o['到账・谁'])}${o['到账・说明'] ? '　' + esc(o['到账・说明']) : ''}　</small><a onclick="nsUndo('${o['编号']}')" style="color:var(--sub);font-size:12px;text-decoration:underline;cursor:pointer">撤销</a>${nsMsg[o['编号']] || ''}</div>`).join('') + '</div>' : '<div class="note">这段时间还没有。</div>');
+  h += `<div class="grp">✓ 会计已确认（${paid.length}）</div>` + (paid.length ? '<div class="card">' + paid.slice(0, 50).map(o => `<div class="row">${esc(paidDay(o))}　${+o['到账・金额'] ? '<b>' + yen(o['到账・金额']) + '</b>' : '<b style="color:var(--bad)">✗ 没回款</b>'}　${esc(o['公司'])} ${esc(o['店'])} ${esc(o['客人'])} 様<br><small>确认：${esc(o['到账・谁'])}${o['到账・说明'] ? '　' + esc(o['到账・说明']) : ''}　</small><a onclick="nsUndo(${jq(o['编号'])})" style="color:var(--sub);font-size:12px;text-decoration:underline;cursor:pointer">撤销</a>${nsMsg[o['编号']] || ''}</div>`).join('') + '</div>' : '<div class="note">这段时间还没有。</div>');
   // 每月：APP 里的（请求・到账）＋ 用户给的返金历史（各公司每月收回）
   const byM = {};
   hist.forEach(x => { const m = x[1]; (byM[m] = byM[m] || { h: 0, q: 0, g: 0, co: {} }).h += +x[2] || 0; byM[m].co[x[0]] = (byM[m].co[x[0]] || 0) + (+x[2] || 0); });

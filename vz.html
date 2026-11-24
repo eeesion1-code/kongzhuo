@@ -75,6 +75,7 @@ const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qs
 const LS = { get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} } };
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const jq = s => esc(JSON.stringify(String(s == null ? '' : s)));   // 11/24 安全：数据放进按钮点击代码一律用 ${jq(x)}，不要写 '${x}'（esc 防不了代码里的引号）
 const K = LS.get('k', '');
 const DV = (() => { let v = LS.get('dv', ''); if (!/^[0-9a-f]{32}$/.test(v)) { const a = new Uint8Array(16); crypto.getRandomValues(a); v = Array.from(a, b => b.toString(16).padStart(2, '0')).join(''); LS.set('dv', v); } return v; })();
 const DVUA = (() => { const u = navigator.userAgent, st = (navigator.standalone || (window.matchMedia && matchMedia('(display-mode: standalone)').matches)) ? '主屏幕APP' : '浏览器'; let m;
@@ -121,7 +122,7 @@ function onQ(v) { q = v; renderList(); }
 function render() {
   $('at').textContent = AT ? AT.slice(5) + ' 更新' : '';
   let h = '<div class="cos">' + COS.map(c => { const n = P.filter(p => p['公司'] === c && (expWarn(p) || needRep(p))).length, ci = C[c] || {};
-    return '<button class="' + (c === co ? 'on' : '') + '" onclick="setCo(\'' + c + '\')">' + c + '<small>' + (ci['在职'] != null ? ci['在职'] + ' 人' : '—') + '</small>' + (n ? '<i class="dot">' + n + '</i>' : '') + '</button>'; }).join('') + '</div>';
+    return '<button class="' + (c === co ? 'on' : '') + '" onclick="setCo(' + jq(c) + ')">' + c + '<small>' + (ci['在职'] != null ? ci['在职'] + ' 人' : '—') + '</small>' + (n ? '<i class="dot">' + n + '</i>' : '') + '</button>'; }).join('') + '</div>';
   const ci = C[co] || {}, L = P.filter(p => p['公司'] === co);
   if (ci['错']) h += '<div class="alert r"><b>⚠ ' + esc(ci['错']) + '</b></div>';
   // 公司（入管来电通常先问：公司名・所在地・代表者・员工人数）
