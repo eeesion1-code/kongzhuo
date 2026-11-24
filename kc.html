@@ -52,6 +52,8 @@ table.ln{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}table
 .grp{font-size:13px;color:var(--sub);font-weight:700;margin:14px 2px 2px}
 .step{display:grid;grid-template-columns:28px 1fr;gap:8px;padding:8px 0;border-top:1px solid var(--line)}.step:first-of-type{border-top:0}.step b{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--soft);font-size:13px}.step.on b{background:var(--brand);color:#fff}
 .step div{font-size:14px;line-height:1.6}.step small{color:var(--sub);font-size:12.5px}
+.pxs{display:flex;align-items:flex-end;gap:3px;height:34px;margin-top:6px}.pxs i{flex:1;max-width:22px;background:var(--soft);border-radius:3px 3px 0 0;position:relative}.pxs i.up{background:#fca5a5}.pxs i.dn{background:#86efac}.pxs i.lt{outline:2px solid var(--ink)}
+.pxl{font-size:11.5px;color:var(--sub);margin-top:3px;line-height:1.5;word-break:break-all}.pst{display:inline-block;font-size:11.5px;font-weight:700;border-radius:6px;padding:0 6px;margin-left:4px}.ps1{background:#fee2e2;color:#991b1b}.ps2{background:#fef3c7;color:#92400e}.ps3{background:#e0e7ff;color:#3730a3}.ps4{background:var(--soft);color:var(--sub)}.ps5{background:#dcfce7;color:#166534}
 .testbar{position:sticky;top:0;z-index:9;background:#facc15;color:#422006;font-size:13.5px;font-weight:700;text-align:center;padding:calc(7px + env(safe-area-inset-top)) 8px 7px}
 </style>
 </head>
@@ -78,7 +80,7 @@ table.ln{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}table
 // 数据：电脑 Desktop\CLAUDE\库存管理\库存汇总.py 汇总后写云端「库存管理」表 → 后台 what=kc 读（股东・会计部密码），what=kcdo 签名（编号 kc| 开头）。
 // rows：head（分析・合计）／st（每店）／it（商品，按金额排）／sl（每张单据＋明细）／is（问题，lv r/y）；sg＝谁已处理 {id:[谁,时间,怎么处理]}
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kucun-v2';
+const APPV = 'kucun-v3';
 const TEST = /\/test\//.test(location.pathname);
 const DEMO = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) && /demo/.test(location.search);   // 本机预览：读 kc_demo.json
 const LS = {
@@ -101,7 +103,7 @@ const DVUA = (() => { const u = navigator.userAgent; let m;
 const api = q => DEMO ? fetch('kc_demo.json', { cache: 'no-store' }).then(r => r.json())
   : fetch(API + '?fmt=json' + q + '&k=' + encodeURIComponent(K) + '&dv=' + DV + '&ua=' + encodeURIComponent(DVUA), { cache: 'no-store' }).then(r => r.json());
 
-const TABS = [['ov', '📊 总览'], ['st', '🏪 各店进货'], ['it', '📦 商品'], ['is', '⚠️ 问题'], ['zk', '🗃 在库盘点'], ['cb', '🍳 成本卡'], ['plan', '📐 规划']];
+const TABS = [['ov', '📊 总览'], ['st', '🏪 各店进货'], ['it', '📦 商品'], ['is', '⚠️ 问题'], ['px', '💹 涨价'], ['zk', '🗃 在库盘点'], ['cb', '🍳 成本卡'], ['plan', '📐 规划']];
 let tab = LS.get('kcTab', 'ov'), D = null, err = '', busy = false, store = LS.get('kcStore', ''), cat = 'all', q = '', abc = 'all', msg = {}, showDone = false, zkStore = LS.get('kcZk', '');
 if (!TABS.some(t => t[0] === tab)) tab = 'ov';
 if (TEST) $('tb').innerHTML = '<div class="testbar">🧪 测试版（股东确认后才上线）</div>';
@@ -142,7 +144,7 @@ function render() {
   $('tabs').innerHTML = TABS.map(([k, n]) => `<button class="${tab === k ? 'on' : ''}" onclick="go(${jq(k)})">${n}${k === 'is' ? openCount() : ''}</button>`).join('');
   let h = err ? `<div class="miss">${esc(err)}（显示的是上次读到的）</div>` : '';
   if (!D || !h0.ym) h += `<div class="card"><div class="note">${busy ? '读取中…' : '还没有数据（电脑每天汇总一次）'}</div></div>`;
-  else h += ({ ov: rOv, st: rSt, it: rIt, is: rIs, zk: rZk, cb: rCb, plan: rPlan })[tab]();
+  else h += ({ ov: rOv, st: rSt, it: rIt, is: rIs, px: rPx, zk: rZk, cb: rCb, plan: rPlan })[tab]();
   $('body').innerHTML = h;
   $('foot').innerHTML = `只有股东密码・会计部密码看得到。金额一律税抜。<br>${DEMO ? '本机预览数据' : '<a onclick="changeKey()">🔑 换密码</a>'}　<a onclick="load(1)">🔄 重新读取</a>　版本 ${APPV.replace('kucun-v', '')}`;
 }
@@ -244,6 +246,32 @@ function rIs() {
   kinds.forEach(kd => { const g = open.filter(x => x.kind === kd); h += `<div class="grp">${esc(kd)}（${g.length}）</div>` + g.map(card).join(''); });
   if (done.length) h += `<div class="grp"><a onclick="showDone=!showDone;render()" style="color:var(--brand);cursor:pointer">✅ 已处理 ${done.length} 条（${showDone ? '收起' : '展开'}）</a></div>` + (showDone ? done.map(card).join('') : '');
   return h;
+}
+
+// ===== 💹 涨价（11/24 用户：「日本涨价很厉害，他们涨了什么我们都不知道，是不是临时涨的？」）=====
+// 后台 rows t=px：k・nm・sup・cat・st(持续涨价/刚涨・待观察/临时涨价・已回落/之前已涨・维持/降价)・base・last・chg・mq(每月用量)・imp(每月多花)・h[[日期,单价,店]]・veg・chk(差距太大要核对)
+let pxF = 'up';
+const PXS = { '持续涨价': 'ps1', '刚涨・待观察': 'ps2', '临时涨价・已回落': 'ps3', '之前已涨・维持': 'ps4', '降价': 'ps5' };
+function rPx() {
+  const all = rows('px'), ok = all.filter(p => !p.chk), c = {};
+  ok.forEach(p => c[p.st] = (c[p.st] || 0) + 1);
+  const up = ok.filter(p => p.st === '持续涨价' || p.st === '刚涨・待观察'), more = up.reduce((a, p) => a + p.imp, 0);
+  let h = `<div class="kp"><div><b style="color:var(--bad)">${c['持续涨价'] || 0}</b><small>持续涨价</small></div><div><b style="color:var(--y)">${c['刚涨・待观察'] || 0}</b><small>刚涨待观察</small></div><div><b>${c['临时涨价・已回落'] || 0}</b><small>临时已回落</small></div><div><b style="color:var(--ok)">${c['降价'] || 0}</b><small>降价</small></div></div>`;
+  h += `<div class="card"><div class="ct">这个月涨价，每月多花约 ${man(more)}</div><div class="note" style="margin-top:0">每个商品按<b>每一次进货的单价</b>排成走势（リクエ 还有 7〜10 月的月平均）。和之前（最近 3 次）比：<br>`
+    + `<span class="pst ps1">持续涨价</span>最近两次都比以前贵　<span class="pst ps2">刚涨・待观察</span>只有最近一次贵<br><span class="pst ps3">临时涨价・已回落</span>中间贵过、现在回来了　<span class="pst ps4">之前已涨・维持</span>比最早的记录贵、这个月没再变<br>`
+    + `🥬 蔬菜是时价，受天气影响，常常是临时的。「每月多花」＝（现在单价−以前单价）×每月用量。单据只到 ${esc((head().last || '').slice(5))}，月底会更准。</div></div>`;
+  const F = [['up', '涨价'], ['持续涨价', '持续'], ['刚涨・待观察', '刚涨'], ['临时涨价・已回落', '临时'], ['之前已涨・维持', '之前已涨'], ['降价', '降价'], ['veg', '🥬 蔬菜'], ['chk', '⚠ 要核对']];
+  h += `<div class="chips">${F.map(([k, n]) => `<button class="${pxF === k ? 'on' : ''}" onclick="pxF=${jq(k)};render()">${n}</button>`).join('')}</div>`;
+  const L = all.filter(p => pxF === 'chk' ? p.chk : !p.chk && (pxF === 'up' ? (p.st !== '降价') : pxF === 'veg' ? p.veg : p.st === pxF));
+  if (!L.length) return h + '<div class="card"><div class="note">没有</div></div>';
+  return h + '<div class="card">' + L.slice(0, 80).map(p => {
+    const mx = Math.max(...p.h.map(x => x[1])), mn = Math.min(...p.h.map(x => x[1]));
+    const bars = p.h.map((x, i) => `<i class="${x[1] > p.base * 1.03 ? 'up' : x[1] < p.base * 0.97 ? 'dn' : ''}${i === p.h.length - 1 ? ' lt' : ''}" style="height:${mx === mn ? 60 : 25 + 75 * (x[1] - mn) / (mx - mn)}%" title="${esc(x[0])} ${esc(x[1])}"></i>`).join('');
+    return `<div class="irow"><div class="nm">${p.veg ? '🥬 ' : ''}${esc(p.nm)}<span class="pst ${PXS[p.st] || 'ps4'}">${esc(p.st)}</span></div>`
+      + `<div class="sm">${esc(p.sup)}・${yen(p.base)} → <b style="color:${p.chg > 0 ? 'var(--bad)' : 'var(--ok)'}">${yen(p.last)}（${p.chg > 0 ? '+' : ''}${(p.chg * 100).toFixed(0)}%）</b>${p.chk ? '・⚠ 差距太大，先核对规格' : `・每月${p.imp >= 0 ? '多花' : '省'}约 ${yen(Math.abs(p.imp))}`}</div>`
+      + `<div class="pxs">${bars}</div><div class="pxl">${p.h.map(x => `${esc(x[0])} ${Math.round(x[1]).toLocaleString('ja-JP')}${x[2] ? '（' + esc(x[2]) + '）' : ''}`).join(' › ')}</div>`
+      + (p.stores.length ? `<div class="pxl">本月进货的店：${p.stores.map(esc).join('・')}</div>` : '') + '</div>';
+  }).join('') + (L.length > 80 ? `<div class="note">只显示影响最大的 80 个（共 ${L.length} 个）</div>` : '') + '</div>';
 }
 
 // ===== 🗃 在库盘点（第 2 阶段：先给出各店盘点表的样子）=====
