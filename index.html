@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
@@ -617,7 +617,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
 })();
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v126';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v127';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -1795,7 +1795,12 @@ function svOneMerge(x) {
   return Object.assign({}, x, { s: out });
 }
 function svCostM(ym) { return SV && !SV.sk && SV.cost ? SV.cost[ym] || null : null; }
-function svCostKey(C, r) { return C ? C.reg[svCln(r.mg ? r.mg[0] : r[1])] || null : null; }
+// 11/24 v127：今天（实时读数）的店名没有「(ID)」、结账后带「（已结账）」，和日报店名对不上 → 去掉 (ID)・空格再对一次
+function svCostN(s) { return svCln(s).replace(/\(ID\)|（ID）/g, '').replace(/[\s　]/g, ''); }
+function svCostKey(C, r) { return svCostK(C, r.mg ? r.mg[0] : r[1]); }
+function svCostK(C, nm) { if (!C) return null;
+  if (!C.regN) { C.regN = {}; Object.entries(C.reg || {}).forEach(([k, v]) => { C.regN[svCostN(k)] = v; }); }
+  return C.reg[svCln(nm)] || C.regN[svCostN(nm)] || null; }
 // 这家店那个月 KA 的比例；某项看起来还没填（人件・食材 <5%、酒水 <0.5%）→ AI 预估用上个月 KA 同一家店的比例补，并写出来
 function svCostRates(ym, k) {
   const key = 'CR' + ym + k; if (key in svFcMemo) return svFcMemo[key];
@@ -1818,10 +1823,10 @@ function svStMonFc(ym) {
   const o = k => out[k] || (out[k] = { a: 0, f: 0 });
   svMonDays(y, m).forEach(ds => {
     const x = ds < today && (SV.map[ds] || (ds === svLiveDay() && svGet(ds)));
-    if (x) { x.s.forEach(r => { const k = C.reg[svCln(r[1])]; if (k) o(k).a += r[2] || 0; }); return; }
+    if (x) { x.s.forEach(r => { const k = svCostK(C, r[1]); if (k) o(k).a += r[2] || 0; }); return; }
     if (!M) return;
     const f = svFDay(ds), adj = f.t0 ? f.t / f.t0 : 1, tp = svType(ds), w = tp === 'H' ? 0 : tp === 'P' ? 6 : svDate(ds).getDay();
-    M.open.forEach(n => { const k = C.reg[svCln(n)]; if (!k) return; let v = svFStore(M, n, ds); if (v == null) v = (M.base[n] || [])[w] || 0; o(k).f += v * adj; });
+    M.open.forEach(n => { const k = svCostK(C, n); if (!k) return; let v = svFStore(M, n, ds); if (v == null) v = (M.base[n] || [])[w] || 0; o(k).f += v * adj; });
   });
   return svFcMemo[key] = out;
 }

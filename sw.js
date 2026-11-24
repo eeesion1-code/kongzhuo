@@ -1,8 +1,8 @@
-// 只缓存网页外壳（断网也能打开）；数据每次都从网上读，读不到时网页自己显示上次的数据
+﻿// 只缓存网页外壳（断网也能打开）；数据每次都从网上读，读不到时网页自己显示上次的数据
 // 11/14 用户：网页卡 → 打开 APP 时先上网拿新网页，1.5 秒没拿到就先用手机里存的（网上那份照样存起来，下次就是新的）；
 //   换版本靠网页里的 checkUpdate（发现 sw.js 版本变了就重新载入）。
 //   kz-data＝网页自己存的营业额历史（换版本时不删）。
-const V = 'kongzhuo-v126';
+const V = 'kongzhuo-v127';
 const KEEP = ['kz-data'];
 const SHELL = ['./', './index.html', './pj.html', './gg.html', './kj.html', './vz.html', './sp.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 self.addEventListener('install', e => {
