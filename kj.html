@@ -95,7 +95,7 @@ textarea{min-height:120px;resize:vertical}
 // 11/18 用户：「单独的会计部键这个 APP 也做出来，因为给会计部看，然后让他们说有什么想更新的」。
 // 数据接口和「空桌一览」同一个后台（Apps Script）；会计部密码（或老板密码）才看得到。只有登记过的手机能用（手机编号 dv）。
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kuaiji-v16';
+const APPV = 'kuaiji-v17';
 // 11/19 自检：提需求「测试版 → 老板确认 → 正式版」流程跑通（这一行就是自检时上线的改动）
 const TEST = /\/test\//.test(location.pathname);
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 11/19 用户：「会计部跟运营部一样，不是 2 个网页」→ 空桌一览「🧾 会计」打开的是这份网页的副本 kongzhuo/kj.html（内容完全一样）   // 11/19 测试版（kuaiji/test/）：Claude 按需求改好先放这里，老板确认后才换成正式版   // 版本号：和 sw.js 的 V 一起改
@@ -392,7 +392,7 @@ function renderRq() {
 // ===== 11/24 🔎 成本异常（用户：「APP里面做一个键，分析预估成本表格是否有出现异常…每一天生成一次异常」）=====
 // 电脑 会计部\成本预估异常\成本预估异常.py 每天 9:30 读云端「当月成本预估」（Google 网页实时数）→ 后台「成本预估异常」表。
 // 后台 what=cy 读（rows：第 1 个是 head，后面每条 it：id・lv(r/y)・st・cat・t・why・fix；sg＝谁已处理）、what=cydo 签名（编号 cy| 开头）。
-let CY = (() => { try { return JSON.parse(LS.get('accy', 'null')); } catch (e) { return null; } })(), cyBusy = false, cyErr = '', cyAt = 0, cyMsg = {}, cyShowDone = false;
+let CY = (() => { try { return JSON.parse(LS.get('accy', 'null')); } catch (e) { return null; } })(), cyBusy = false, cyErr = '', cyAt = 0, cyMsg = {}, cyShowDone = false, cySdTbl = false;
 async function loadCy(force) {
   if (cyBusy || (!force && Date.now() - cyAt < 20000)) return; cyBusy = true; cyAt = Date.now();
   try {
@@ -420,8 +420,9 @@ async function cyDo(i, undo) {
   render();
 }
 function cyTog() { cyShowDone = !cyShowDone; render(); }
+function cySdTog() { cySdTbl = !cySdTbl; render(); }
 function renderCy() {
-  let h = `<div class="card"><div class="ct">🔎 成本预估异常</div><div class="note">电脑每天 <b>9:30</b> 读云端「当月成本预估」（Google 网页上的实时数），检查：漏填・比例离谱・公式被改・合计不对・固定费和上月差很多・营业额没更新・照现在的成本比例会不会亏。<br>改好表格后第二天自动消失；处理了也请在每条下面签名（写怎么处理的），大家都看得到。</div></div>`;
+  let h = `<div class="card"><div class="ct">🔎 成本预估异常</div><div class="note">电脑每天 <b>9:30</b> 读云端「当月成本预估」（Google 网页上的实时数），检查：漏填・比例离谱・公式被改・合计不对・固定费和上月差很多・营业额没更新・照现在的成本比例会不会亏。下面另有每月一次的「⚡💧 水电月报」。<br>改好表格后第二天自动消失；处理了也请在每条下面签名（写怎么处理的），大家都看得到。</div></div>`;
   if (!CY) return h + `<div class="card"><div class="note">${cyBusy ? '读取中…' : esc(cyErr || '还没有数据')}</div></div>`;
   if (cyErr) h += `<div class="miss">${esc(cyErr)}（显示的是上次读到的）</div>`;
   const hd = (CY.rows || []).find(x => x && x.k === 'head') || {}, sg = CY.sg || {}, all = cyItems(), nw = new Set(hd.new || []);
@@ -429,7 +430,8 @@ function renderCy() {
   const td = new Date(), tds = td.getFullYear() + '-' + String(td.getMonth() + 1).padStart(2, '0') + '-' + String(td.getDate()).padStart(2, '0');
   if (hd.d !== tds) h += `<div class="miss">⚠ 这是 ${esc(hd.d)} 生成的，今天的还没出来（电脑每天 9:30 跑，可能电脑没开或出错了）。</div>`;
   if (hd.live === false) h += '<div class="miss">⚠ 今天没读到 Google 网页上的实时数，用的是文件存档的旧数，可能不准。</div>';
-  const open = all.map((x, i) => [x, i]).filter(([x]) => !sg[x.id]), done = all.map((x, i) => [x, i]).filter(([x]) => sg[x.id]);
+  const pr = all.map((x, i) => [x, i]), dly = pr.filter(([x]) => x.m !== 'sd'), sdp = pr.filter(([x]) => x.m === 'sd');   // 11/24 m=sd＝每月水电月报的条
+  const open = dly.filter(([x]) => !sg[x.id]), done = dly.filter(([x]) => sg[x.id]);
   const nr = open.filter(([x]) => x.lv === 'r').length, ny = open.length - nr;
   h += `<div class="note" style="margin:2px 2px 6px">${esc(hd.sheet || '')} 页・${esc(hd.at || '')} 读・${esc(hd.n_store || '')} 家店</div>`;
   h += `<div class="kp" style="grid-template-columns:repeat(3,1fr)"><div class="r"><b>${nr}</b><small>🔴 要改</small></div><div><b style="color:#d97706">${ny}</b><small>🟡 要看</small></div><div><b style="color:var(--ok)">${done.length}</b><small>✅ 已处理</small></div></div>`;
@@ -444,10 +446,25 @@ function renderCy() {
         : `<div class="cysg"><input id="cyh_${i}" placeholder="怎么处理的"><button onclick="cyDo(${i})">✅ 已处理</button></div>`)
       + (cyMsg[x.id] || '') + '</div>';
   };
-  if (!all.length) h += '<div class="card"><div class="ok" style="margin:0">✓ 今天没有发现异常</div></div>';
+  if (!dly.length) h += '<div class="card"><div class="ok" style="margin:0">✓ 今天没有发现异常</div></div>';
   if (open.length) h += '<div class="grp">还没处理</div>' + open.map(card).join('');
-  else if (all.length) h += '<div class="card"><div class="ok" style="margin:0">✓ 全部处理完了</div></div>';
+  else if (dly.length) h += '<div class="card"><div class="ok" style="margin:0">✓ 全部处理完了</div></div>';
   if (done.length) h += `<div class="grp"><a onclick="cyTog()" style="color:var(--brand);cursor:pointer">✅ 已处理 ${done.length} 条（${cyShowDone ? '收起' : '展开'}）</a></div>` + (cyShowDone ? done.map(card).join('') : '');
+  const sh = (CY.rows || []).find(x => x && x.k === 'sdh');   // 11/24 ⚡💧 水电月报（电脑每月 25 日 水电月报.py）
+  if (sh) {
+    const pc = v => v ? (v * 100).toFixed(1) + '%' : '—', n0 = v => v ? Math.round(v).toLocaleString('ja-JP') : '—';
+    h += `<div class="grp" style="margin-top:22px">⚡💧 水电月报（每月 25 日更新）</div>`
+      + `<div class="card"><div class="ct">🧠 ${esc(sh.ym)} 水电分析</div><ul class="an">${(sh.sum || []).map(t => `<li>${esc(t)}</li>`).join('')}</ul><div class="note">${esc(sh.at || '')} 生成</div></div>`;
+    h += sdp.length ? sdp.map(card).join('') : '<div class="card"><div class="ok" style="margin:0">✓ 这个月水电没有偏高的店</div></div>';
+    if (sh.tbl && sh.tbl.length) {
+      h += `<div class="card"><a onclick="cySdTog()" style="color:var(--brand);cursor:pointer;font-weight:600">📊 各店水电明细（${cySdTbl ? '收起' : '展开'}）</a>`;
+      if (cySdTbl) h += `<div style="overflow-x:auto;margin-top:8px"><table style="border-collapse:collapse;font-size:12.5px;white-space:nowrap;width:100%">`
+        + '<tr>' + ['店', '㎡', '电费/月', 'kWh/㎡', '円/kWh', '电占营业额', '水费/月', '水占营业额', '标记'].map(t => `<th style="text-align:left;padding:4px 6px;border-bottom:1px solid var(--line);color:var(--sub)">${t}</th>`).join('') + '</tr>'
+        + sh.tbl.map(r => `<tr${r[8] ? ' style="color:var(--bad)"' : ''}>` + [esc(r[0]), r[1] ? Math.round(r[1]) : '—', n0(r[2]), r[3] || '—', r[4] || '—', pc(r[5]), n0(r[6]), pc(r[7]), esc(r[8] || '')].map(v => `<td style="padding:4px 6px;border-bottom:1px solid var(--line)">${v}</td>`).join('') + '</tr>').join('')
+        + '</table></div><div class="note">一般水平＝各店中位数；红字＝有偏高标记。</div>';
+      h += '</div>';
+    }
+  }
   h += `<button class="btn sub" onclick="loadCy(1)">🔄 重新读取</button>`;
   return h;
 }
