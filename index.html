@@ -612,7 +612,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
 })();
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v121';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v122';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -1764,6 +1764,8 @@ function svStoreRows(x, base, lim) {
 }
 function svMissHtml(x) {
   const short = svShort(x), E = short ? svMissEst(x) : null;
+  // 11/24 用户「以及APP修改」：早上下载失败（例：11/24 PE 网站 1:30〜9:30 打不开）不是店里没做レジ締め → 写真原因（营业额历史.py 的 dlerr）
+  if (E && E.rt && x.dlerr) return `<div class="svmiss">⚠ ${esc(x.dlerr[0])}（${esc(x.dlerr[1])} 试的），这 ${E.ms.length} 家还没换成收银后台的数：${E.ms.map(r => esc(r[0] + ' ' + r[1].slice(0, 14))).join('、')}。合计里先用实时程序的最后读数 ${cnBig(E.sum)}（可能不准），每天 7:10・8:10・10:45・11:30 自动再下，下到了自动换掉。</div>`;
   if (E && E.rt) return `<div class="svmiss">⚠ 收银后台还没有这 ${E.ms.length} 家的数据：${E.ms.map(r => esc(r[0] + ' ' + r[1].slice(0, 14))).join('、')}（多半是店里没做レジ締め）。合计里先用实时程序的最后读数 ${cnBig(E.sum)} 补上，收银数据一出来自动换掉、日报自动重做。</div>`;
   if (E) return `<div class="svmiss">⚠ 少 ${short} 家：${E.ms.map(r => esc(r[0] + ' ' + r[1].slice(0, 14))).join('、')}。那天收银台数据里没有这几家，合计少算了约 ${cnBig(E.sum)}（按 ${svMD(E.ref.d)} 同星期几估计）。每天 9:30 自动重下，补上后日报自动重做。</div>`;
   return '';
