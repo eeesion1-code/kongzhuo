@@ -617,7 +617,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
 })();
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v128';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v129';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -1840,7 +1840,7 @@ function svCostLine(r, ym) {
   const k = svCostKey(svCostM(ym), r); if (!k) return '';
   const A = svCostAi(ym, k); if (!A) return '';
   const v = A.R.v, cur = ym === svToday().slice(0, 7);
-  return `<small class="pf">💰 ${+ym.slice(5)}月 KA 预估利益 <b class="${v.p >= 0 ? 'g' : 'rr'}">${svPm(v.p)}</b>　人件 ${svCPct(v.lab)}・食材 ${svCPct(v.food)}・酒水 ${svCPct(v.drink)}`
+  return `<small class="pf">💰 <span class="${v.p >= 0 ? 'g' : 'rr'}">${+ym.slice(5)}月 KA 预估利益 <b>${svPm(v.p)}</b></span>　人件 ${svCPct(v.lab)}・食材 ${svCPct(v.food)}・酒水 ${svCPct(v.drink)}`
     + `<br>🤖 AI ${cur ? '月底' : '整月'}利润 ${A.ai == null ? '—' : `<b class="${A.ai >= 0 ? 'g' : 'rr'}">${svPm(A.ai)}</b>（${cur ? '月底营业额约' : '整月营业额'} ${man(A.S)}）`}`
     + `${r.mg && r.mg.length > 1 ? `<br>${r.mg.length} 台收银：${r.mg.map(n => esc(svCln(n))).join('／')}` : ''}`
     + `${A.R.fix.length ? `<br><span class="m">⚠ ${A.R.fix.map(esc).join('；')}</span>` : ''}</small>`;
