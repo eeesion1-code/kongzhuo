@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>库存管理</title>
+<meta name="theme-color" content="#0f766e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" href="icon-192.png">
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--ink:#16181d;--sub:#6b7280;--line:#e5e7eb;--soft:#f0f1f4;--brand:#0f766e;--warnbg:#fef3c7;--warn:#78350f;--ok:#15803d;--bad:#dc2626;--y:#d97706;--food:#16a34a;--drink:#2563eb;--mat:#9ca3af}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1115;--card:#181b21;--ink:#eceef2;--sub:#9aa1ad;--line:#2a2e36;--soft:#22262e;--brand:#2dd4bf;--warnbg:#3a2f12;--warn:#fde68a;--food:#4ade80;--drink:#60a5fa;--mat:#6b7280}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,BlinkMacSystemFont,"Hiragino Sans","PingFang SC","Noto Sans CJK SC","Microsoft YaHei",sans-serif;-webkit-text-size-adjust:100%}
+.wrap{max-width:760px;margin:0 auto;padding:calc(10px + env(safe-area-inset-top)) 16px calc(30px + env(safe-area-inset-bottom))}
+.top{display:flex;align-items:center;gap:8px;margin:4px 0 10px}.top h1{flex:1;margin:0;font-size:22px}.top small{color:var(--sub);font-size:12px}
+.back{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:6px 10px;font-size:14px;color:var(--ink);text-decoration:none}
+.tabs{display:flex;gap:6px;overflow-x:auto;position:sticky;top:0;z-index:2;background:var(--bg);padding:4px 0 10px;scrollbar-width:none}.tabs::-webkit-scrollbar{display:none}
+.tabs button{flex:0 0 auto;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:8px 13px;font:inherit;font-size:14.5px;font-weight:600}
+.tabs button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin:10px 0}
+.ct{font-weight:700;font-size:15.5px;margin-bottom:4px}
+.note{font-size:13px;color:var(--sub);line-height:1.65;margin:4px 0}
+.miss{background:var(--warnbg);color:var(--warn);border-radius:10px;padding:8px 10px;font-size:13.5px;line-height:1.6;margin:6px 0}
+.btn{display:block;width:100%;margin-top:10px;padding:12px;border:0;border-radius:12px;background:var(--brand);color:#fff;font:inherit;font-size:15px;font-weight:600}
+.btn.sub{background:var(--soft);color:var(--ink);font-weight:500}
+input,select{display:block;width:100%;padding:10px;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}
+.err{color:var(--bad);font-size:13.5px;margin-top:8px}.ok{color:var(--ok);font-size:13.5px}
+.foot{font-size:12px;color:var(--sub);text-align:center;margin:18px 0 6px;line-height:1.8}.foot a{color:var(--brand);cursor:pointer}
+#keybox{text-align:center;padding-top:40px}#keybox img{width:72px;height:72px;border-radius:16px}#keybox p{color:var(--sub);line-height:1.7}#keybox input{max-width:320px;margin:10px auto 0;text-align:center}#keybox .btn{max-width:320px;margin:10px auto 0}
+.kp{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin:8px 0}.kp div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px 4px;text-align:center}.kp b{display:block;font-size:20px;line-height:1.25;font-variant-numeric:tabular-nums}.kp small{font-size:11.5px;color:var(--sub)}
+.an{margin:0;padding-left:18px}.an li{margin:4px 0;font-size:14px;line-height:1.65}
+.mix{display:flex;height:10px;border-radius:5px;overflow:hidden;background:var(--soft);margin-top:6px}.mix i{display:block;height:100%}
+.lg{display:flex;gap:12px;flex-wrap:wrap;font-size:12px;color:var(--sub);margin-top:6px}.lg i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:-1px}
+.srow{display:grid;grid-template-columns:5.2em 1fr auto;gap:8px;align-items:center;padding:9px 0;border-top:1px solid var(--line);cursor:pointer}.srow:first-of-type{border-top:0}
+.srow b{font-size:14.5px}.srow .num{font-variant-numeric:tabular-nums;font-size:13.5px;text-align:right;white-space:nowrap}.srow .sm{font-size:12px;color:var(--sub)}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px;vertical-align:1px}.d0{background:var(--bad)}.d1{background:var(--y)}.d2{background:var(--ok)}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:2px 0 8px;scrollbar-width:none}.chips::-webkit-scrollbar{display:none}
+.chips button{flex:0 0 auto;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:5px 11px;font:inherit;font-size:13.5px}.chips button.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+.sl{border-top:1px solid var(--line);padding:8px 0}.sl:first-child{border-top:0}.sl summary{cursor:pointer;list-style:none;display:flex;gap:8px;align-items:baseline}.sl summary::-webkit-details-marker{display:none}
+.sl summary span{flex:1;font-size:14px}.sl summary em{font-style:normal;font-variant-numeric:tabular-nums;font-size:14px;font-weight:600}
+table.ln{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}table.ln td{padding:4px 3px;border-top:1px solid var(--line);vertical-align:top}table.ln td.r{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+.tg{display:inline-block;font-size:11px;font-weight:700;border-radius:6px;padding:0 5px;margin-right:4px}.tg.f{background:#dcfce7;color:#166534}.tg.d{background:#dbeafe;color:#1e40af}.tg.m{background:var(--soft);color:var(--sub)}
+.tg.A{background:#fee2e2;color:#991b1b}.tg.B{background:#fef3c7;color:#92400e}.tg.C{background:var(--soft);color:var(--sub)}
+.irow{border-top:1px solid var(--line);padding:9px 0}.irow:first-child{border-top:0}.irow .nm{font-size:14.5px;font-weight:600}.irow .sm{font-size:12.5px;color:var(--sub);margin-top:2px;line-height:1.55}
+.it{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:11px 13px;margin:8px 0}.it.cr{border-left:5px solid var(--bad)}.it.cy{border-left:5px solid var(--y)}.it.sg{border-left:5px solid var(--ok);opacity:.8}
+.it .why{font-size:13.5px;color:var(--sub);margin-top:4px;line-height:1.55}.it .fix{font-size:13.5px;margin-top:2px;line-height:1.55}
+.sgf{display:grid;grid-template-columns:1fr auto;gap:6px;margin-top:8px}.sgf button{border:0;border-radius:10px;background:var(--ok);color:#fff;font:inherit;font-weight:700;padding:0 12px}
+.sgd{font-size:13.5px;color:var(--ok);margin-top:6px}.sgd a{color:var(--sub);margin-left:8px;cursor:pointer;font-size:12.5px}
+.grp{font-size:13px;color:var(--sub);font-weight:700;margin:14px 2px 2px}
+.step{display:grid;grid-template-columns:28px 1fr;gap:8px;padding:8px 0;border-top:1px solid var(--line)}.step:first-of-type{border-top:0}.step b{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--soft);font-size:13px}.step.on b{background:var(--brand);color:#fff}
+.step div{font-size:14px;line-height:1.6}.step small{color:var(--sub);font-size:12.5px}
+.testbar{position:sticky;top:0;z-index:9;background:#facc15;color:#422006;font-size:13.5px;font-weight:700;text-align:center;padding:calc(7px + env(safe-area-inset-top)) 8px 7px}
+</style>
+</head>
+<body>
+<div id="tb"></div>
+<div class="wrap">
+  <div id="keybox" style="display:none">
+    <img src="icon-192.png" alt="">
+    <p id="ktip">📦 库存管理<br>请输入股东或会计部密码</p>
+    <input id="kin" autocomplete="off" autocapitalize="off" enterkeyhint="go" onkeydown="if(event.key==='Enter')saveKey()">
+    <button class="btn" onclick="saveKey()">开始使用</button>
+    <p id="kerr" class="err"></p>
+  </div>
+  <div id="main" style="display:none">
+    <div class="top"><a class="back" href="./">‹ 空桌一览</a><h1>📦 库存管理</h1><small id="age"></small></div>
+    <div class="tabs" id="tabs"></div>
+    <div id="body"></div>
+    <div class="foot" id="foot"></div>
+  </div>
+</div>
+<script>
+// 11/24 用户：「总 APP 底部加库存管理。11 月酒水・食材进货单（KA 会计部 出金群・订货单小票）已有，成本卡在制作中；
+//   你是库存管理总负责人，参考世界级餐饮集团的做法做一个有规模的 APP，以后还要加在库等。需要做 31 家店。」
+// 数据：电脑 Desktop\CLAUDE\库存管理\库存汇总.py 汇总后写云端「库存管理」表 → 后台 what=kc 读（股东・会计部密码），what=kcdo 签名（编号 kc| 开头）。
+// rows：head（分析・合计）／st（每店）／it（商品，按金额排）／sl（每张单据＋明细）／is（问题，lv r/y）；sg＝谁已处理 {id:[谁,时间,怎么处理]}
+const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
+const APPV = 'kucun-v1';
+const TEST = /\/test\//.test(location.pathname);
+const DEMO = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) && /demo/.test(location.search);   // 本机预览：读 kc_demo.json
+const LS = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
+  del(k) { try { localStorage.removeItem(k); } catch (e) {} }
+};
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const jq = s => esc(JSON.stringify(String(s == null ? '' : s)));   // 数据放进点击代码一律用 ${jq(x)}
+const man = n => (Math.round((Number(n) || 0) / 1000) / 10).toLocaleString('ja-JP', { maximumFractionDigits: 1 }) + '万';
+const yen = n => n == null ? '？' : '¥' + Math.round(Number(n) || 0).toLocaleString('ja-JP');
+const pct = v => ((Number(v) || 0) * 100).toFixed(1) + '%';
+let K = LS.get('k', '');
+const DV = (() => { let v = LS.get('dv', ''); if (!/^[0-9a-f]{32}$/.test(v)) { const a = new Uint8Array(16); crypto.getRandomValues(a); v = Array.from(a, b => b.toString(16).padStart(2, '0')).join(''); LS.set('dv', v); } return v; })();
+const DVUA = (() => { const u = navigator.userAgent; let m;
+  if ((m = u.match(/iPhone OS ([\d_]+)/))) return `iPhone iOS ${m[1].replace(/_/g, '.')}・库存`;
+  if ((m = u.match(/Android ([\d.]+); ([^;)]+)/))) return `Android ${m[1]} ${m[2].trim()}・库存`;
+  return `${(u.match(/Windows NT|Macintosh|Android|Linux/) || ['其他'])[0]}・库存`; })();
+const api = q => DEMO ? fetch('kc_demo.json', { cache: 'no-store' }).then(r => r.json())
+  : fetch(API + '?fmt=json' + q + '&k=' + encodeURIComponent(K) + '&dv=' + DV + '&ua=' + encodeURIComponent(DVUA), { cache: 'no-store' }).then(r => r.json());
+
+const TABS = [['ov', '📊 总览'], ['st', '🏪 各店进货'], ['it', '📦 商品'], ['is', '⚠️ 问题'], ['zk', '🗃 在库盘点'], ['cb', '🍳 成本卡'], ['plan', '📐 规划']];
+let tab = LS.get('kcTab', 'ov'), D = null, err = '', busy = false, store = LS.get('kcStore', ''), cat = 'all', q = '', abc = 'all', msg = {}, showDone = false, zkStore = LS.get('kcZk', '');
+if (!TABS.some(t => t[0] === tab)) tab = 'ov';
+if (TEST) $('tb').innerHTML = '<div class="testbar">🧪 测试版（股东确认后才上线）</div>';
+
+const rows = t => D ? (D.rows || []).filter(r => r && r.t === t) : [];
+const head = () => rows('head')[0] || {};
+
+function showKey(m) { $('main').style.display = 'none'; $('keybox').style.display = 'block'; $('kerr').textContent = m || ''; }
+function saveKey() { const v = $('kin').value.trim(); if (!v) return; K = v; LS.set('k', K); load(1); }
+function changeKey() { LS.del('k'); K = ''; D = null; LS.del('kcData'); showKey(''); }
+async function load(force) {
+  if (!K && !DEMO) return showKey('');
+  if (!D) { try { D = JSON.parse(LS.get('kcData', 'null')); } catch (e) {} if (D) render(); }
+  if (busy) return; busy = true;
+  try {
+    const d = await api('&what=kc');
+    if (d.error === 'key') { LS.del('k'); K = ''; busy = false; return showKey('密码不对，请再确认一下'); }
+    if (d.error === 'device') { busy = false; LS.del('kcData'); D = null; return showKey('这台手机还没登记，请在空桌一览「📱 登录手机」里登记'); }
+    if (d.error === 'owner') { busy = false; return showKey('这个密码看不到库存管理（股东・会计部密码才可以）'); }
+    if (d.error) throw new Error(d.error);
+    D = d; err = ''; LS.set('kcData', JSON.stringify(d));
+  } catch (e) { err = '读不到（' + e.message + '）'; if (!D) { busy = false; return showKey(err); } }
+  busy = false; render();
+}
+function go(t) { tab = t; LS.set('kcTab', t); render(); window.scrollTo(0, 0); }
+function pickStore(s) { store = s; LS.set('kcStore', s); tab = 'st'; LS.set('kcTab', 'st'); render(); window.scrollTo(0, 0); }
+
+function render() {
+  $('keybox').style.display = 'none'; $('main').style.display = 'block';
+  const h0 = head();
+  $('age').textContent = h0.at ? h0.at.slice(5) + ' 汇总' : '';
+  $('tabs').innerHTML = TABS.map(([k, n]) => `<button class="${tab === k ? 'on' : ''}" onclick="go(${jq(k)})">${n}${k === 'is' ? openCount() : ''}</button>`).join('');
+  let h = err ? `<div class="miss">${esc(err)}（显示的是上次读到的）</div>` : '';
+  if (!D || !h0.ym) h += `<div class="card"><div class="note">${busy ? '读取中…' : '还没有数据（电脑每天汇总一次）'}</div></div>`;
+  else h += ({ ov: rOv, st: rSt, it: rIt, is: rIs, zk: rZk, cb: rCb, plan: rPlan })[tab]();
+  $('body').innerHTML = h;
+  $('foot').innerHTML = `只有股东密码・会计部密码看得到。金额一律税抜。<br>${DEMO ? '本机预览数据' : '<a onclick="changeKey()">🔑 换密码</a>'}　<a onclick="load(1)">🔄 重新读取</a>　版本 ${APPV.replace('kucun-v', '')}`;
+}
+function openCount() { const sg = (D && D.sg) || {}, n = rows('is').filter(x => !sg[x.id] && x.lv === 'r').length; return n ? ` <span style="color:var(--bad)">${n}</span>` : ''; }
+function mixBar(f, d, m) { const t = (f + d + m) || 1; return `<div class="mix"><i style="width:${100 * f / t}%;background:var(--food)"></i><i style="width:${100 * d / t}%;background:var(--drink)"></i><i style="width:${100 * m / t}%;background:var(--mat)"></i></div>`; }
+const LEGEND = '<div class="lg"><span><i style="background:var(--food)"></i>食材</span><span><i style="background:var(--drink)"></i>酒水</span><span><i style="background:var(--mat)"></i>资材</span></div>';
+
+// ===== 📊 总览 =====
+function rOv() {
+  const h0 = head(), n = h0.n || {}, s = h0.sum || {}, st = rows('st');
+  let h = `<div class="note" style="margin:0 2px 6px">${esc(h0.ym)} 月・单据到 ${esc((h0.last || '').slice(5) || '—')}・参考 KA「当月成本预估」${esc(h0.ka || '')} 页</div>`;
+  h += `<div class="kp"><div><b>${n.slips || 0}</b><small>进货单据</small></div><div><b>${n.stores || 0}<span style="font-size:13px;color:var(--sub)">/31</span></b><small>有单据的店</small></div><div><b>${n.items || 0}</b><small>商品种类</small></div><div><b style="color:var(--bad)">${n.r || 0}</b><small>🔴 问题</small></div></div>`;
+  h += `<div class="card"><div class="ct">本月进货（税抜）</div><div style="display:flex;gap:14px;flex-wrap:wrap;font-size:14.5px;margin-top:2px"><span>食材 <b>${man(s.food)}</b></span><span>酒水 <b>${man(s.drink)}</b></span><span>资材 <b>${man(s.mat)}</b></span></div>${mixBar(s.food, s.drink, s.mat)}${LEGEND}</div>`;
+  h += `<div class="card"><div class="ct">🧠 负责人分析</div><ul class="an">${(h0.ana || []).map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>`;
+  const mx = Math.max(1, ...st.map(o => o.food + o.drink + o.mat));
+  h += `<div class="card"><div class="ct">31 家店（点店名看单据）</div><div class="note" style="margin-top:0">●红＝本月没有单据　●黄＝只有 3 天以内　●绿＝正常。右边是 KA 预估 食材%／酒水%。</div>`
+    + [...st].sort((a, b) => (b.food + b.drink + b.mat) - (a.food + a.drink + a.mat)).map(o => {
+      const t = o.food + o.drink + o.mat, dc = !o.slips ? 'd0' : o.days <= 3 ? 'd1' : 'd2';
+      return `<div class="srow" onclick="pickStore(${jq(o.n)})"><b><span class="dot ${dc}"></span>${esc(o.n)}</b>`
+        + `<div>${t ? `<div class="mix" style="margin:0;width:${Math.max(4, 100 * t / mx)}%">${mixBar(o.food, o.drink, o.mat).replace(/^<div class="mix">|<\/div>$/g, '')}</div>` : '<span class="sm">没有单据</span>'}<div class="sm">${o.slips} 张・${o.days} 天${o.last ? '・最后 ' + esc(o.last.slice(5)) : ''}</div></div>`
+        + `<div class="num">${t ? man(t) : '—'}<div class="sm">${pct(o.kf)}／${pct(o.kd)}</div></div></div>`;
+    }).join('') + LEGEND + '</div>';
+  return h;
+}
+
+// ===== 🏪 各店进货 =====
+function rSt() {
+  const st = rows('st'), names = st.map(o => o.n);
+  if (!names.includes(store)) store = (st.find(o => o.slips) || st[0] || {}).n || '';
+  let h = `<div class="chips">${names.map(n => `<button class="${n === store ? 'on' : ''}" onclick="pickStore(${jq(n)})">${esc(n)}</button>`).join('')}</div>`;
+  const o = st.find(x => x.n === store); if (!o) return h;
+  const sl = rows('sl').filter(x => x.s === store), t = o.food + o.drink + o.mat;
+  h += `<div class="card"><div class="ct">${esc(store)}　本月进货 ${man(t)}</div><div style="display:flex;gap:14px;flex-wrap:wrap;font-size:14px">`
+    + `<span>食材 <b>${man(o.food)}</b></span><span>酒水 <b>${man(o.drink)}</b></span><span>资材 <b>${man(o.mat)}</b></span></div>${mixBar(o.food, o.drink, o.mat)}`
+    + `<div class="note">${o.slips} 张单据・${o.days} 天有进货${o.last ? '・最后 ' + esc(o.last) : ''}。KA 预估：食材 ${pct(o.kf)}・酒水 ${pct(o.kd)}（营业额的比例，作为目标参考）。</div>`
+    + (o.sup.length ? '<div class="note">供应商：' + o.sup.map(([s, v]) => `${esc(s)} ${man(v)}`).join('・') + '</div>' : '') + '</div>';
+  const iss = rows('is').filter(x => x.store === store);
+  if (iss.length) h += `<div class="miss">⚠ 这家店有 ${iss.length} 条问题，<a onclick="go('is')" style="color:inherit;text-decoration:underline;cursor:pointer">去「问题」看</a></div>`;
+  if (!sl.length) return h + '<div class="card"><div class="note">本月还没有这家店的进货单据。请店长把納品書拍照发到 Slack 出金群。</div></div>';
+  h += '<div class="card"><div class="ct">单据（点开看明细）</div>' + sl.slice().reverse().map(x =>
+    `<details class="sl"><summary><span>${esc(x.d.slice(5))}　${esc(x.sup)}${x.src === '识别' ? ' <span class="tg m">照片识别</span>' : ''}</span><em>${yen(x.a)}</em></summary>`
+    + `<table class="ln">${x.l.map(([nm, qt, u, a, c]) => `<tr><td><span class="tg ${c === '食' ? 'f' : c === '酒' ? 'd' : 'm'}">${esc(c)}</span>${esc(nm)}</td><td class="r">${qt == null ? '？' : esc(qt)}${esc(u || '')}</td><td class="r">${yen(a)}</td></tr>`).join('')}</table>`
+    + (x.no ? `<div class="note">伝票番号 ${esc(x.no)}</div>` : '') + '</details>').join('') + '</div>';
+  return h;
+}
+
+// ===== 📦 商品 =====
+function setF(k, v) { if (k === 'cat') cat = v; else if (k === 'abc') abc = v; render(); }
+function onQ(v) { q = v; const p = $('ilist'); if (p) p.innerHTML = itemList(); }
+function itemList() {
+  const kw = q.trim().toLowerCase(), it = rows('it').filter(i => (cat === 'all' || i.cat === cat) && (abc === 'all' || i.abc === abc) && (!kw || (i.nm + i.sup).toLowerCase().includes(kw)));
+  if (!it.length) return '<div class="note">没有符合的商品</div>';
+  return it.slice(0, 120).map(i => `<div class="irow"><div class="nm"><span class="tg ${esc(i.abc)}">${esc(i.abc)}</span>${esc(i.nm)}</div>`
+    + `<div class="sm">${esc(i.sup)}・${esc(i.cat)}・共 ${esc(i.q)}${esc(i.u || '')}・<b style="color:var(--ink)">${yen(i.a)}</b>`
+    + (i.lo != null ? `・单价 ${i.lo === i.hi ? yen(i.lo) : yen(i.lo) + '〜' + yen(i.hi)}` : '') + `</div>`
+    + `<div class="sm">${i.st.length} 家：${i.st.slice(0, 6).map(([s, qq]) => esc(s) + ' ' + esc(qq)).join('、')}${i.st.length > 6 ? '…' : ''}</div></div>`).join('')
+    + (it.length > 120 ? `<div class="note">只显示前 120 个（共 ${it.length} 个），请用搜索</div>` : '');
+}
+function rIt() {
+  const C = [['all', '全部'], ['食材', '食材'], ['酒水', '酒水'], ['资材', '资材']], A = [['all', '全部'], ['A', 'A 类'], ['B', 'B 类'], ['C', 'C 类']];
+  let h = `<div class="card"><div class="note" style="margin-top:0"><b>ABC 分类</b>（世界大型连锁的标准做法）：进货额累计前 80% 的商品＝A 类（肉・鱼・啤酒樽这类，<b>每周盘点</b>），到 95%＝B 类（每月盘点），其余 C 类（每月或抽查）。按本月全部 31 家店的进货额算。</div>`
+    + `<input placeholder="🔍 搜商品名・供应商" value="${esc(q)}" oninput="onQ(this.value)" style="margin-top:8px">`
+    + `<div class="chips" style="margin-top:8px">${C.map(([k, n]) => `<button class="${cat === k ? 'on' : ''}" onclick="setF('cat',${jq(k)})">${n}</button>`).join('')}<span style="width:8px"></span>${A.map(([k, n]) => `<button class="${abc === k ? 'on' : ''}" onclick="setF('abc',${jq(k)})">${n}</button>`).join('')}</div></div>`;
+  return h + `<div class="card" id="ilist">${itemList()}</div>`;
+}
+
+// ===== ⚠️ 问题（每条都要签名：谁处理的、怎么处理）=====
+async function doSign(id, undo) {
+  const it = rows('is').find(x => x.id === id); if (!it) return;
+  const k = id.replace(/[^\w]/g, '_').slice(-60), who = (($('kcw') || {}).value || '').trim(), how = (($('h_' + k) || {}).value || '').trim();
+  if (!undo && !who) { msg[id] = '<div class="err">请先在上面写你的名字</div>'; return render(); }
+  if (!undo && !how) { msg[id] = '<div class="err">请写怎么处理的（例：已让店长补拍／是规格不同不用改）</div>'; return render(); }
+  if (who) LS.set('kcWho', who);
+  if (DEMO) { msg[id] = '<div class="note">本机预览不能保存</div>'; return render(); }
+  msg[id] = '<div class="note">保存中…</div>'; render();
+  try {
+    const d = await api('&what=kcdo&ids=' + encodeURIComponent(JSON.stringify([id])) + '&who=' + encodeURIComponent(who || '—') + (undo ? '&act=undo' : '&how=' + encodeURIComponent(how))
+      + '&ctx=' + encodeURIComponent(JSON.stringify({ 店: it.store, 类: '库存・' + it.kind, 摘: it.title })));
+    if (d.error) throw new Error(d.error === 'device' ? '这台手机没登记' : d.error);
+    D = d; LS.set('kcData', JSON.stringify(d)); msg[id] = undo ? '<div class="note">已撤销</div>' : '';
+  } catch (e) { msg[id] = `<div class="err">没保存：${esc(e.message)}</div>`; }
+  render();
+}
+function rIs() {
+  const all = rows('is'), sg = D.sg || {}, open = all.filter(x => !sg[x.id]), done = all.filter(x => sg[x.id]);
+  const nr = open.filter(x => x.lv === 'r').length;
+  let h = `<div class="kp" style="grid-template-columns:repeat(3,1fr)"><div><b style="color:var(--bad)">${nr}</b><small>🔴 要处理</small></div><div><b style="color:var(--y)">${open.length - nr}</b><small>🟡 要看</small></div><div><b style="color:var(--ok)">${done.length}</b><small>✅ 已处理</small></div></div>`;
+  h += `<div class="card"><div class="note" style="margin-top:0">电脑每天汇总后自动检查：<b>缺单据</b>（店没上传納品書）・<b>价格不一</b>（同一商品各店单价差 15% 以上）・<b>涨价降价</b>（和上月比 5% 以上）・<b>限店商品</b>・<b>非登记供应商</b>・<b>看不清/合计对不上</b>。处理了请签名（写怎么处理的），大家都看得到。</div>`
+    + `<input id="kcw" value="${esc(LS.get('kcWho', ''))}" placeholder="签名用的名字" style="margin-top:6px"></div>`;
+  const card = x => {
+    const s = sg[x.id], k = x.id.replace(/[^\w]/g, '_').slice(-60);
+    return `<div class="it ${s ? 'sg' : x.lv === 'r' ? 'cr' : 'cy'}"><div style="font-size:12.5px;color:var(--sub)">${x.lv === 'r' ? '🔴' : '🟡'} ${esc(x.kind)}${x.store ? '・' + esc(x.store) : ''}</div>`
+      + `<div style="margin-top:3px;font-size:14.5px;font-weight:600">${esc(x.title)}</div>` + (x.why ? `<div class="why">${esc(x.why)}</div>` : '') + (x.fix ? `<div class="fix">👉 ${esc(x.fix)}</div>` : '')
+      + (s ? `<div class="sgd">✅ ${esc(s[0])}　${esc(String(s[1] || '').slice(5, 16))}${s[2] ? '：' + esc(s[2]) : ''}<a onclick="doSign(${jq(x.id)},1)">撤销</a></div>`
+        : `<div class="sgf"><input id="h_${k}" placeholder="怎么处理的"><button onclick="doSign(${jq(x.id)})">✅ 已处理</button></div>`) + (msg[x.id] || '') + '</div>';
+  };
+  const kinds = [...new Set(open.map(x => x.kind))];
+  if (!all.length) h += '<div class="card"><div class="ok">✓ 本月没有发现问题</div></div>';
+  kinds.forEach(kd => { const g = open.filter(x => x.kind === kd); h += `<div class="grp">${esc(kd)}（${g.length}）</div>` + g.map(card).join(''); });
+  if (done.length) h += `<div class="grp"><a onclick="showDone=!showDone;render()" style="color:var(--brand);cursor:pointer">✅ 已处理 ${done.length} 条（${showDone ? '收起' : '展开'}）</a></div>` + (showDone ? done.map(card).join('') : '');
+  return h;
+}
+
+// ===== 🗃 在库盘点（第 2 阶段：先给出各店盘点表的样子）=====
+function rZk() {
+  const st = rows('st').filter(o => o.slips), names = st.map(o => o.n);
+  if (!names.includes(zkStore)) zkStore = names[0] || '';
+  const its = rows('it').filter(i => i.abc !== 'C' && i.st.some(s => s[0] === zkStore));
+  const grp = { 食材: [], 酒水: [], 资材: [] }; its.forEach(i => (grp[i.cat] || grp.食材).push(i));
+  let h = `<div class="miss">🗃 在库盘点是<b>下一阶段</b>，现在先给出每家店的盘点表样子，请看看要点的东西对不对。</div>`;
+  h += `<div class="card"><div class="ct">以后怎么用</div><div class="note" style="margin-top:0">① <b>每周一开店前</b>：店长按这张表点 A 类（约 15〜30 样，10 分钟），手机上直接填数量。<br>② <b>每月最后一天打烊后</b>：全部 A＋B 类点一次（月末在库）。<br>③ 电脑自动算：<b>实际用量＝上次在库＋这期进货−这次在库</b>，再和成本卡算出的「应该用多少」比，差得多的标红（可能是浪费・多给・记错・被拿走）。<br>④ 月末在库金额也会给会计部做成本（食材%＝(期初＋进货−期末)÷营业额）。</div></div>`;
+  h += `<div class="chips">${names.map(n => `<button class="${n === zkStore ? 'on' : ''}" onclick="zkStore=${jq(n)};LS.set('kcZk',zkStore);render()">${esc(n)}</button>`).join('')}</div>`;
+  if (!its.length) return h + '<div class="card"><div class="note">这家店本月进货的 A/B 类商品还没有</div></div>';
+  h += `<div class="card"><div class="ct">${esc(zkStore)} 盘点表（预览・按本月实际进过的 A/B 类商品）</div><div class="note" style="margin-top:0">共 ${its.length} 样，A 类 ${its.filter(i => i.abc === 'A').length} 样每周点。以后会按「冷藏・冷冻・干货・酒水柜」排成店里走一圈的顺序。</div>`;
+  Object.entries(grp).forEach(([g, a]) => { if (!a.length) return; h += `<div class="grp">${g}（${a.length}）</div><table class="ln">` + a.map(i => { const s = i.st.find(x => x[0] === zkStore); return `<tr><td><span class="tg ${esc(i.abc)}">${esc(i.abc)}</span>${esc(i.nm)}<div class="note" style="margin:0">${esc(i.sup)}・本月进 ${esc(s[1])}${esc(i.u || '')}</div></td><td class="r" style="width:5.5em;color:var(--sub)">在库 ＿＿</td></tr>`; }).join('') + '</table>'; });
+  return h + '</div>';
+}
+
+// ===== 🍳 成本卡（制作中）=====
+function rCb() {
+  return `<div class="miss">🍳 每道菜的成本卡正在制作中，做好后接到这里。</div>`
+    + `<div class="card"><div class="ct">成本卡接上以后能做什么</div><div class="note" style="margin-top:0">`
+    + `<b>1. 理论用量</b>：收银台每道菜卖了几份 × 成本卡每份用量 ＝ 这段时间「应该用掉」多少（例：唐揚げ 1 份 鶏もも 150g，卖 400 份 → 应用 60kg）。<br>`
+    + `<b>2. 实际 vs 理论（AvT）</b>：实际用量（盘点算出）和理论用量差 3% 以上的商品标出来——这是麦当劳・达登等大型连锁每周看的头号指标。<br>`
+    + `<b>3. 菜品毛利</b>：进货单价一变，成本卡自动重算，哪道菜原价率超标马上知道（例：鲑鱼涨 10% → 刺身拼盘原价率 32%→35%）。<br>`
+    + `<b>4. 自动建议订货量</b>：预测客数 × 菜品出数 × 用量 − 现有在库 ＝ 该订多少。</div></div>`
+    + `<div class="card"><div class="ct">成本卡要包含的内容（建议格式）</div><div class="note" style="margin-top:0">菜名（和收银台的商品名一致）・售价・每份用的每样食材（商品名要和进货单一致，或写供应商商品编号）・用量（g/ml/个）・出成率（例：鲑鱼半身去皮后 85%）。做好一张可以先发给我核对格式。</div></div>`;
+}
+
+// ===== 📐 规划 =====
+function rPlan() {
+  const S = [
+    [1, '进货管理（现在）', '31 家店的納品書照片 → 逐行明细 → 各店・商品・价格・问题。每天自动汇总。', 1],
+    [2, '在库盘点', '每周 A 类・每月全部；手机上按店里的顺序点；算实际用量和月末在库金额。', 0],
+    [3, '成本卡・理论成本', '接上成本卡和收银台销量，算「应该用多少」，看实际 vs 理论（AvT）差异。', 0],
+    [4, '订货・调拨・报废', '按在库和预测给建议订货量；店和店之间调货、报废都在 APP 记录。', 0],
+    [5, '价格・供应商管理', '统一各店同一商品的进价；涨价自动提醒，找替代供应商；只允许公司指定商品。', 0],
+  ];
+  return `<div class="card"><div class="ct">库存管理系统 五个阶段</div>${S.map(([n, t, d, on]) => `<div class="step ${on ? 'on' : ''}"><b>${n}</b><div><b style="display:inline;background:none;width:auto;height:auto">${t}</b><br><small>${d}</small></div></div>`).join('')}</div>`
+    + `<div class="card"><div class="ct">参考的做法（世界大型餐饮集团）</div><div class="note" style="margin-top:0">`
+    + `・<b>一个商品一个编号</b>：进货单位（箱）→ 盘点单位（本・kg）→ 成本卡单位（g・ml）自动换算。<br>`
+    + `・<b>ABC 分类盘点</b>：贵的、用得多的每周点，其他每月点；盘点表按店里走一圈的顺序排。<br>`
+    + `・<b>每周看实际 vs 理论（AvT）</b>：差异大 = 浪费・多给・记错・偷拿，追到具体商品和店。<br>`
+    + `・<b>看单价不只看总额</b>：同一商品各店进价统一，涨价马上知道影响哪些菜。<br>`
+    + `・<b>指定商品・指定供应商</b>：不在名单的进货要说明。</div></div>`
+    + `<div class="card"><div class="ct">数据从哪里来</div><div class="note" style="margin-top:0">KA 会计部云端「出金群 › 订货单小票」的納品書照片（各店拍照发 Slack 出金群）＋「订货单测试」已核对的明细；店名和食材%・酒水% 参考 KA「当月成本预估」。电脑每天汇总一次。</div></div>`;
+}
+
+load();
+</script>
+</body>
+</html>

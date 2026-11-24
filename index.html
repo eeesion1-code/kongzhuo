@@ -546,6 +546,7 @@ button:active,nav button:active,a:active{opacity:.6}
   <button id="ggBtn" onclick="location.href='gg.html'"><span>📣</span>广告预约部</button>
   <button id="opsBtn" onclick="location.href='pj.html'"><span>📊</span>运营部</button>
   <button id="acBtn" onclick="openAc()" style="display:none"><span>🧾</span>会计</button>
+  <button id="kcBtn" onclick="openKc()" style="display:none"><span>📦</span>库存</button>
 </nav>
 <script>
 function navTop() { return null; }   // 空桌一览最上层：没有再往前的页
@@ -617,7 +618,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
 })();
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v130';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v131';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -880,6 +881,7 @@ function render() {
   document.getElementById('salesBtn').style.display = D.owner || D.sk ? 'block' : 'none';
   document.getElementById('salesBtn').textContent = D.sk ? '🥩 三幸園营业额' : '💴 集团总营业额';
   const pwB = document.querySelector('nav button[data-tab="pw"]'); if (pwB) pwB.style.display = D.sk ? 'none' : '';
+  document.getElementById('kcBtn').style.display = D.owner ? '' : 'none';   // 11/24 📦 库存管理（kc.html，后台 what=kc 股东・会计部密码）
   document.getElementById('acBtn').style.display = D.owner ? '' : 'none';   // 11/18 会计：只给老板   // 繁忙日排位是集团的（レストランボード），三幸園店长不用
   // 11/16 运营部（pj.html：各平台评价・人事评价・卫生检查）是集团的，三幸園店长不显示
   document.getElementById('opsBtn').style.display = D.sk ? 'none' : '';
@@ -2867,6 +2869,7 @@ function devRender() {
 // 11/19 用户：「会计部跟运营部一样，不是 2 个网页…或者怎么统合」→ 「🧾 会计」打开 kj.html＝会计部 APP（kuaiji）同一份网页的副本（和运营部 pj.html 同样做法），
 //   以前这里自己写的会计页（资金余额・要付的钱・月度损益・取消料汇总）删掉。kj.html 由 会计部\提需求\测试版.py 上线时自动更新。
 function openAc() { if (!D || !D.owner) return; location.href = 'kj.html'; }
+function openKc() { if (!D || !D.owner) return; location.href = 'kc.html'; }   // 11/24 库存管理
 function closeAc() {}
 function closeRelogin() { navDone('rl'); clearInterval(rlTimer); document.getElementById('rlView').style.display = 'none'; }
 function card(s) {
