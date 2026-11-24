@@ -78,7 +78,7 @@ table.ln{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}table
 // 数据：电脑 Desktop\CLAUDE\库存管理\库存汇总.py 汇总后写云端「库存管理」表 → 后台 what=kc 读（股东・会计部密码），what=kcdo 签名（编号 kc| 开头）。
 // rows：head（分析・合计）／st（每店）／it（商品，按金额排）／sl（每张单据＋明细）／is（问题，lv r/y）；sg＝谁已处理 {id:[谁,时间,怎么处理]}
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kucun-v1';
+const APPV = 'kucun-v2';
 const TEST = /\/test\//.test(location.pathname);
 const DEMO = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) && /demo/.test(location.search);   // 本机预览：读 kc_demo.json
 const LS = {
@@ -111,18 +111,24 @@ const head = () => rows('head')[0] || {};
 
 function showKey(m) { $('main').style.display = 'none'; $('keybox').style.display = 'block'; $('kerr').textContent = m || ''; }
 function saveKey() { const v = $('kin').value.trim(); if (!v) return; K = v; LS.set('k', K); load(1); }
-function changeKey() { LS.del('k'); K = ''; D = null; LS.del('kcData'); showKey(''); }
+function changeKey() { LS.del('k'); K = ''; D = null; LS.del('kcData'); LS.del('kcAt'); showKey(''); }
 async function load(force) {
   if (!K && !DEMO) return showKey('');
-  if (!D) { try { D = JSON.parse(LS.get('kcData', 'null')); } catch (e) {} if (D) render(); }
-  if (busy) return; busy = true;
+  if (!D) { try { D = JSON.parse(LS.get('kcData', 'null')); } catch (e) {} }
+  if (busy) return;
+  // 11/24 v2 提速（用户：「点库存后卡 2〜3 秒」）：后台读一次要 3 秒 → 空桌一览空闲时先读好存在手机里（kcAt＝存的时间），
+  //   2 分钟内存的就直接用、不再读；没存过也先显示「读取中」，不再是空白页；读回来和存的一样就不重画（不打断滑动）。
+  if (D && !force && !DEMO && Date.now() - (+LS.get('kcAt', 0) || 0) < 120e3) return render();
+  busy = true; render();
   try {
     const d = await api('&what=kc');
     if (d.error === 'key') { LS.del('k'); K = ''; busy = false; return showKey('密码不对，请再确认一下'); }
     if (d.error === 'device') { busy = false; LS.del('kcData'); D = null; return showKey('这台手机还没登记，请在空桌一览「📱 登录手机」里登记'); }
     if (d.error === 'owner') { busy = false; return showKey('这个密码看不到库存管理（股东・会计部密码才可以）'); }
     if (d.error) throw new Error(d.error);
-    D = d; err = ''; LS.set('kcData', JSON.stringify(d));
+    const s = JSON.stringify(d), same = s === LS.get('kcData', '');
+    D = d; err = ''; LS.set('kcData', s); LS.set('kcAt', String(Date.now()));
+    busy = false; if (same) return;
   } catch (e) { err = '读不到（' + e.message + '）'; if (!D) { busy = false; return showKey(err); } }
   busy = false; render();
 }
@@ -216,7 +222,7 @@ async function doSign(id, undo) {
     const d = await api('&what=kcdo&ids=' + encodeURIComponent(JSON.stringify([id])) + '&who=' + encodeURIComponent(who || '—') + (undo ? '&act=undo' : '&how=' + encodeURIComponent(how))
       + '&ctx=' + encodeURIComponent(JSON.stringify({ 店: it.store, 类: '库存・' + it.kind, 摘: it.title })));
     if (d.error) throw new Error(d.error === 'device' ? '这台手机没登记' : d.error);
-    D = d; LS.set('kcData', JSON.stringify(d)); msg[id] = undo ? '<div class="note">已撤销</div>' : '';
+    D = d; LS.set('kcData', JSON.stringify(d)); LS.set('kcAt', String(Date.now())); msg[id] = undo ? '<div class="note">已撤销</div>' : '';
   } catch (e) { msg[id] = `<div class="err">没保存：${esc(e.message)}</div>`; }
   render();
 }

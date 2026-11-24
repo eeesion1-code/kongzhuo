@@ -618,7 +618,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
 })();
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v133';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v134';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -756,6 +756,7 @@ function load(manual) {
       hideKey();
       if (!svOpen()) renderSoon(); else if (svTab === 'ov') renderSoon(renderSales);   // 营业额页开着时不重画底下看不见的首页（关掉时再画）
       if (tab === 'pw') loadPw();
+      if (D.owner && !kcPfT) kcPfT = setTimeout(() => (window.requestIdleCallback || (f => f()))(kcPrefetch, { timeout: 4000 }), 3000);   // 11/24 v134：库存数据先读好（点「📦 库存」马上有）
       if ((D.owner || D.sk) && !SV && !svPfT) svPfT = setTimeout(() => (window.requestIdleCallback || (f => f()))(svPrefetch, { timeout: 4000 }), 8000);   // 老板：先把营业额准备好，点开就有（11/20 提速：3MB 的历史晚 8 秒、手机空闲时再准备，不和刚打开时的滑动抢；点开营业额页会马上读）
     })
     .catch(() => {
@@ -2870,6 +2871,14 @@ function devRender() {
 //   以前这里自己写的会计页（资金余额・要付的钱・月度损益・取消料汇总）删掉。kj.html 由 会计部\提需求\测试版.py 上线时自动更新。
 function openAc() { if (!D || !D.owner) return; location.href = 'kj.html'; }
 function openKc() { if (!D || !D.owner) return; location.href = 'kc.html'; }   // 11/24 库存管理
+// 11/24 v134 提速（用户：「点库存后卡 2〜3 秒」＝后台读一次要 3 秒）：股东打开空桌一览 3 秒后、手机空闲时先把库存数据读好，
+//   存在同一个手机存储 kcData（kc.html 2 分钟内存的直接用）；5 分钟内读过就不再读，省后台。
+let kcPfT = 0;
+function kcPrefetch() {
+  if (!D || !D.owner || Date.now() - (+LS.get('kcAt', 0) || 0) < 300e3) return;
+  fetch(API + '?fmt=json&what=kc' + KQ(), { cache: 'no-store' }).then(r => r.json())
+    .then(d => { if (d && !d.error && d.rows) { LS.set('kcData', JSON.stringify(d)); LS.set('kcAt', String(Date.now())); } }).catch(() => {});
+}
 function closeAc() {}
 function closeRelogin() { navDone('rl'); clearInterval(rlTimer); document.getElementById('rlView').style.display = 'none'; }
 function card(s) {
