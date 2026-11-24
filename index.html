@@ -428,6 +428,8 @@ nav button.on{color:var(--brand)}
 .svlist .dl{text-align:right;font-size:12.5px}
 .svlist small.ln{grid-column:2/5;color:var(--sub);font-size:11.5px;margin-top:-3px}
 .svlist .svst{grid-column:1/5}
+.svlist small.pf{grid-column:2/5;font-size:11.5px;margin-top:-2px;line-height:1.55;color:var(--sub)}
+.svlist small.pf b{font-variant-numeric:tabular-nums}
 .svdbar{display:flex;gap:6px;align-items:center;margin:2px 0 4px}
 .svdlab{position:relative;flex:1;text-align:center;font-weight:700;font-size:15.5px;border:1px solid var(--line);border-radius:10px;padding:7px 4px;background:var(--card)}
 .svdlab small{font-weight:400;color:var(--sub);font-size:12px;margin-left:4px}
@@ -615,7 +617,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
 })();
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v125';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v126';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -1139,6 +1141,8 @@ function svMk(d, sk) { const LB = {}, isD = x => /^\d/.test(x.d || '');   // 11/
   const o = sk ? { at: d.at, sk: true, days: d.days.filter(x => x.sk && isD(x)).map(x => Object.assign({ d: x.d }, x.sk)) } : Object.assign({}, d, { days: d.days.filter(x => !x.sko && isD(x)) }); o.lab = LB; o.sklab = SKL; o.raw = d.days.length; o.map = {}; o.mon = null; o.days.forEach(x => { o.map[x.d] = x; if (!sk && x.mon) o.mon = x.mon; });
   // 11/21：F 行＝每天记下来的「当天预测」{日期: {g: [当天预测, 整月预测], sk: […]}}（营业额历史.py 写；旧版 APP 不认这行）
   const FR = d.days.find(x => x.d === 'F'); o.fcs = {}; if (FR && FR.fc) Object.entries(FR.fc).forEach(([k, v]) => { const a = v && v[sk ? 'sk' : 'g']; if (a) o.fcs[k] = a; });
+  // 11/24：C 行＝KA「当月成本预估」每月一行（营业额历史.py ← 成本预估.py），各店的预估利益・AI 月底利润用
+  o.cost = {}; if (!sk) d.days.forEach(x => { if (x.cost && x.cost.m) o.cost[x.cost.m] = x.cost; });
   return o; }
 function svUse(d) { SVG = svMk(d, false); SVK = svMk(d, true); SV = (svCo === 'sk' || !SVG.days.length) && SVK.days.length ? SVK : SVG; svFcMemo = {}; svBt = {}; svErr = ''; }   // mon＝云端月报（收银台还没补到的店×月，11/14）
 function svSetCo(c) { svCo = c; if (SVG) SV = (c === 'sk' || !SVG.days.length) && SVK.days.length ? SVK : SVG; svFcMemo = {}; if (c === 'sk' && (svTab === 'st' || (svTab === 'lab' && !svHasLab()))) svTab = 'ov'; renderSales(); document.getElementById('salesView').scrollTop = 0; }   // mon＝云端月报（收银台还没补到的店×月，11/14）
@@ -1692,12 +1696,12 @@ function svStoreBlockR(R) {
     r[ix] = o.pchr ? o.phr : o.hr; return r; };
   const x = { h0: R.h0, s: os.map(o => row(o, o.t)) };
   const base = R.pn ? { h0: R.h0, s: os.filter(o => o.pn).map(o => { const r = [o.area, o.name, o.pb]; r[ix] = o.pchr; return r; }) } : null;
-  const ns = svNShop(os.map(o => [o.area, o.name]));
+  const ns = svNShop(os.map(o => [o.area, o.name])), ym = R.b.slice(0, 7);
   return `<div class="svcard"><div class="svct">${ns} 家${ns < os.length ? `<small>（${os.length} 台收银）</small>` : ''}<small>${R.nd} 天　合计 ${man(R.t)}${R.pn ? `　比${SV_CMP[svCmpM]} ${svDl(R.pa, R.pb)}` : ''}</small></div>`
     + (R.pn && !SV.sk ? svLyShopsTxt(Object.assign({ a: R.pa, b: R.pb }, svLyShops(R.P)), svCmpM, true) : '')
-    + `<div class="svseg2 wide"><button class="${svStSort === 'amt' ? 'on' : ''}" onclick="svSetSort('amt')">按营业额</button><button class="${svStSort === 'up' ? 'on' : ''}" onclick="svSetSort('up')">按增减</button></div>`
+    + `<div class="svseg2 wide"><button class="${svStSort === 'amt' ? 'on' : ''}" onclick="svSetSort('amt')">按营业额</button><button class="${svStSort === 'up' ? 'on' : ''}" onclick="svSetSort('up')">按增减</button>${svCostM(ym) ? `<button class="${svStSort === 'pf' ? 'on' : ''}" onclick="svSetSort('pf')">按 AI 利润</button>` : ''}</div>`
     + (R.short ? `<div class="svmiss">⚠ 这段日子里有 ${R.short} 天少了店的数据，那几天的店合计会偏少。</div>` : '')
-    + svStoreRows(x, base)
+    + svCostCard(ym, R) + svStoreRows(x, base, 0, ym)
     + `<div class="svnote">${R.pn ? `增减＝期间里每一天和它的${SV_CMP[svCmpM]}那天比（同一家店，两边都有数据的天才算）；「—」＝对比的日子这家店没有数据（新店）。${svCmpM === 'ly' ? '去年开着、现在已经关的店（品川 1 号店等）不在这个名单里。' : ''}` : `${SV_CMP[svCmpM]}没有数据。`}点有「⏰」的店看它每小时的营业额。</div></div>`;
 }
 // 总览的时段：15 点前一行，15 点起每小时一行（11/14 用户：原来的五段太粗）
@@ -1766,8 +1770,94 @@ function svHourBlock(ds, x, own) {
     + `<div class="svsub2">每小时　<small>${svPeak(x[mk], x.h0)}</small></div>` + lab + svHrRows(x[mk], cmp, x.h0, { lunch: true, keep: true, grp: svGK() ? x[svGK()] : null, lab: LB && LB.st.length ? LB.P : null, labNo: !(LB && LB.st.length) })
     + `<div class="svnote">${SV_MODE_NOTE[svMode]}${cmp ? `绿条＝这天，竖线＝${SV_CMP[svCmpM]}。` : ''}上个月同期・去年同期＝那个月同一周（1〜7/8〜14/15〜21/22 日〜）的同一个星期几。</div></div>`;
 }
+// ===== 11/24 用户：各店读 KA 云端「当月成本预估」的预估利益（BC）・人件%（AF）・食材%（AH）・酒水%（AJ），旁边放 AI 月底利润；立川两台收银合成一家 =====
+const svCln = n => String(n || '').replace(/[◆★]/g, '').replace('（已结账）', '').trim();
+const svCPct = v => (100 * (v || 0)).toFixed(1) + '%';
+const svPm = v => (v < 0 ? '−' : '+') + man(Math.abs(v));
+// 立川（SV_ONE）的几台收银合成一行：金额・组・客・时段相加；mg＝原来的收银台名
+function svOneMerge(x) {
+  if (!x || !x.s || !x.s.some(r => SV_ONE.includes(r[0]))) return x;
+  const out = [], grp = {};
+  x.s.forEach(r => {
+    if (!SV_ONE.includes(r[0])) { out.push(r); return; }
+    const g = grp[r[0]];
+    if (!g) { const c = r.map(v => Array.isArray(v) ? v.slice() : v); c.mg = [r[1]]; c[1] = r[0] + '店（收银合计）'; grp[r[0]] = c; out.push(c); return; }
+    g.mg.push(r[1]);
+    for (let i = 2; i < Math.max(g.length, r.length); i++) {
+      const a = g[i], b = r[i];
+      if (b == null) continue;
+      if (a == null) { g[i] = Array.isArray(b) ? b.slice() : b; continue; }
+      if (Array.isArray(a) && Array.isArray(b)) b.forEach((v, j) => a[j] = (a[j] || 0) + (v || 0));
+      else if (typeof a === 'number' && typeof b === 'number') g[i] = (i === 9 || i === 10) ? Math.max(a, b) : a + b;
+    }
+  });
+  out.sort((p, q) => q[2] - p[2]);
+  return Object.assign({}, x, { s: out });
+}
+function svCostM(ym) { return SV && !SV.sk && SV.cost ? SV.cost[ym] || null : null; }
+function svCostKey(C, r) { return C ? C.reg[svCln(r.mg ? r.mg[0] : r[1])] || null : null; }
+// 这家店那个月 KA 的比例；某项看起来还没填（人件・食材 <5%、酒水 <0.5%）→ AI 预估用上个月 KA 同一家店的比例补，并写出来
+function svCostRates(ym, k) {
+  const key = 'CR' + ym + k; if (key in svFcMemo) return svFcMemo[key];
+  const C = svCostM(ym), v = C && C.st[k]; if (!v) return svFcMemo[key] = null;
+  const [y, m] = ym.split('-').map(Number), pm = svStr(new Date(y, m - 2, 1)).slice(0, 7), P = svCostM(pm), pv = P && P.st[k];
+  let vr = v.e ? v.var / v.e : null; const fix = [];
+  [['lab', '人件', 0.05], ['food', '食材', 0.05], ['drink', '酒水', 0.005]].forEach(([f, nm, lo]) => {
+    if (!(v[f] < lo)) return;
+    if (pv && pv[f] >= lo && vr != null) { vr += pv[f] - v[f]; fix.push(`KA ${nm} ${svCPct(v[f])} 像没填全，AI 用 ${+pm.slice(5)} 月的 ${svCPct(pv[f])}`); }
+    else fix.push(`KA ${nm} ${svCPct(v[f])} 像没填全（上个月也没有可用的），AI 利润会偏高`);
+  });
+  return svFcMemo[key] = { v, vr, fix };
+}
+// 每家店（KA 店名）那个月的营业额：到昨天用收银实际（a），今天起用 APP 预测（f，和「预测」页同一个算法）
+function svStMonFc(ym) {
+  const key = 'CM' + ym; if (svFcMemo[key]) return svFcMemo[key];
+  const C = svCostM(ym), today = svToday(), out = {};
+  if (!C || ym > today.slice(0, 7)) return svFcMemo[key] = out;
+  const [y, m] = ym.split('-').map(Number), M = ym === today.slice(0, 7) ? svFModel() : null;
+  const o = k => out[k] || (out[k] = { a: 0, f: 0 });
+  svMonDays(y, m).forEach(ds => {
+    const x = ds < today && (SV.map[ds] || (ds === svLiveDay() && svGet(ds)));
+    if (x) { x.s.forEach(r => { const k = C.reg[svCln(r[1])]; if (k) o(k).a += r[2] || 0; }); return; }
+    if (!M) return;
+    const f = svFDay(ds), adj = f.t0 ? f.t / f.t0 : 1, tp = svType(ds), w = tp === 'H' ? 0 : tp === 'P' ? 6 : svDate(ds).getDay();
+    M.open.forEach(n => { const k = C.reg[svCln(n)]; if (!k) return; let v = svFStore(M, n, ds); if (v == null) v = (M.base[n] || [])[w] || 0; o(k).f += v * adj; });
+  });
+  return svFcMemo[key] = out;
+}
+// AI 月底（过完的月份＝整月）利润＝营业额 ×（1 − 变动费率）− 固定费
+function svCostAi(ym, k) {
+  const R = svCostRates(ym, k); if (!R) return null;
+  const F = svStMonFc(ym)[k], S = F ? F.a + F.f : 0;
+  return { R, S, ai: S && R.vr != null && !R.v.bad ? S * (1 - R.vr) - R.v.fix : null };
+}
+function svCostLine(r, ym) {
+  const k = svCostKey(svCostM(ym), r); if (!k) return '';
+  const A = svCostAi(ym, k); if (!A) return '';
+  const v = A.R.v, cur = ym === svToday().slice(0, 7);
+  return `<small class="pf">💰 ${+ym.slice(5)}月 KA 预估利益 <b class="${v.p >= 0 ? 'g' : 'rr'}">${svPm(v.p)}</b>　人件 ${svCPct(v.lab)}・食材 ${svCPct(v.food)}・酒水 ${svCPct(v.drink)}`
+    + `<br>🤖 AI ${cur ? '月底' : '整月'}利润 ${A.ai == null ? '—' : `<b class="${A.ai >= 0 ? 'g' : 'rr'}">${svPm(A.ai)}</b>（${cur ? '月底营业额约' : '整月营业额'} ${man(A.S)}）`}`
+    + `${r.mg && r.mg.length > 1 ? `<br>${r.mg.length} 台收银：${r.mg.map(n => esc(svCln(n))).join('／')}` : ''}`
+    + `${A.R.fix.length ? `<br><span class="m">⚠ ${A.R.fix.map(esc).join('；')}</span>` : ''}</small>`;
+}
+function svCostCard(ym, R) {
+  if (SV.sk) return '';
+  const C = svCostM(ym), [y, m] = ym.split('-').map(Number), cur = ym === svToday().slice(0, 7);
+  if (!C) return `<div class="svnote">💰 KA「当月成本预估」没有 ${y} 年 ${m} 月那页（7 月起才有；新的一个月要等会计部建好那页），利润看不了。</div>`;
+  let kp = 0, ai = 0, an = 0, n = 0, aS = 0; const bad = [];
+  Object.keys(C.st).forEach(k => { const A = svCostAi(ym, k); if (!A) return; n++; kp += A.R.v.p; if (A.ai != null) { ai += A.ai; an++; aS += A.S; } if (A.R.fix.length) bad.push(k); });
+  const up = C.upto ? svMD(C.upto) : '?';
+  return `<div class="svmini"><div>${m}月 KA 预估利益（${n} 家）<b class="${kp >= 0 ? 'g' : 'rr'}">${svPm(kp)}</b>营业额到 ${up}</div>`
+    + `<div>🤖 AI ${cur ? '月底' : '整月'}利润（${an} 家）<b class="${ai >= 0 ? 'g' : 'rr'}">${svPm(ai)}</b>${cur ? '月底营业额约' : '营业额'} ${man(aS)}</div>`
+    + `<div>AI 利润率<b>${aS ? (100 * ai / aS).toFixed(1) + '%' : '—'}</b>${cur ? '按月底' : '整月'}</div></div>`
+    + `<div class="svnote">💰 <b>KA 预估利益</b>＝会计部云端「当月成本预估」${esc(C.sheet)} 页 BC 列（利润＝营业额 E − 支出合計 BB），人件・食材・酒水＝AF・AH・AJ 列（文件更新 ${esc(C.at)}）。KA 的营业额只到 ${up}，房租・水电・广告月费等却已经按整月扣，所以月中的 KA 利益偏低、月底才准。`
+    + `<br>🤖 <b>AI ${cur ? '月底' : '整月'}利润</b>＝这家店${cur ? '月底营业额（到昨天用收银实际，之后每天用「预测」页同一个算法）' : '整月收银营业额'} ×（1 − 变动费率）− 固定费。变动费率＝KA 里跟着营业额走的支出（手续费・H/G/T/R 人头费・人件・食材・酒水・资材・拉客・业绩奖金）÷ KA 营业额；固定费＝房租・管理费・水电煤・广告月费・レビュアー・保险・税理士 等整月费用（都取自 KA 同一页）。`
+    + `${bad.length ? `<br><span class="rr">KA 有比例看起来还没填全（${bad.map(esc).join('、')}），AI 用上个月 KA 的比例补，KA 利益本身会偏高，见各店小字。</span>` : ''}`
+    + `${R && R.a.slice(0, 7) !== R.b.slice(0, 7) ? `<br>这段日子跨月，利润按最后一天所在的 ${m} 月。` : ''}立川两台收银合成一家（KA 本来就是一行）。</div>`;
+}
 // 一天的各店：店名＝[车站, 店名, 金额, 组, 客, 进店时段, 结账时段]
-function svStoreRows(x, base, lim) {
+function svStoreRows(x, base, lim, ym) {
+  x = svOneMerge(x); base = svOneMerge(base);   // 11/24：立川两台收银合成一家
   const ix = svIX(), bm = {}; if (base) base.s.forEach(q => bm[q[1]] = q);
   svStX = x;   // svSt 点开某店用
   const cur = r => r[8] != null ? r[8] : r[2];   // 期间：增减只用两边都有数据的天
@@ -1775,12 +1865,14 @@ function svStoreRows(x, base, lim) {
   // 11/21：期间里能比的天不到一半（例：池袋 団欒・本厚木 去年 11/18 起才有数，只有 4 天）＝涨跌不准，按增减排时放到最后（和新店一样）
   const up = o => !o.b || (o.r[10] != null && o.r[10] < o.r[9] / 2) ? -9 : (cur(o.r) - o.b) / o.b;
   if (svStSort === 'up') rows.sort((p, q) => up(q) - up(p));
+  if (svStSort === 'pf' && ym) { const C = svCostM(ym), pf = o => { const k = svCostKey(C, o.r), A = k && svCostAi(ym, k); return A && A.ai != null ? A.ai : -1e12; }; rows.sort((p, q) => pf(q) - pf(p)); }
   if (lim) rows = rows.slice(0, lim);
   return '<div class="svlist">' + rows.map(({ r, i, b }, k) => {
-    const hr = r[ix], op = hr && svOpenSt.has(r[1]);
+    const hr = r[ix], op = hr && svOpenSt.has(r[1]), es = x.est && x.est.some(e => e[1] === r[1] || (r.mg && r.mg.includes(e[1])));
     const q = base && base.h0 === x.h0 && bm[r[1]];
     return `<div${hr ? ` class="can" onclick="svSt(${i})"` : ''}><em>${k + 1}</em><span class="nm"><small>${esc(r[0])}</small>${esc(r[1])}</span><b>${man(r[2])}</b>${base ? svDl(cur(r), b) : '<span></span>'}`
-      + `${r[3] != null || hr || (x.est && x.est.some(e => e[1] === r[1])) ? `<small class="ln">${x.est && x.est.some(e => e[1] === r[1]) ? '<span class="rr">实时估计</span>　' : ''}${r[9] ? `${r[9]} 天　` : ''}${r[3] != null ? `${r[3]} 组 ${r[4]} 人　客单价 ${yen(r[4] ? r[2] / r[4] : 0)}` : ''}${b ? `　${SV_CMP[svCmpM]}${r[10] && r[10] < r[9] ? `（${r[10]} 天）` : ''} ${man(b)}` : ''}${hr ? `　<span class="ar">⏰ ${op ? '▲' : '▼'}</span>` : ''}</small>` : ''}`
+      + `${r[3] != null || hr || es ? `<small class="ln">${es ? '<span class="rr">实时估计</span>　' : ''}${r[9] ? `${r[9]} 天　` : ''}${r[3] != null ? `${r[3]} 组 ${r[4]} 人　客单价 ${yen(r[4] ? r[2] / r[4] : 0)}` : ''}${b ? `　${SV_CMP[svCmpM]}${r[10] && r[10] < r[9] ? `（${r[10]} 天）` : ''} ${man(b)}` : ''}${hr ? `　<span class="ar">⏰ ${op ? '▲' : '▼'}</span>` : ''}</small>` : ''}`
+      + (ym ? svCostLine(r, ym) : '')
       + `${op ? `<div class="svst">${svHrRows(hr, q && q[ix] ? q[ix] : null, x.h0, { lunch: true })}</div>` : ''}</div>`;
   }).join('') + '</div>';
 }
@@ -2024,10 +2116,10 @@ function svTabSt(today) {
   if (svRg) return h + svStoreBlockR(svAgg(svRg.a, svRg.b));
   const x = svGet(svDay);
   if (!x) return h + '<div class="svnote">这一天没有数据</div>';
-  const bd = x.live ? null : svCmpDay(svDay, svCmpM), base = bd && SV.map[bd];
+  const bd = x.live ? null : svCmpDay(svDay, svCmpM), base = bd && SV.map[bd], ym = svDay.slice(0, 7);
   h += `<div class="svcard"><div class="svct">${svNShop(x.s)} 家<small>${x.live ? '实时' : '日报'}　合计 ${man(x.t)}${base ? `　比${SV_CMP[svCmpM]}（${svCmpTag(svDay)}）${man(base.t)} ${svDl(x.t, base.t)}` : ''}</small></div>`
-    + `<div class="svseg2 wide"><button class="${svStSort === 'amt' ? 'on' : ''}" onclick="svSetSort('amt')">按营业额</button><button class="${svStSort === 'up' ? 'on' : ''}" onclick="svSetSort('up')">按增减</button></div>`
-    + svMissHtml(x) + svStoreRows(x, base)
+    + `<div class="svseg2 wide"><button class="${svStSort === 'amt' ? 'on' : ''}" onclick="svSetSort('amt')">按营业额</button><button class="${svStSort === 'up' ? 'on' : ''}" onclick="svSetSort('up')">按增减</button>${svCostM(ym) ? `<button class="${svStSort === 'pf' ? 'on' : ''}" onclick="svSetSort('pf')">按 AI 利润</button>` : ''}</div>`
+    + svMissHtml(x) + svCostCard(ym) + svStoreRows(x, base, 0, ym)
     + `<div class="svnote">${base ? `增减＝比${SV_CMP[svCmpM]}（${svCmpTag(svDay)}）同一家店；「—」＝那天这家店没有数据。` : x.live ? '今天是实时读数，对比要等明天日报。' : ''}点有「⏰」的店看它每小时的营业额。</div></div>`;
   return h;
 }
