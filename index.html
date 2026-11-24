@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
 <meta charset="utf-8">
@@ -617,7 +617,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
 })();
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v127';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v128';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -1855,7 +1855,7 @@ function svCostCard(ym, R) {
   return `<div class="svmini"><div>${m}月 KA 预估利益（${n} 家）<b class="${kp >= 0 ? 'g' : 'rr'}">${svPm(kp)}</b>营业额到 ${up}</div>`
     + `<div>🤖 AI ${cur ? '月底' : '整月'}利润（${an} 家）<b class="${ai >= 0 ? 'g' : 'rr'}">${svPm(ai)}</b>${cur ? '月底营业额约' : '营业额'} ${man(aS)}</div>`
     + `<div>AI 利润率<b>${aS ? (100 * ai / aS).toFixed(1) + '%' : '—'}</b>${cur ? '按月底' : '整月'}</div></div>`
-    + `<div class="svnote">💰 <b>KA 预估利益</b>＝会计部云端「当月成本预估」${esc(C.sheet)} 页 BC 列（利润＝营业额 E − 支出合計 BB），人件・食材・酒水＝AF・AH・AJ 列（文件更新 ${esc(C.at)}）。KA 的营业额只到 ${up}，房租・水电・广告月费等却已经按整月扣，所以月中的 KA 利益偏低、月底才准。`
+    + `<div class="svnote">💰 <b>KA 预估利益</b>＝会计部云端「当月成本预估」${esc(C.sheet)} 页 BC 列（利润＝营业额 E − 支出合計 BB），人件・食材・酒水＝AF・AH・AJ 列（${C.live ? '电脑 ' + esc(C.at) + ' 从 Google 表格读的现算数' : '⚠ 这次没读到网页，用的是文件里存档时的旧数（存档 ' + esc(C.at) + '）'}）。KA 的营业额只到 ${up}，房租・水电・广告月费等却已经按整月扣，所以月中的 KA 利益偏低、月底才准。`
     + `<br>🤖 <b>AI ${cur ? '月底' : '整月'}利润</b>＝这家店${cur ? '月底营业额（到昨天用收银实际，之后每天用「预测」页同一个算法）' : '整月收银营业额'} ×（1 − 变动费率）− 固定费。变动费率＝KA 里跟着营业额走的支出（手续费・H/G/T/R 人头费・人件・食材・酒水・资材・拉客・业绩奖金）÷ KA 营业额；固定费＝房租・管理费・水电煤・广告月费・レビュアー・保险・税理士 等整月费用（都取自 KA 同一页）。`
     + `${bad.length ? `<br><span class="rr">KA 有比例看起来还没填全（${bad.map(esc).join('、')}），AI 用上个月 KA 的比例补，KA 利益本身会偏高，见各店小字。</span>` : ''}`
     + `${R && R.a.slice(0, 7) !== R.b.slice(0, 7) ? `<br>这段日子跨月，利润按最后一天所在的 ${m} 月。` : ''}立川两台收银合成一家（KA 本来就是一行）。</div>`;
