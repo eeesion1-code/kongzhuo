@@ -65,6 +65,13 @@ textarea{min-height:120px;resize:vertical}
 .testbar{position:sticky;top:0;z-index:9;background:#facc15;color:#422006;font-size:13.5px;font-weight:700;text-align:center;padding:calc(7px + env(safe-area-inset-top)) 8px 7px}.testbar a{color:#422006;text-decoration:underline}
 .det{background:var(--soft);border-radius:10px;padding:8px 10px;margin:6px 0 2px}.det table{width:100%;border-collapse:collapse;font-size:13.5px}.det th,.det td{text-align:left;padding:4px 4px;border-top:1px solid var(--line);vertical-align:top;white-space:normal}.det tr:first-child th,.det tr:first-child td{border-top:0}.det th{width:7.5em;color:var(--sub);font-weight:600;white-space:nowrap}.det td{word-break:break-all}
 .fm .ck{display:flex;align-items:center;gap:8px;margin-top:12px;font-size:15px}.fm .ck input{width:auto;margin:0}
+/* 11/24 🔎 成本异常 */
+.it.cr{border-left:5px solid var(--bad)}.it.cyy{border-left:5px solid #d97706}.it.sg{border-left:5px solid var(--ok);opacity:.8}
+.it .why{font-size:13.5px;color:var(--sub);margin-top:4px;line-height:1.55}.it .fix{font-size:13.5px;margin-top:2px;line-height:1.55}
+.cysg{display:grid;grid-template-columns:1fr auto;gap:6px;margin-top:8px}.cysg input{margin:0}.cysg button{border:0;border-radius:10px;background:var(--ok);color:#fff;font:inherit;font-weight:700;padding:0 12px}
+.sgd{font-size:13.5px;color:var(--ok);margin-top:6px}.sgd a{color:var(--sub);margin-left:8px;cursor:pointer;font-size:12.5px}
+.an{margin:0;padding-left:18px}.an li{margin:4px 0;font-size:14px;line-height:1.65}
+.nw{display:inline-block;font-size:11px;font-weight:700;background:var(--bad);color:#fff;border-radius:6px;padding:0 5px;margin-left:4px;vertical-align:1px}
 </style>
 </head>
 <body>
@@ -88,7 +95,7 @@ textarea{min-height:120px;resize:vertical}
 // 11/18 用户：「单独的会计部键这个 APP 也做出来，因为给会计部看，然后让他们说有什么想更新的」。
 // 数据接口和「空桌一览」同一个后台（Apps Script）；会计部密码（或老板密码）才看得到。只有登记过的手机能用（手机编号 dv）。
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kuaiji-v15';
+const APPV = 'kuaiji-v16';
 // 11/19 自检：提需求「测试版 → 老板确认 → 正式版」流程跑通（这一行就是自检时上线的改动）
 const TEST = /\/test\//.test(location.pathname);
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 11/19 用户：「会计部跟运营部一样，不是 2 个网页」→ 空桌一览「🧾 会计」打开的是这份网页的副本 kongzhuo/kj.html（内容完全一样）   // 11/19 测试版（kuaiji/test/）：Claude 按需求改好先放这里，老板确认后才换成正式版   // 版本号：和 sw.js 的 V 一起改
@@ -114,7 +121,7 @@ const PVAC = IN_KZ && LS.get('asRole', '') === 'ac';
 function exitPreview() { ['asRole', 'asStaff', 'last', 'acrq'].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} }); location.href = './'; }
 const api = q => fetch(API + '?fmt=json' + q + '&k=' + encodeURIComponent(K) + '&dv=' + DV + '&ua=' + encodeURIComponent(DVUA) + (PVAC ? '&as=ac' : ''), { cache: 'no-store' }).then(r => r.json());
 
-const TABS = [['sx', '📋 事项汇报'], ['ns', '💴 取消料'], ['msg', '💡 提需求'], ['cash', '资金余额'], ['pay', '要付的钱'], ['pl', '月度损益']];   // 11/19 用户：「没有提需求这个键」——第 5 个在手机上被挤到右边看不见 → 放第 2 个，标签换行全部看得到
+const TABS = [['sx', '📋 事项汇报'], ['ns', '💴 取消料'], ['cy', '🔎 成本异常'], ['msg', '💡 提需求'], ['cash', '资金余额'], ['pay', '要付的钱'], ['pl', '月度损益']];   // 11/19 用户：「没有提需求这个键」——第 5 个在手机上被挤到右边看不见 → 放第 2 个，标签换行全部看得到
 const INFO = {
   cash: ['各公司银行・现金余额，这个月进了多少、出了多少。', 'Google Drive「11家流水」整理出来的现金流（残高）表。'],
   pay: ['请求书・信用卡要付的钱：哪天付、付多少，快到期的标出来。', '公司档案里的请求书、信用卡明细。'],
@@ -152,8 +159,9 @@ async function load() {
   if (tab === 'sx') loadSx();
   if (tab === 'msg') loadRq();
   if (tab === 'ns') loadNs();
+  if (tab === 'cy') loadCy();
 }
-function go(t) { tab = t; LS.set('acTab', t); sendMsg = ''; render(); window.scrollTo(0, 0); if (t === 'sx') loadSx(); if (t === 'msg') loadRq(); if (t === 'ns') loadNs(); }
+function go(t) { tab = t; LS.set('acTab', t); sendMsg = ''; render(); window.scrollTo(0, 0); if (t === 'sx') loadSx(); if (t === 'msg') loadRq(); if (t === 'ns') loadNs(); if (t === 'cy') loadCy(); }
 function ask(t) { const nm = TABS.find(x => x[0] === t)[1]; draft = `【${nm}】`; go('msg'); setTimeout(() => { const e = $('mv'); if (e) { e.focus(); e.setSelectionRange(e.value.length, e.value.length); } }, 50); }
 function render() {
   $('keybox').style.display = 'none'; $('main').style.display = 'block';
@@ -163,6 +171,7 @@ function render() {
   if (tab === 'sx') h += renderSx();
   else if (tab === 'msg') h += renderRq();
   else if (tab === 'ns') h += renderNs();
+  else if (tab === 'cy') h += renderCy();
   else {
     const nm = TABS.find(x => x[0] === tab)[1], [what, src] = INFO[tab];
     h += `<div class="miss">🧾 ${nm}：<b>数据源无</b>——还没接上数据（先把页面做出来，请会计部先看看想要什么）。</div>`
@@ -377,6 +386,69 @@ function renderRq() {
         : (r.st !== '不做' ? `<div class="note"><a onclick="rqToggle(${jq(r.id)})" style="color:var(--brand);cursor:pointer">➕ 补充</a></div>` : ''))
       + (rqOpen === r.id || (ask && !rqOpen) ? rqMsg : '') + '</div>';
   }).join('') : '<div class="note">还没有。</div>') + '</div>';
+  return h;
+}
+
+// ===== 11/24 🔎 成本异常（用户：「APP里面做一个键，分析预估成本表格是否有出现异常…每一天生成一次异常」）=====
+// 电脑 会计部\成本预估异常\成本预估异常.py 每天 9:30 读云端「当月成本预估」（Google 网页实时数）→ 后台「成本预估异常」表。
+// 后台 what=cy 读（rows：第 1 个是 head，后面每条 it：id・lv(r/y)・st・cat・t・why・fix；sg＝谁已处理）、what=cydo 签名（编号 cy| 开头）。
+let CY = (() => { try { return JSON.parse(LS.get('accy', 'null')); } catch (e) { return null; } })(), cyBusy = false, cyErr = '', cyAt = 0, cyMsg = {}, cyShowDone = false;
+async function loadCy(force) {
+  if (cyBusy || (!force && Date.now() - cyAt < 20000)) return; cyBusy = true; cyAt = Date.now();
+  try {
+    const d = await api('&what=cy');
+    if (d && d.rows) { CY = d; cyErr = ''; LS.set('accy', JSON.stringify(d)); }
+    else cyErr = d && d.error === 'device' ? '这台手机没登记' : '读不到（' + ((d && d.error) || '') + '）';
+  } catch (e) { cyErr = '读不到（' + e.message + '）'; }
+  cyBusy = false; if (tab === 'cy') render();
+}
+function cyItems() { return CY ? (CY.rows || []).filter(x => x && x.k === 'it') : []; }
+async function cyDo(i, undo) {
+  const it = cyItems()[i]; if (!it) return;
+  const who = (($('cyw') || {}).value || '').trim(), how = (($('cyh_' + i) || {}).value || '').trim();
+  if (!undo && !who) { cyMsg[it.id] = '<div class="err">请先在上面写你的名字</div>'; return render(); }
+  if (!undo && !how) { cyMsg[it.id] = '<div class="err">请写怎么处理的（例：已补上人件%／是统一调整不用改）</div>'; return render(); }
+  if (who) LS.set('acWho', who);
+  cyMsg[it.id] = '<div class="note">保存中…</div>'; render();
+  try {
+    const q = '&what=cydo&ids=' + encodeURIComponent(JSON.stringify([it.id])) + '&who=' + encodeURIComponent(who || '—') + (undo ? '&act=undo' : '&how=' + encodeURIComponent(how))
+      + '&ctx=' + encodeURIComponent(JSON.stringify({ 店: it.st, 类: '成本异常', 摘: it.t }));
+    const d = await api(q);
+    if (d.error) throw new Error(d.error === 'device' ? '这台手机没登记' : d.error);
+    CY = d; LS.set('accy', JSON.stringify(d)); cyMsg[it.id] = undo ? '<div class="note">已撤销</div>' : '';
+  } catch (e) { cyMsg[it.id] = `<div class="err">没保存：${esc(e.message)}</div>`; }
+  render();
+}
+function cyTog() { cyShowDone = !cyShowDone; render(); }
+function renderCy() {
+  let h = `<div class="card"><div class="ct">🔎 成本预估异常</div><div class="note">电脑每天 <b>9:30</b> 读云端「当月成本预估」（Google 网页上的实时数），检查：漏填・比例离谱・公式被改・合计不对・固定费和上月差很多・营业额没更新・照现在的成本比例会不会亏。<br>改好表格后第二天自动消失；处理了也请在每条下面签名（写怎么处理的），大家都看得到。</div></div>`;
+  if (!CY) return h + `<div class="card"><div class="note">${cyBusy ? '读取中…' : esc(cyErr || '还没有数据')}</div></div>`;
+  if (cyErr) h += `<div class="miss">${esc(cyErr)}（显示的是上次读到的）</div>`;
+  const hd = (CY.rows || []).find(x => x && x.k === 'head') || {}, sg = CY.sg || {}, all = cyItems(), nw = new Set(hd.new || []);
+  if (!hd.d) return h + '<div class="card"><div class="note">还没有生成（电脑每天 9:30 生成）</div></div>';
+  const td = new Date(), tds = td.getFullYear() + '-' + String(td.getMonth() + 1).padStart(2, '0') + '-' + String(td.getDate()).padStart(2, '0');
+  if (hd.d !== tds) h += `<div class="miss">⚠ 这是 ${esc(hd.d)} 生成的，今天的还没出来（电脑每天 9:30 跑，可能电脑没开或出错了）。</div>`;
+  if (hd.live === false) h += '<div class="miss">⚠ 今天没读到 Google 网页上的实时数，用的是文件存档的旧数，可能不准。</div>';
+  const open = all.map((x, i) => [x, i]).filter(([x]) => !sg[x.id]), done = all.map((x, i) => [x, i]).filter(([x]) => sg[x.id]);
+  const nr = open.filter(([x]) => x.lv === 'r').length, ny = open.length - nr;
+  h += `<div class="note" style="margin:2px 2px 6px">${esc(hd.sheet || '')} 页・${esc(hd.at || '')} 读・${esc(hd.n_store || '')} 家店</div>`;
+  h += `<div class="kp" style="grid-template-columns:repeat(3,1fr)"><div class="r"><b>${nr}</b><small>🔴 要改</small></div><div><b style="color:#d97706">${ny}</b><small>🟡 要看</small></div><div><b style="color:var(--ok)">${done.length}</b><small>✅ 已处理</small></div></div>`;
+  h += `<div class="card"><div class="ct">🧠 负责人分析</div><ul class="an">${(hd.sum || []).map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>`;
+  h += `<div class="card"><div class="note" style="margin-top:0">签名用的名字</div><input id="cyw" value="${esc(LS.get('acWho', '') || (AC && AC.owner ? '股东' : ''))}" placeholder="你的名字" style="margin-top:4px"></div>`;
+  const card = ([x, i]) => {
+    const s = sg[x.id], cls = s ? 'sg' : x.lv === 'r' ? 'cr' : 'cyy';
+    return `<div class="it ${cls}"><div class="nm">${x.lv === 'r' ? '🔴' : '🟡'} ${esc(x.st)} <span class="pill p0">${esc(x.cat)}</span>${nw.has(x.id) ? '<span class="nw">新</span>' : ''}</div>`
+      + `<div style="margin-top:4px;font-size:14.5px">${esc(x.t)}</div>`
+      + (x.why ? `<div class="why">可能原因：${esc(x.why)}</div>` : '') + (x.fix ? `<div class="fix">👉 ${esc(x.fix)}</div>` : '')
+      + (s ? `<div class="sgd">✅ ${esc(s[0])}　${esc(String(s[1] || '').slice(5, 16))}${s[2] ? '：' + esc(s[2]) : ''}<a onclick="cyDo(${i},1)">撤销</a></div>`
+        : `<div class="cysg"><input id="cyh_${i}" placeholder="怎么处理的"><button onclick="cyDo(${i})">✅ 已处理</button></div>`)
+      + (cyMsg[x.id] || '') + '</div>';
+  };
+  if (!all.length) h += '<div class="card"><div class="ok" style="margin:0">✓ 今天没有发现异常</div></div>';
+  if (open.length) h += '<div class="grp">还没处理</div>' + open.map(card).join('');
+  else if (all.length) h += '<div class="card"><div class="ok" style="margin:0">✓ 全部处理完了</div></div>';
+  if (done.length) h += `<div class="grp"><a onclick="cyTog()" style="color:var(--brand);cursor:pointer">✅ 已处理 ${done.length} 条（${cyShowDone ? '收起' : '展开'}）</a></div>` + (cyShowDone ? done.map(card).join('') : '');
+  h += `<button class="btn sub" onclick="loadCy(1)">🔄 重新读取</button>`;
   return h;
 }
 
