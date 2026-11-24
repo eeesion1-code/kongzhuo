@@ -101,7 +101,7 @@ textarea{min-height:120px;resize:vertical}
 // 11/18 用户：「单独的会计部键这个 APP 也做出来，因为给会计部看，然后让他们说有什么想更新的」。
 // 数据接口和「空桌一览」同一个后台（Apps Script）；会计部密码（或老板密码）才看得到。只有登记过的手机能用（手机编号 dv）。
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kuaiji-v18';
+const APPV = 'kuaiji-v19';
 // 11/19 自检：提需求「测试版 → 老板确认 → 正式版」流程跑通（这一行就是自检时上线的改动）
 const TEST = /\/test\//.test(location.pathname);
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 11/19 用户：「会计部跟运营部一样，不是 2 个网页」→ 空桌一览「🧾 会计」打开的是这份网页的副本 kongzhuo/kj.html（内容完全一样）   // 11/19 测试版（kuaiji/test/）：Claude 按需求改好先放这里，老板确认后才换成正式版   // 版本号：和 sw.js 的 V 一起改
@@ -482,7 +482,7 @@ function renderCy() {
 // 后台 what=pt 读（rows：head・各店 st{H,T,G:{rv 已到店预约, rw 来店待ち, pos 收银, dr 日报, bad}}・每条 it）、what=ptdo 签名（编号 pt| 开头）。
 // 闭环：数据只在源头改（日报・レストランボード・收银），第二天电脑重算对上了就自动消失；改不了源头的在这里选原因签名。
 let PT = (() => { try { return JSON.parse(LS.get('acpt', 'null')); } catch (e) { return null; } })(), ptBusy = false, ptErr = '', ptAt = 0, ptMsg = {}, ptShowDone = false, ptStore = '';
-const PT_PN = { H: 'ホットペッパー', T: '食べログ', G: 'ぐるなび' }, PT_KIND = { dr: '日报≠收银', rvgt: '收银少抵扣', posgt: '收银多抵扣', wait: '来店待ち', blank: '日报没填' };
+const PT_PN = { H: 'ホットペッパー', T: '食べログ', G: 'ぐるなび', '?': '平台不明' }, PT_KIND = { dr: '日报≠收银', rvgt: '收银少抵扣', posgt: '收银多抵扣', wait: '来店待ち', blank: '日报没填', nop: '没写平台' };
 const PT_WHY = ['已改源头（明天自动消失）', '客人当天没用积分', '收银按错积分种类', '其他'];
 async function loadPt(force) {
   if (ptBusy || (!force && Date.now() - ptAt < 20000)) return; ptBusy = true; ptAt = Date.now();
