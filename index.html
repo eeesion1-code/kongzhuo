@@ -612,7 +612,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
 })();
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v123';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v124';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -793,6 +793,17 @@ function toggleOpen(label) {
 function setTileF(label, f) { tileF[label] = f; render(); }
 function toggleTile(ev) { ev.currentTarget.classList.toggle('open'); }
 
+// 11/24 用户「昨天营业额不更新」：上午实时还没开始读时，首页卡片是昨天实时程序的最后读数（不准：11/23 两个程序同时跑多算了）；
+//   营业额历史里那天已经有收银后台的数 → 卡片换成后台数，下面小字写实时最后读数（还有店没补到的写「其中 N 家实时估计」）。
+function homeSalesCard() {
+  const ld = svLiveDay(), past = ld !== svToday();
+  if (past && D.owner) svPrefetch();
+  const h = past && D.owner && SVG && SVG.map[ld];
+  const lab = (past ? svMD(ld) + '（' + svWk(ld) + '）营业额（含税）' : '今日营业额（含税）');
+  if (h) { const ne = h.est ? h.est.length : 0;
+    return `<div class="stat sales" onclick="openSales()"><small>${lab}›</small><b>${esc(yen(h.t))}</b><small>${ne ? `收银后台（其中 ${ne} 家还是实时估计）` : '收银后台的数'}${D.sales ? `　实时最后读数 ${esc(D.sales)}` : ''}</small></div>`; }
+  return `<div class="stat sales" onclick="openSales()"><small>${lab}›</small><b>${esc(D.sales || '—')}</b>${D.salesEx ? `<small>税抜 ${esc(D.salesEx)}${past ? '（实时最后读数）' : ''}</small>` : ''}</div>`;
+}
 function render() {
   progScroll();   // v80：重画后页面变短时浏览器自己调的滚动不算「人在滑」
   if (!D) return;
@@ -849,7 +860,7 @@ function render() {
   const statsEl = document.getElementById('stats');
   statsEl.className = 'stats' + (D.owner || D.sk ? ' own' : '');
   patchList(statsEl,
-    (D.owner || D.sk ? `<div class="stat sales" onclick="openSales()"><small>${(() => { const ld = svLiveDay(); return ld === svToday() ? '今日营业额（含税）' : svMD(ld) + '（' + svWk(ld) + '）营业额（含税）'; })()}›</small><b>${esc(D.sales || '—')}</b>${D.salesEx ? `<small>税抜 ${esc(D.salesEx)}</small>` : ''}</div>` : '') +
+    (D.owner || D.sk ? homeSalesCard() : '') +
     // 11/12：Airレジ 的店（町田）没有桌位数据，但在营业，也算进「营业中」
     `<div class="stat"><small>营业中</small><b>${openShops}<em> 家</em></b>${airOpen ? `<small>其中 ${airOpen} 家没有桌位数据</small>` : ''}</div>` +
     `<div class="stat"><small>空桌</small><b class="g">${free}<em> / ${n}</em></b></div>` +
@@ -1136,7 +1147,7 @@ function svFetch() {
       if (d.error) throw new Error(d.error === 'owner' ? '要用股东密码' : d.error);
       if (!d.days) throw new Error('后台还没部署新版本');
       svGot = Date.now(); svCachePut(txt);
-      if (!SVG || SVG.at !== d.at || SVG.raw !== d.days.length) { svUse(d); if (svOpen()) renderSales(); }
+      if (!SVG || SVG.at !== d.at || SVG.raw !== d.days.length) { svUse(d); if (svOpen()) renderSales(); else if (D) render(); }
     })
     .catch(e => { svBusy = false; if (!SV) { svErr = String(e.message || e); if (svOpen()) renderSales(); } });
 }
@@ -1145,7 +1156,7 @@ function svPrefetch() {
   if (!D || !(D.owner || D.sk)) return Promise.resolve();
   if (SV) { if (Date.now() - svGot > 10 * 60000) svFetch(); return Promise.resolve(); }
   return svCacheGet().then(c => {
-    if (c && !SV && c.d && c.d.days) { svUse(c.d); svGot = c.got; if (svOpen()) renderSales(); }
+    if (c && !SV && c.d && c.d.days) { svUse(c.d); svGot = c.got; if (svOpen()) renderSales(); else if (D) render(); }
     if (!c || Date.now() - c.got > 10 * 60000) svFetch();
   });
 }
