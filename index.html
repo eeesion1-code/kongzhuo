@@ -618,7 +618,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
 })();
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v135';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v136';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -687,6 +687,7 @@ try { favs = JSON.parse(LS.get('favs', '[]')); } catch (e) {}
 if (tab === 'fav') tab = 'all';   // 11/19 用户：底栏「我的店」改成「📣 广告预约部」（gg.html，用户 11/19 定名）；☆ 收藏的店仍在「全部店」最上面
 
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const cssC = s => String(s == null ? '' : s).replace(/[^\w-]/g, '');   // 11/24 v136 安全 Angel：后台数据放进 class 只留字母数字（桌位状态 s），防藏代码
 const jq = s => esc(JSON.stringify(String(s == null ? '' : s)));   // 11/24 安全：数据放进按钮点击代码一律用 ${jq(x)}，不要写 '${x}'（esc 防不了代码里的引号）
 const ST = { free: '空', used: '使用中', remind: '放题快结束', lo: 'L.O.', over: '放题超时', held: '预约留桌' };
 const COLOR = { free: 'var(--free)', held: 'var(--held)', remind: 'var(--remind)', lo: 'var(--lo)', over: 'var(--over)' };
@@ -699,6 +700,7 @@ function saveKey() {
 }
 // 11/13 换密码（老板 / 店长）：iPhone 加到主屏幕的 APP 记着旧密码，只能在这里换
 function changeKey() {
+  LS.del('kcData'); LS.del('kcAt');   // 11/24 v136 安全 Angel：换密码时手机里存的库存数据（进货金额）一起删
   document.getElementById('kin').value = '';
   document.getElementById('ktip').textContent = '输入新密码（股东密码可以看集团总营业额）';
   showKey('');
@@ -716,7 +718,7 @@ let devBlk = false;
 function devBlocked(d) {
   devBlk = true; D = null; LS.del('last'); LS.del('pw'); PW = null; SV = SVG = SVK = null; svCacheDel(); closeSales(); closeAc(); closeDev(); DVL = null;
   // 11/18 运营部会话提醒：同一个网站（github.io）的运营部 pj.html（pjc_…）、会计部 APP（acc）存的数据也在这台手机里 → 一起删
-  try { Object.keys(localStorage).filter(k => /^pjc_|^acc$/.test(k)).forEach(k => localStorage.removeItem(k)); } catch (e) {}
+  try { Object.keys(localStorage).filter(k => /^pjc_|^acc$|^kc(Data|At)$/.test(k)).forEach(k => localStorage.removeItem(k)); } catch (e) {}
   showKey('');
   document.getElementById('keybox').classList.add('blk');
   document.getElementById('ktip').innerHTML = `🔒 这台手机还没登记，不能使用。<br>已经通知负责人。<br>手机编号：<b>${esc(d.id || '—')}</b>`
@@ -743,7 +745,7 @@ function load(manual) {
     .then(r => r.json())
     .then(d => {
       rf.classList.remove('spin');
-      if (d.error === 'key') { LS.del('k'); K = ''; showKey('密码不对，请再确认一下'); return; }
+      if (d.error === 'key') { LS.del('k'); K = ''; LS.del('kcData'); LS.del('kcAt'); showKey('密码不对，请再确认一下'); return; }
       if (d.error === 'device') { devBlocked(d); return; }
       devBlk = false;
       if (d.error) throw new Error(d.error);
@@ -2935,7 +2937,7 @@ function card(s) {
 // 卡片上的小桌位图：不用点开就能看到哪几桌空（点一下展开详细）
 function mini(s, L) {
   return `<div class="mini" onclick="toggleOpen(${L})">` + s.tables.map(t =>
-    `<i class="${t.s}${clashOf(s, t) ? ' cl' : ''}">${esc(String(t.t).replace(/（.*$/, ''))}</i>`).join('') + '</div>';
+    `<i class="${cssC(t.s)}${clashOf(s, t) ? ' cl' : ''}">${esc(String(t.t).replace(/（.*$/, ''))}</i>`).join('') + '</div>';
 }
 
 let curStore = null;  // tile() 要知道是哪家店（看这桌的下一组预约）
@@ -3039,7 +3041,7 @@ function tile(t, show) {
   // 坐了多久：底部细条，90 分满格
   const bar = se && se.mins != null ? `<i class="tm" style="width:${Math.min(100, se.mins / 90 * 100)}%;color:${se.mins >= 120 ? 'var(--over)' : se.mins >= 90 ? 'var(--remind)' : 'var(--used)'}"></i>` : '';
   const nxt = nx && t.s !== 'held' ? `<div class="nx${cl ? ' cl' : ''}">${cl ? '⚠ ' + (cl.d >= 0 ? cl.d + ' 分后' : '已过 ' + (-cl.d) + ' 分') + '下一组到，还没空<br>' : '📅 下一组 '}${esc(nx.st)} ${nx.ppl}名 ${esc(nx.name)}</div>` : '';
-  return `<div class="tile ${t.s}${show ? '' : ' dim'}${cl ? ' clash' : ''}" onclick="toggleTile(event)">
+  return `<div class="tile ${cssC(t.s)}${show ? '' : ' dim'}${cl ? ' clash' : ''}" onclick="toggleTile(event)">
     <b>${esc(t.t)}</b><div class="st">${ST[t.s]}${line ? '<span style="font-weight:400;color:var(--ink)"> ' + line + '</span>' : ''}</div>
     ${nxt}${rest.length ? `<div class="x">${rest.map(esc).join('<br>')}</div>` : ''}${bar}</div>`;
 }
