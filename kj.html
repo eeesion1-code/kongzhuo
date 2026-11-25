@@ -101,7 +101,7 @@ textarea{min-height:120px;resize:vertical}
 // 11/18 用户：「单独的会计部键这个 APP 也做出来，因为给会计部看，然后让他们说有什么想更新的」。
 // 数据接口和「空桌一览」同一个后台（Apps Script）；会计部密码（或老板密码）才看得到。只有登记过的手机能用（手机编号 dv）。
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kuaiji-v21';
+const APPV = 'kuaiji-v22';
 // 11/19 自检：提需求「测试版 → 老板确认 → 正式版」流程跑通（这一行就是自检时上线的改动）
 const TEST = /\/test\//.test(location.pathname);
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 11/19 用户：「会计部跟运营部一样，不是 2 个网页」→ 空桌一览「🧾 会计」打开的是这份网页的副本 kongzhuo/kj.html（内容完全一样）   // 11/19 测试版（kuaiji/test/）：Claude 按需求改好先放这里，老板确认后才换成正式版   // 版本号：和 sw.js 的 V 一起改
@@ -127,7 +127,7 @@ const PVAC = IN_KZ && LS.get('asRole', '') === 'ac';
 function exitPreview() { ['asRole', 'asStaff', 'last', 'acrq'].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} }); location.href = './'; }
 const api = q => fetch(API + '?fmt=json' + q + '&k=' + encodeURIComponent(K) + '&dv=' + DV + '&ua=' + encodeURIComponent(DVUA) + (PVAC ? '&as=ac' : ''), { cache: 'no-store' }).then(r => r.json());
 
-const TABS = [['sx', '📋 事项汇报'], ['ns', '💴 取消料'], ['cy', '🔎 成本异常'], ['pt', '🎫 积分对账'], ['bb', '🎁 BB 费用'], ['msg', '💡 提需求'], ['cash', '资金余额'], ['pay', '要付的钱'], ['pl', '月度损益']];   // 11/19 用户：「没有提需求这个键」——第 5 个在手机上被挤到右边看不见 → 放第 2 个，标签换行全部看得到
+const TABS = [['sx', '📋 事项汇报'], ['ns', '💴 取消料'], ['cy', '🔎 当月预估表异常'], ['pt', '🎫 积分对账'], ['bb', '🎁 BB 费用'], ['msg', '💡 提需求'], ['cash', '资金余额'], ['pay', '要付的钱'], ['pl', '月度损益']];   // 11/19 用户：「没有提需求这个键」——第 5 个在手机上被挤到右边看不见 → 放第 2 个，标签换行全部看得到
 const INFO = {
   cash: ['各公司银行・现金余额，这个月进了多少、出了多少。', 'Google Drive「11家流水」整理出来的现金流（残高）表。'],
   pay: ['请求书・信用卡要付的钱：哪天付、付多少，快到期的标出来。', '公司档案里的请求书、信用卡明细。'],
@@ -431,7 +431,7 @@ async function cyDo(i, undo) {
 function cyTog() { cyShowDone = !cyShowDone; render(); }
 function cySdTog() { cySdTbl = !cySdTbl; render(); }
 function renderCy() {
-  let h = `<div class="card"><div class="ct">🔎 成本预估异常</div><div class="note">电脑每天 <b>9:30</b> 读云端「当月成本预估」（Google 网页上的实时数），检查：漏填・比例离谱・公式被改・合计不对・固定费和上月差很多・营业额没更新・照现在的成本比例会不会亏。下面另有每月一次的「⚡💧 水电月报」。<br>改好表格后第二天自动消失；处理了也请在每条下面签名（写怎么处理的），大家都看得到。</div></div>`;
+  let h = `<div class="card"><div class="ct">🔎 当月预估表异常</div><div class="note">电脑每天 <b>9:30</b> 读云端「当月成本预估」（Google 网页上的实时数），检查：漏填・比例离谱・公式被改・合计不对・固定费和上月差很多・营业额没更新・照现在的成本比例会不会亏。下面另有每月一次的「⚡💧 水电月报」。<br>改好表格后第二天自动消失；处理了也请在每条下面签名（写怎么处理的），大家都看得到。</div></div>`;
   if (!CY) return h + `<div class="card"><div class="note">${cyBusy ? '读取中…' : esc(cyErr || '还没有数据')}</div></div>`;
   if (cyErr) h += `<div class="miss">${esc(cyErr)}（显示的是上次读到的）</div>`;
   const hd = (CY.rows || []).find(x => x && x.k === 'head') || {}, sg = CY.sg || {}, all = cyItems(), nw = new Set(hd.new || []);
