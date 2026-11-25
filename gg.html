@@ -88,6 +88,17 @@ details summary{cursor:pointer;color:var(--sub);font-size:14px;margin:12px 2px}
 .wt2 .raw{display:block;font-size:12px;color:var(--faint);word-break:break-all}
 .lk{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}.lk a{font-size:13px;border:1px solid var(--line);border-radius:999px;padding:3px 10px;color:var(--brand);text-decoration:none;background:var(--card)}
 .wstat{font-size:14px;margin:6px 0}
+.tabs button:last-child:nth-child(odd){grid-column:1/-1}
+/* 11/25 「💴 T榜价格」 */
+.tjb{display:inline-block;border-radius:999px;padding:1px 9px;font-size:12.5px;font-weight:700;background:var(--soft);color:var(--sub)}
+.tjb.up{background:var(--goodBg);color:var(--good)}.tjb.hi{background:var(--badBg);color:var(--bad)}.tjb.mid{background:var(--warnBg);color:var(--warn)}
+.tjs{border-top:1px dashed var(--line);margin-top:8px;padding-top:8px}.tjs .h{font-weight:700;font-size:15px}
+.tjbar{position:relative;height:22px;background:var(--soft);border-radius:6px;margin:8px 0 2px}
+.tjbar .q{position:absolute;top:0;bottom:0;background:#bfdbfe;border-radius:6px}.tjbar .m{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--brand)}
+.tjbar .tjme{position:absolute;top:2px;width:14px;height:14px;margin-left:-7px;border-radius:50%;background:var(--warn);border:2px solid var(--card);padding:0}
+.tjbl{display:flex;justify-content:space-between;font-size:11.5px;color:var(--faint)}
+.tjt td,.tjt th{font-size:13px;padding:6px 3px}.tjt tr.tjme td{background:var(--warnBg)}.tjt tr{cursor:pointer}
+.tjc{font-size:12.5px;color:var(--sub);background:var(--soft);border-radius:8px;padding:6px 8px;margin:4px 0;white-space:normal;text-align:left}
 </style>
 </head>
 <body>
@@ -146,6 +157,7 @@ async function load() {
   } catch (e) { err = '网络不通，显示的是上次的数据'; }
   busy = false; render();
   if (tab === 'wc' && K && NS) loadWc();   // 11/19 网页检查（密码・设备先由上面无断取消那次确认）
+  if (tab === 'tj' && K && NS) loadTj();
 }
 async function act(id, q, okText) {
   const who = (($('who') || {}).value || '').trim();
@@ -320,7 +332,7 @@ function renderChk() {
 // 用户：「在广告预约部 APP 点击进去后多一个按键，网页检查的键生成更新上传；检查这些网页的信息内容一致性，不同的需要标注，然后需要签名这个，说已经更改完成」
 // 电脑 广告部\网页检查\网页检查.py 每天 9 点后查一次（APP 按「🔄 现在检查」也会查）：各店 食べログ・ホットペッパー・ぐるなび・谷歌 店铺页的
 //   住所・电话・营业时间・定休日・席数・最大宴会人数 互相比 → 上传后台（what=wc 读・wcdo 签名／请求检查）。
-let tab = ['wc', 'chk', 'xq'].includes(LS.get('ggTab', 'ns')) ? LS.get('ggTab', 'ns') : 'ns';
+let tab = ['wc', 'chk', 'xq', 'tj'].includes(LS.get('ggTab', 'ns')) ? LS.get('ggTab', 'ns') : 'ns';
 let WC = (() => { try { return JSON.parse(LS.get('ggwc', 'null')); } catch (e) { return null; } })(), wcErr = '', wcBusy = false, wcField = '', wcOpen = new Set();
 const WCP = { T: '食べログ', H: 'ホットペッパー', R: 'ぐるなび', G: '谷歌' };
 // 11/23 用户：「像套餐，内容等所有网页信息哦」→ 加 套餐（每个套餐一项：价格・几道菜・饮放时间，哪个网站没有）＋ 禁烟吸烟・包间・包场・信用卡・扫码支付・停车场
@@ -334,10 +346,10 @@ const wcApply = o => o['结果'] === '不一致' && !!o['签名・谁'] && wcApp
 const wcFixed = o => o['结果'] === '一致' && /^✓/.test(o['复查'] || '');
 const wcGone = o => o['结果'] === '没有了' && !!o['签名・谁'];
 const wcPN = o => o.odd.map(p => WCP[p]).join('・');
-function setTab(t) { tab = t; LS.set('ggTab', t); render(); if (t === 'xq') loadXq(); else load(); window.scrollTo(0, 0); }
+function setTab(t) { tab = t; LS.set('ggTab', t); render(); if (t === 'xq') loadXq(); else if (t === 'tj') loadTj(); else load(); window.scrollTo(0, 0); }
 function tabsHtml() {
   const nBad = WC ? wcObjs().filter(o => wcTodo(o)).length : 0;
-  return `<div class="tabs"><button class="${tab === 'ns' ? 'on' : ''}" onclick="setTab('ns')">🚫 无断取消</button><button class="${tab === 'chk' ? 'on' : ''}" onclick="setTab('chk')">📋 每日上报${chkTodo() ? `<span class="bd">${chkTodo()}</span>` : ''}</button><button class="${tab === 'wc' ? 'on' : ''}" onclick="setTab('wc')">🔍 网页检查${nBad ? `<span class="bd">${nBad}</span>` : ''}</button><button class="${tab === 'xq' ? 'on' : ''}" onclick="setTab('xq')">💡 提需求${xqBadge() ? `<span class="bd">${xqBadge()}</span>` : ''}</button></div>`;
+  return `<div class="tabs"><button class="${tab === 'ns' ? 'on' : ''}" onclick="setTab('ns')">🚫 无断取消</button><button class="${tab === 'chk' ? 'on' : ''}" onclick="setTab('chk')">📋 每日上报${chkTodo() ? `<span class="bd">${chkTodo()}</span>` : ''}</button><button class="${tab === 'wc' ? 'on' : ''}" onclick="setTab('wc')">🔍 网页检查${nBad ? `<span class="bd">${nBad}</span>` : ''}</button><button class="${tab === 'tj' ? 'on' : ''}" onclick="setTab('tj')">💴 T榜价格</button><button class="${tab === 'xq' ? 'on' : ''}" onclick="setTab('xq')">💡 提需求${xqBadge() ? `<span class="bd">${xqBadge()}</span>` : ''}</button></div>`;
 }
 function paint(h) {   // 重画时保留已经写的字・选的结果
   const keep = {}, picked = {};
@@ -591,9 +603,81 @@ function renderXq() {
 }
 if (TEST) document.body.insertAdjacentHTML('afterbegin', '<div class="testbar">🧪 测试版（还没上线）　在这里按的按钮会真的记下来　<a href="./gg.html">回正式版</a></div>');
 
+// ================= 11/25 「💴 T榜价格」 =================
+// 用户：「我们开店的每个区域，参考 T排名 TOP20 的店，看要不要涨价、明年套餐怎么定；TOP20 的数据存档，放在广告预约部 APP 的按键，每个月查一次别漏了」
+// 电脑 广告部\T排名竞品价格\竞品价格.py 每月 1 日起自动读一次（这个月没成功就每天再试）→ 后台工作表「T排名竞品价格」（what=tj 读）。
+// 每家店的 食べログ 套餐页・料理页截图存在电脑 存档\截图\月份\区域\（留档）。
+let TJ = (() => { try { return JSON.parse(LS.get('ggtj', 'null')); } catch (e) { return null; } })(), tjErr = '', tjBusy = false, tjArea = LS.get('ggTjA', ''), tjOpen = new Set();
+async function loadTj() {
+  tjBusy = true; if (tab === 'tj') render();
+  try {
+    const d = await api('&what=tj');
+    if (d && d.rows) { TJ = d; tjErr = ''; LS.set('ggtj', JSON.stringify(d)); }
+    else if (d && d.error === 'device') tjErr = '这台设备还没登记';
+    else if (d && (d.error === 'key' || d.error === 'owner')) tjErr = '这个密码看不到 T榜价格（只给股东・广告预约部）';
+    else if (d && d.error === 'what') tjErr = '后台还没部署新版本';
+    else tjErr = '读不到（' + ((d && d.error) || '') + '）';
+  } catch (e) { tjErr = '网络不通，显示的是上次的数据'; }
+  tjBusy = false; if (tab === 'tj') render();
+}
+function tjSetA(a) { tjArea = a; LS.set('ggTjA', a); render(); window.scrollTo(0, 0); }
+function tjTog(id) { tjOpen.has(id) ? tjOpen.delete(id) : tjOpen.add(id); render(); }
+const tjY = n => n ? '¥' + Number(n).toLocaleString('ja-JP') : '—';
+const tjCls = a => /建议涨价|看客单价可涨/.test(a) ? 'up' : /小幅/.test(a) ? 'mid' : /偏贵/.test(a) ? 'hi' : '';
+function tjBar(ar, me) {
+  if (!ar.p25 || !ar.p75) return '';
+  const lo = Math.min(ar.p25, me || ar.p25) * 0.8, hi = Math.max(ar.p75, me || ar.p75) * 1.15, x = v => Math.max(0, Math.min(100, (v - lo) / (hi - lo) * 100));
+  return `<div class="tjbar"><div class="q" style="left:${x(ar.p25)}%;width:${x(ar.p75) - x(ar.p25)}%"></div><div class="m" style="left:${x(ar.p50)}%"></div>${me ? `<div class="tjme" style="left:${x(me)}%"></div>` : ''}</div>`
+    + `<div class="tjbl"><span>${tjY(Math.round(lo / 100) * 100)}</span><span>蓝块＝TOP20 中间一半（${tjY(ar.p25)}〜${tjY(ar.p75)}），竖线＝中位 ${tjY(ar.p50)}${me ? '，橙点＝我们' : ''}</span><span>${tjY(Math.round(hi / 100) * 100)}</span></div>`;
+}
+const tjCs = cs => (cs || []).map(c => `<div class="tjc">${tjY(c[1])}${c[2] ? '・' + c[2] + '品' : ''}${c[3] ? '・饮放' + c[3] + 'h' : ''}　${esc(c[0])}</div>`).join('');
+function tjOur(o) {
+  const id = 'o' + o.rst;
+  return `<div class="tjs"><div class="h">${esc(o.s)}${o.rank ? ` <span class="tjb up">T榜第 ${o.rank} 名</span>` : ' <span class="tjb">不在TOP20</span>'}</div>`
+    + `<div class="note">饮放套餐中位 <b>${tjY(o.med)}</b>（${o.nc || 0} 个，${tjY(o.min)}〜${tjY(o.max)}${o.nomi ? '，饮放' + o.nomi + 'h' : ''}${o.pin ? '，' + o.pin + '品' : ''}）　口コミ客单价 ${tjY(o.kc)}</div>`
+    + `<div style="margin-top:4px"><span class="tjb ${tjCls(o.adv)}">${esc(o.adv)}</span>${o.to ? ` 主力套餐建议 <b>${tjY(o.to)}</b>` : ''}</div>`
+    + `<div class="note">${esc(o.why)}</div>`
+    + `<a class="undo" style="margin:0" onclick="tjTog(${jq(id)})">${tjOpen.has(id) ? '收起套餐' : '看我们的套餐（' + ((o.cs || []).length) + '）'}</a>${tjOpen.has(id) ? tjCs(o.cs) : ''}</div>`;
+}
+function renderTj() {
+  $('at').textContent = TJ && TJ.at ? TJ.at.slice(5) + (tjBusy ? ' 读取中…' : ' 读取') : (tjBusy ? '读取中…' : '');
+  let h = tabsHtml();
+  if (tjErr) h += `<div class="msg e">${esc(tjErr)}</div>`;
+  if (!TJ || !TJ.rows || !TJ.rows.length) { paint(h + `<div class="empty">${tjBusy ? '读取中…' : '还没有数据'}</div>`); return; }
+  const R = TJ.rows, meta = R.find(r => r.k === 'meta') || {}, areas = R.filter(r => r.k === 'area'), ours = R.filter(r => r.k === 'our'), tops = R.filter(r => r.k === 'top'), chg = R.filter(r => r.k === 'chg');
+  if (tjArea && !areas.some(a => a.a === tjArea)) tjArea = '';
+  const cnt = k => ours.filter(o => k.test(o.adv)).length;
+  h += `<div class="card"><div class="ct">💴 T榜价格（${esc((meta.month || '').replace('-', '年'))}月）</div><div class="note">我们开店的 ${areas.length} 个区域，各看 食べログ「居酒屋 予約人気ランキングTOP20」（按网上预约数排），读每家的套餐价・口コミ客单价，和我们同区域的店比，给明年套餐定价参考。`
+    + `电脑每月 1 日自动读一次（那天没开机就之后每天补，不会漏），每家店的套餐页・料理页截图存档在电脑「广告部\\T排名竞品价格\\存档\\截图」。${meta.prev ? '和 ' + esc(meta.prev) + ' 比的价格变化在各区域里。' : '下个月起会显示和上月比的价格变化。'}</div>`
+    + `<div class="note">${esc(meta.note || '')}</div></div>`;
+  h += `<div class="kp"><div class="g"><small>建议涨价</small><b>${cnt(/建议涨价|看客单价可涨/)}</b> 家</div><div><small>可小幅涨</small><b>${cnt(/小幅/)}</b> 家</div><div><small>维持</small><b>${cnt(/^维持/)}</b> 家</div><div class="r"><small>偏贵／数据不够</small><b>${cnt(/偏贵|数据不够/)}</b> 家</div></div>`;
+  h += '<div class="chips">' + [['', '全部区域']].concat(areas.map(a => [a.a, a.a])).map(([k, n]) => `<button class="${k === tjArea ? 'on' : ''}" onclick="tjSetA(${jq(k)})">${esc(n)}</button>`).join('') + '</div>';
+  const show = tjArea ? areas.filter(a => a.a === tjArea) : areas;
+  show.forEach(ar => {
+    const os = ours.filter(o => o.a === ar.a), pl = ar.plan || {};
+    h += `<div class="card"><div class="ct">📍 ${esc(ar.a)}　<small style="font-weight:400;color:var(--sub)">自家 ${ar.ours} 家，在 TOP20 ${ar.in20} 家</small></div>`
+      + `<div class="note">TOP20 饮放套餐中位 <b>${tjY(ar.p50)}</b>（中间一半 ${tjY(ar.p25)}〜${tjY(ar.p75)}，${ar.n} 家有套餐价）　口コミ客单价中位 ${tjY(ar.kc)}${ar.nomi ? '　饮放 ' + ar.nomi + 'h' : ''}${ar.pin ? '・' + ar.pin + '品' : ''}</div>`
+      + tjBar(ar, os.length === 1 ? os[0].med : null)
+      + `<div class="note" style="margin-top:6px">📌 2027 套餐三档参考：入门 <b>${tjY(pl['入门'])}</b>　主力 <b>${tjY(pl['主力'])}</b>　高档 <b>${tjY(pl['高档'])}</b></div>`
+      + os.map(tjOur).join('');
+    if (tjArea) {
+      const ch = chg.filter(c => c.a === ar.a || c.area === ar.a);
+      if (ch.length) h += `<div class="tjs"><div class="h">📈 和上月比价格变了（${ch.length}）</div>` + ch.map(c => `<div class="note">${c.ours ? '★' : ''}${esc(c.store)}　${esc(c.course)}：${tjY(c.old)} → <b style="color:var(--${c.chg > 0 ? 'good' : 'bad'})">${tjY(c.new)}</b>（${c.chg > 0 ? '+' : ''}${Number(c.chg).toLocaleString('ja-JP')}）</div>`).join('') + '</div>';
+      const ts = tops.filter(t => t.a === ar.a).sort((x, y) => x.r - y.r);
+      h += `<div class="tjs"><div class="h">🏆 TOP20（点一行看套餐）</div><table class="tjt"><tr><th>名次・店</th><th>饮放中位</th><th>口コミ</th><th>分数</th></tr>`
+        + ts.map(t => { const id = 't' + ar.a + t.r; return `<tr class="${t.me ? 'tjme' : ''}" onclick="tjTog(${jq(id)})"><td>${t.r}. ${esc(t.s)}<br><small style="color:var(--faint)">${esc(t.g || '')}</small></td><td>${tjY(t.med)}</td><td>${tjY(t.kc)}</td><td>${t.sc || '—'}</td></tr>`
+          + (tjOpen.has(id) ? `<tr class="${t.me ? 'tjme' : ''}"><td colspan="4">${t.nc ? tjCs(t.cs) : '<div class="tjc">食べログ 上没有饮放套餐</div>'}<div class="note">店家预算 ${esc(t.bud || '—')}・口コミ ${esc(t.kcr || '—')}・口コミ ${t.rv || 0} 条・保存 ${(t.sv || 0).toLocaleString('ja-JP')} 人 <a href="${esc(t.url)}party/" target="_blank" rel="noopener">食べログ ↗</a></div></td></tr>` : ''); }).join('') + '</table></div>';
+    } else h += `<div class="note" style="margin-top:6px"><a class="undo" style="margin:0" onclick="tjSetA(${jq(ar.a)})">看 ${esc(ar.a)} TOP20 明细 ›</a></div>`;
+    h += '</div>';
+  });
+  if ((meta.bad || []).length) h += `<details><summary>⚠ 读不到的网页（${meta.bad.length}）</summary><div class="note">${meta.bad.map(esc).join('<br>')}</div></details>`;
+  paint(h);
+}
+
 function render() {
   if (!K) return showKey('');
   $('back').style.display = (NS || WC) && (NS || WC).role !== 'gg' ? '' : 'none';   // 广告预约部密码只看这一页，不显示「‹ 空桌一览」
+  if (tab === 'tj') return renderTj();
   if (tab === 'wc') return renderWc();
   if (tab === 'chk') return renderChk();
   if (tab === 'xq') return renderXq();
