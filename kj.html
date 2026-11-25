@@ -68,7 +68,7 @@ textarea{min-height:120px;resize:vertical}
 /* 11/24 🎫 积分对账 */
 .ptm{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:6px;table-layout:fixed}.ptm th{text-align:left;color:var(--sub);font-weight:600;padding:4px 2px}.ptm th:first-child{width:28%}
 .ptm td{border-top:1px solid var(--line);padding:5px 2px;vertical-align:top}.ptm td small{display:block;font-size:11.5px;color:var(--sub)}.ptm tr{cursor:pointer}.ptm tr.on td{background:var(--soft)}
-.ptm td.bad b{color:var(--bad)}.ptm td.okc b{color:var(--ok)}
+.bbt{font-size:12.5px}.bbt th:first-child{width:19%}.bbt th:nth-child(2){width:11%}.bbt td{padding:5px 1px}.ptm td.bad b{color:var(--bad)}.ptm td.okc b{color:var(--ok)}
 .pt3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:6px}.pt3 div{background:var(--soft);border-radius:10px;padding:6px 8px}.pt3 small{display:block;font-size:12px;color:var(--sub)}.pt3 b{font-size:16px}
 .ptsg{display:grid;grid-template-columns:1fr;gap:6px;margin-top:8px}.ptsg select{width:100%;padding:10px;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}.ptsg input{margin:0}.ptsg button{border:0;border-radius:10px;background:var(--ok);color:#fff;font:inherit;font-weight:700;padding:11px}
 /* 11/24 🔎 成本异常 */
@@ -101,7 +101,7 @@ textarea{min-height:120px;resize:vertical}
 // 11/18 用户：「单独的会计部键这个 APP 也做出来，因为给会计部看，然后让他们说有什么想更新的」。
 // 数据接口和「空桌一览」同一个后台（Apps Script）；会计部密码（或老板密码）才看得到。只有登记过的手机能用（手机编号 dv）。
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kuaiji-v20';
+const APPV = 'kuaiji-v21';
 // 11/19 自检：提需求「测试版 → 老板确认 → 正式版」流程跑通（这一行就是自检时上线的改动）
 const TEST = /\/test\//.test(location.pathname);
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 11/19 用户：「会计部跟运营部一样，不是 2 个网页」→ 空桌一览「🧾 会计」打开的是这份网页的副本 kongzhuo/kj.html（内容完全一样）   // 11/19 测试版（kuaiji/test/）：Claude 按需求改好先放这里，老板确认后才换成正式版   // 版本号：和 sw.js 的 V 一起改
@@ -569,7 +569,7 @@ function bbPickM(m) { bbM = m; LS.set('acbbm', m); bbStore = ''; render(); }
 function bbPick(s) { bbStore = bbStore === s ? '' : s; render(); const e = $('bbdet'); if (e && bbStore) e.scrollIntoView(); }
 function renderBb() {
   const n = v => (Number(v) || 0).toLocaleString('ja-JP');
-  let h = `<div class="card"><div class="ct">🎁 BB 费用（口コミ招待）</div><div class="note"><b>BB</b>＝レストランボード 预约备注写着「口コミ投稿・レビュアー・無償提供・インフルエンサー」的客人。<br><b>费用</b>＝BB 人数 × <b>3,000 円</b>（没取消、来店日已过的）；<b>免单</b>＝收银台的 レビュアー割引・口コミ割引 等，加上整单打成 0 円的单（那天有 BB 预约的，原价＝点的菜合计）。电脑每天 <b>13:30</b> 更新。</div></div>`;
+  let h = `<div class="card"><div class="ct">🎁 BB 费用（口コミ招待）</div><div class="note"><b>BB</b>＝レストランボード 预约备注写着「口コミ投稿・レビュアー・無償提供・インフルエンサー」的客人。<br><b>费用</b>＝BB 人数 × <b>3,000 円</b>（没取消、来店日已过的）；<b>免单</b>＝收银台的 レビュアー割引・口コミ割引 等，加上整单打成 0 円的单（那天有 BB 预约的，原价＝点的菜合计）。<br><b>成本</b>＝免单是菜单原价，实际花掉的＝免单 × <b>食材酒水 23.5%</b> ＋ 免单 × <b>那家店当月人件%</b>（KA 当月成本预估的人件费÷营业额，营业额变了就跟着变）；<b>BB＋成本</b>＝费用＋食材酒水＋人工。电脑每天 <b>13:30</b> 更新。</div></div>`;
   if (!PT) return h + `<div class="card"><div class="note">${ptBusy ? '读取中…' : esc(ptErr || '还没有数据')}</div></div>`;
   if (ptErr) h += `<div class="miss">${esc(ptErr)}（显示的是上次读到的）</div>`;
   const rows = PT.rows || [], hd = rows.find(x => x && x.k === 'bbh');
@@ -580,15 +580,20 @@ function renderBb() {
   h += `<div class="note" style="margin:2px 2px 6px">${esc(hd.at || '')} 算・收银到 ${esc(String(hd.pos_last || '').slice(5))}</div>`;
   h += `<div class="tabs" style="position:static;margin:0 0 6px;padding:0">${ms.map(m => `<button class="${m === bbM ? 'on' : ''}" onclick="bbPickM(${jq(m)})">${esc(m.slice(0, 4))}年${Number(m.slice(5))}月</button>`).join('')}</div>`;
   h += `<div class="kp" style="grid-template-columns:repeat(4,1fr)"><div><b>${n(T.n)}</b><small>BB 人（${n(T.g)} 组）</small></div><div><b>${n(T.fee / 10000)}</b><small>费用 万円</small></div><div><b>${n(Math.round(T.amt / 10000))}</b><small>免单 万円</small></div><div class="r"><b>${n(Math.round((T.fee + T.amt) / 10000))}</b><small>合计 万円</small></div></div>`;
+  const hasC = hd.food != null && T.fd != null, lb = (hd.lab || {})[bbM];
+  if (hasC) h += `<div class="kp" style="grid-template-columns:repeat(3,1fr)"><div><b>${n(Math.round(T.fd / 10000))}</b><small>食材酒水 ${Math.round(hd.food * 1000) / 10}% 万円</small></div><div><b>${n(Math.round(T.lc / 10000))}</b><small>人工 万円<br>（各店人件% 平均 ${T.amt ? (T.lc / T.amt * 100).toFixed(1) : 0}%）</small></div><div class="r"><b>${n(Math.round(T.tc / 10000))}</b><small>BB＋成本合计 万円</small></div></div>`
+    + (lb ? '' : `<div class="miss">人工成本没算出来：${esc(hd.lerr || 'KA 当月成本预估没有这个月')}</div>`);
   h += `<div class="card"><div class="ct">🧠 负责人分析</div><ul class="an">${((hd.sum || {})[bbM] || []).map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>`;
-  h += `<div class="card"><div class="ct">各店（点店名看明细）</div><table class="ptm"><tr><th>店</th><th>BB</th><th>费用</th><th>免单</th><th>合计</th></tr>`
-    + sts.map(s => `<tr class="${bbStore === s.st ? 'on' : ''}" onclick="bbPick(${jq(s.st)})"><td>${esc(s.st)}</td><td><b>${n(s.n)}</b><small>${n(s.g)} 组</small></td><td>${n(s.fee)}</td><td>${n(s.amt)}<small>${n(s.c)} 张</small></td><td><b>${n(s.fee + s.amt)}</b></td></tr>`).join('')
-    + `<tr><td><b>合计</b></td><td><b>${n(T.n)}</b><small>${n(T.g)} 组</small></td><td><b>${n(T.fee)}</b></td><td><b>${n(T.amt)}</b><small>${n(T.c)} 张</small></td><td><b>${n(T.fee + T.amt)}</b></td></tr></table></div>`;
+  h += `<div class="card"><div class="ct">各店（点店名看明细）</div><table class="ptm bbt"><tr><th>店</th><th>BB</th><th>费用</th><th>免单</th>${hasC ? '<th>食酒＋人工</th><th>BB＋成本</th>' : '<th>合计</th>'}</tr>`
+    + sts.map(s => `<tr class="${bbStore === s.st ? 'on' : ''}" onclick="bbPick(${jq(s.st)})"><td>${esc(s.st)}</td><td><b>${n(s.n)}</b><small>${n(s.g)} 组</small></td><td>${n(s.fee)}</td><td>${n(s.amt)}<small>${n(s.c)} 张</small></td>`
+      + (hasC ? `<td>${n(s.fd + s.lc)}<small>人件${((s.lr || 0) * 100).toFixed(1)}%${s.lx ? '平均' : ''}</small></td><td><b>${n(s.tc)}</b></td>` : `<td><b>${n(s.fee + s.amt)}</b></td>`) + `</tr>`).join('')
+    + `<tr><td><b>合计</b></td><td><b>${n(T.n)}</b><small>${n(T.g)} 组</small></td><td><b>${n(T.fee)}</b></td><td><b>${n(T.amt)}</b><small>${n(T.c)} 张</small></td>`
+    + (hasC ? `<td><b>${n(T.fd + T.lc)}</b></td><td><b>${n(T.tc)}</b></td>` : `<td><b>${n(T.fee + T.amt)}</b></td>`) + `</tr></table></div>`;
   h += '<div id="bbdet"></div>';
   const s = sts.find(x => x.st === bbStore);
   if (s) {
     const days = [...new Set([...(s.rv || []).map(x => x[0]), ...(s.od || []).map(x => x[0])])].sort((a, b) => a - b), bad = new Set(s.bad || []), mo = Number(bbM.slice(5));
-    h += `<div class="card"><div class="ct">${esc(s.st)} ${mo}月 明细 <a onclick="bbPick(${jq(s.st)})" style="float:right;font-size:13px;color:var(--brand);cursor:pointer;font-weight:400">收起</a></div><div class="note" style="margin-top:0">每天：上面是 BB 预约（时间・人数・状态・来源），下面是免单的单（单号・金额・怎么免的）。<b>△</b>＝那天 BB 组数和免单单数不一样（店里没按レビュアー割引、或预约没写口コミ，参考用）。</div>`;
+    h += `<div class="card"><div class="ct">${esc(s.st)} ${mo}月 明细 <a onclick="bbPick(${jq(s.st)})" style="float:right;font-size:13px;color:var(--brand);cursor:pointer;font-weight:400">收起</a></div><div class="note" style="margin-top:0">${hasC ? `费用 ${n(s.fee)}＋食材酒水 ${n(s.fd)}（免单×${Math.round(hd.food * 1000) / 10}%）＋人工 ${n(s.lc)}（免单×人件 ${((s.lr || 0) * 100).toFixed(1)}%${s.lx ? '，KA 没填用平均' : ''}）＝<b>BB＋成本 ${n(s.tc)} 円</b>。<br>` : ''}每天：上面是 BB 预约（时间・人数・状态・来源），下面是免单的单（单号・金额・怎么免的）。<b>△</b>＝那天 BB 组数和免单单数不一样（店里没按レビュアー割引、或预约没写口コミ，参考用）。</div>`;
     days.forEach(d => {
       const R = (s.rv || []).filter(x => x[0] === d), O = (s.od || []).filter(x => x[0] === d);
       h += `<div class="row"><b>${mo}/${d}</b>${bad.has(d) ? ' <span class="pill p2">△ BB ' + R.length + ' 组・免单 ' + O.length + ' 张</span>' : ''}`
