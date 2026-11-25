@@ -101,7 +101,7 @@ textarea{min-height:120px;resize:vertical}
 // 11/18 用户：「单独的会计部键这个 APP 也做出来，因为给会计部看，然后让他们说有什么想更新的」。
 // 数据接口和「空桌一览」同一个后台（Apps Script）；会计部密码（或老板密码）才看得到。只有登记过的手机能用（手机编号 dv）。
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kuaiji-v24';
+const APPV = 'kuaiji-v25';
 // 11/19 自检：提需求「测试版 → 老板确认 → 正式版」流程跑通（这一行就是自检时上线的改动）
 const TEST = /\/test\//.test(location.pathname);
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 11/19 用户：「会计部跟运营部一样，不是 2 个网页」→ 空桌一览「🧾 会计」打开的是这份网页的副本 kongzhuo/kj.html（内容完全一样）   // 11/19 测试版（kuaiji/test/）：Claude 按需求改好先放这里，老板确认后才换成正式版   // 版本号：和 sw.js 的 V 一起改
@@ -751,7 +751,7 @@ function renderNs() {
   if (asking) h += `<div class="note" style="margin:0 2px 6px">预约中心已经请求、客人还没回复：${asking} 组（客人答应付款后会出现在下面「等客人汇款」）。</div>`;
   if (waitAll.length > wait.length) h += `<div class="miss">其他时间还有 ${waitAll.length - wait.length} 组等汇款（${yen(sum(waitAll, '请求额') - sum(wait, '请求额'))}），按「全部」能看到。</div>`;
   h += `<div class="me" style="background:var(--warnbg);border-radius:12px;padding:8px 10px">✍ 确认人<input id="nsw" style="flex:1;margin:0" placeholder="你的名字（例：王）" maxlength="20" value="${esc(LS.get('acWho', '') || LS.get('sxWho', ''))}"></div>`;
-  h += `<div class="grp">⏳ 等客人汇款（${wait.length}）— 预约中心说客人同意付款的单，钱到了按「回款成功」，确定收不到按「没回款」</div>` + (wait.length ? wait.map(o => {
+  h += `<div class="grp">⏳ 等客人汇款（${wait.length}）— 预约中心说客人同意付款的单，钱到了按「回款成功」，确定收不到按「没回款」，<b>都要再按下面的「确认」才保存</b></div>` + (wait.length ? wait.map(o => {
     const id = o['编号'], days = Math.floor((today - new Date(o['联系・时间'].slice(0, 10).replace(/\//g, '-'))) / 864e5);
     return `<div class="it${days >= 7 ? ' late' : ''}"><div class="nm">${esc(o['公司'])} ${esc(o['店'])}　${esc(o['客人'])} 様　<span style="color:var(--bad)">${yen(o['请求额'])}</span></div>`
       + `<div class="dl">预约 ${esc(o['预约日'].slice(5).replace('-', '/'))} ${esc(o['时间'])}　${esc(o['人数'])}名　合计 ${yen(o['合计'])}</div>`
@@ -761,6 +761,7 @@ function renderNs() {
       + (nsOpen[id] === 'ok' ? `<div class="stk" style="display:grid;grid-template-columns:1fr 1fr;gap:6px"><input id="na_${esc(id)}" inputmode="numeric" placeholder="到账金额" value="${esc(o['请求额'])}"><input id="nd_${esc(id)}" type="date" value="${td}"></div>`
         + `<div class="stk"><input id="nh_${esc(id)}" placeholder="备注（例：银行汇款、现金）" maxlength="200"><button class="btn" style="background:#16a34a" onclick="nsPaid(${jq(id)})">确认：回款成功</button></div>` : '')
       + (nsOpen[id] === 'ng' ? `<div class="stk"><input id="nr_${esc(id)}" placeholder="为什么没回款（例：客人不付了、联系不上）必填" maxlength="200"><button class="btn" onclick="nsNg(${jq(id)})">确认：没回款</button></div>` : '')
+      + (nsOpen[id] && !nsMsg[id] ? `<div class="err">⚠ 还没保存：${nsOpen[id] === 'ng' ? '写原因后' : '确认金额后'}一定要按下面「确认：${nsOpen[id] === 'ng' ? '没回款' : '回款成功'}」，看到绿色「✓ 已记录」才算保存。</div>` : '')   // 11/25 用户：小刘按了「没回款」但没保存（只按了上面的键、没按确认）
       + `${nsMsg[id] || ''}</div>`;
   }).join('') : '<div class="note">这段时间没有等汇款的。</div>');
   // 按店
