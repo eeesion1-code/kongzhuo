@@ -504,7 +504,8 @@ button:active,nav button:active,a:active{opacity:.6}
   <div class="top">
     <h1>空桌一览</h1>
     <span class="live" id="live"><i class="dot"></i><span id="age">读取中</span></span>
-    <button class="iconbtn" id="rf" onclick="load(true)" aria-label="刷新">↻</button>
+    <button class="iconbtn" onclick="changeKey()" aria-label="换密码" title="换密码">🔑</button>
+    <button class="iconbtn" id="rf" onclick="load(true)" aria-label="刷新">↻</button>   <!-- 11/25 安全 Angel：换股东密码后大家找不到最底下的「换密码」→ 顶上加 🔑 -->
   </div>
   <div id="banner"></div>
   <div id="rlhint"></div>
@@ -618,7 +619,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
 })();
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v143';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v144';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
