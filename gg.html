@@ -135,14 +135,21 @@ let NS = (() => { try { return JSON.parse(LS.get('ggc', 'null')); } catch (e) { 
 const RES = ['同意付款', '已当场付', '请求中', '客人回复不付款', '拒绝', '联系不上', '不收'];   // 11/19 用户加「请求中」「客人回复不付款」
 const ASKED = r => PAY.includes(r) || r === '请求中';   // 已经向客人请求了金额的
 const PAY = ['同意付款', '已当场付'];
+// 11/25 用户：「会计查到未付款成功点了后写了理由，它会重新跳到广告部门那边吗？让广告部门对接取消料金」
+//   会计部按「没回款」（到账・金额＝0）后，预约中心还没重新联系（联系・时间 ≤ 到账・时间）→ 退回「预约中心要处理」；
+//   预约中心重新打电话签 ② → 结果是 同意付款／已当场付 就回到会计部「等客人汇款」（会计再按回款成功／没回款，覆盖上次），其他结果＝结束。
+const NG = o => o['到账・金额'] !== '' && o['到账・金额'] != null && !+o['到账・金额'];
+const BACK = o => NG(o) && (o['联系・时间'] || '') <= (o['到账・时间'] || '');   // 会计说没回款、退回预约中心
+const AGAIN = o => NG(o) && !BACK(o);   // 退回后预约中心已重新联系
+const ngWhy = o => String(o['到账・说明'] || '').replace(/^没回款：/, '');
 function rowsObj() {
   if (!NS) return [];
   return NS.rows.map(r => { const o = {}; NS.head.forEach((h, i) => o[h] = r[i]); return o; }).filter(o => !o['停用']);
 }
 // 一单的状态：todo＝预约中心还没签（取消或联系）；wait＝同意付款等会计到账；done＝收完／不用收
 function stOf(o) {
-  if (!o['取消・谁'] || !o['联系・结果'] || o['联系・结果'] === '请求中') return 'todo';   // 请求中＝客人还没回复，预约中心还要跟
-  if (PAY.includes(o['联系・结果']) && !o['到账・金额']) return 'wait';
+  if (!o['取消・谁'] || !o['联系・结果'] || o['联系・结果'] === '请求中' || BACK(o)) return 'todo';   // 请求中＝客人还没回复，预约中心还要跟；BACK＝会计查到没回款退回来
+  if (PAY.includes(o['联系・结果']) && (!o['到账・金额'] || AGAIN(o))) return 'wait';
   return 'done';
 }
 async function load() {
@@ -253,11 +260,12 @@ function caseCard(o) {
       + `<div class="row2"><button class="go" onclick="signYc(${jq(id)})">✍ 已取消，签名</button></div>`) + '</div>';
   // ② 打电话收取消料
   h += '<div class="step"><div class="t">② 打电话给客人收取消料</div>';
-  if (o['联系・结果'] && o['联系・结果'] !== '请求中') {
+  if (o['联系・结果'] && o['联系・结果'] !== '请求中' && !BACK(o)) {
     const pay = PAY.includes(o['联系・结果']);
     h += `<span class="${pay ? 'ok' : 'no'}">✓ ${esc(o['联系・结果'])}</span>${o['请求额'] ? '　请求 <b>' + yen(o['请求额']) + '</b>' : ''}　${esc(o['联系・谁'])}　<small>${esc(o['联系・时间'].slice(5))}</small>`
-      + (o['联系・说明'] ? `<div class="note">说明：${esc(o['联系・说明'])}</div>` : '') + (o['到账・金额'] ? '' : `<a class="undo" onclick="undo(${jq(id)},'call')">撤销</a>`);
+      + (o['联系・说明'] ? `<div class="note">说明：${esc(o['联系・说明'])}</div>` : '') + (o['到账・金额'] && !AGAIN(o) ? '' : `<a class="undo" onclick="undo(${jq(id)},'call')">撤销</a>`);
   } else {
+    if (BACK(o)) h += `<div style="background:#fee2e2;border-radius:8px;padding:8px 10px;margin:4px 0;color:var(--bad)"><b>↩ 会计部查到没回款，退回预约中心跟进</b><div style="color:var(--ink);font-size:13px;margin-top:2px">会计：${esc(ngWhy(o))}（${esc(o['到账・谁'])} ${esc(String(o['到账・时间']).slice(5))}）<br>上次联系：${esc(o['联系・结果'])} 请求 ${yen(o['请求额'])}　${esc(o['联系・谁'])} ${esc(String(o['联系・时间']).slice(5))}${o['联系・说明'] ? '　' + esc(o['联系・说明']) : ''}</div><div class="note">请再联系客人，在下面选结果重新签名：客人说已经付了／会付就选「同意付款」（会计部会再确认到账）。</div></div>`;
     if (o['联系・结果'] === '请求中') h += `<div><span class="wt">⏳ 请求中 ${yen(o['请求额'])}</span>　${esc(o['联系・谁'])}　<small>${esc(o['联系・时间'].slice(5))}</small>${o['联系・说明'] ? '<div class="note">说明：' + esc(o['联系・说明']) + '</div>' : ''}<div class="note">客人回复了就在下面选结果再签名。</div></div>`;
     h += '<div class="res">' + RES.map(r => `<label><input type="radio" name="r_${esc(id)}" value="${r}">${r}</label>`).join('') + '</div>'
       + `<div class="row2"><input id="a_${esc(id)}" inputmode="numeric" placeholder="请求金额" value="${esc(o['请求额'] || o['合计'])}"><input id="h_${esc(id)}" placeholder="说明（拒绝・联系不上・不收必填）" maxlength="200"></div>`
@@ -265,9 +273,10 @@ function caseCard(o) {
   }
   h += '</div>';
   // ③ 会计部确认到账
-  h += '<div class="step"><div class="t">③ 会计部确认钱到账</div>' + (o['到账・金额']
+  h += '<div class="step"><div class="t">③ 会计部确认钱到账</div>' + (o['到账・金额'] && !(AGAIN(o) && PAY.includes(o['联系・结果']))
     ? (+o['到账・金额'] ? `<span class="ok">✓ 到账 ${yen(o['到账・金额'])}</span>　${esc(o['到账・日'])}　${esc(o['到账・谁'])}` : `<span class="no">✗ 没回款</span>　${esc(o['到账・谁'])}`) + (o['到账・说明'] ? `<div class="note">${esc(o['到账・说明'])}</div>` : '')
-    : PAY.includes(o['联系・结果']) ? '<span class="wt">⏳ 等会计部确认回款</span><div class="note">会计部在「💴 取消料」按「回款成功」或「没回款」。</div>'
+      + (BACK(o) ? '<div class="note" style="color:var(--bad)">↩ 已退回 ② 预约中心再联系客人</div>' : AGAIN(o) ? '<div class="note">预约中心重新联系后：' + esc(o['联系・结果']) + '（结束）</div>' : '')
+    : PAY.includes(o['联系・结果']) ? '<span class="wt">⏳ 等会计部确认回款</span>' + (AGAIN(o) ? `<div class="note">上次会计查到没回款（${esc(String(o['到账・时间']).slice(5))}：${esc(ngWhy(o))}），预约中心重新联系后客人说会付，等会计部再确认。</div>` : '<div class="note">会计部在「💴 取消料」按「回款成功」或「没回款」。</div>')
     : o['联系・结果'] === '请求中' ? '<span class="note">—（客人还没回复）</span>' : o['联系・结果'] ? '<span class="note">不用收</span>' : '<span class="note">—（先做完 ②）</span>') + '</div>';
   if (NS.owner) h += offOpen === id
     ? `<div class="row2"><input id="o_${esc(id)}" placeholder="为什么不算（例：重复、店里搞错）" maxlength="100"><button class="go" style="background:var(--bad)" onclick="offGo(${jq(id)})">不算这单</button></div>`
