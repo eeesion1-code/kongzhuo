@@ -101,7 +101,7 @@ textarea{min-height:120px;resize:vertical}
 // 11/18 用户：「单独的会计部键这个 APP 也做出来，因为给会计部看，然后让他们说有什么想更新的」。
 // 数据接口和「空桌一览」同一个后台（Apps Script）；会计部密码（或老板密码）才看得到。只有登记过的手机能用（手机编号 dv）。
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kuaiji-v35';
+const APPV = 'kuaiji-v36';
 // 11/19 自检：提需求「测试版 → 老板确认 → 正式版」流程跑通（这一行就是自检时上线的改动）
 const TEST = /\/test\//.test(location.pathname);
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 11/19 用户：「会计部跟运营部一样，不是 2 个网页」→ 空桌一览「🧾 会计」打开的是这份网页的副本 kongzhuo/kj.html（内容完全一样）   // 11/19 测试版（kuaiji/test/）：Claude 按需求改好先放这里，老板确认后才换成正式版   // 版本号：和 sw.js 的 V 一起改
@@ -743,9 +743,12 @@ function renderBk() {
   if (ptErr) h += `<div class="miss">${esc(ptErr)}（显示的是上次读到的）</div>`;
   const rows = PT.rows || [], hd = rows.find(x => x && x.k === 'bkh');
   if (!hd) return h + '<div class="card"><div class="note">还没有生成（电脑每天 13:30 生成）</div></div>';
-  h += `<div class="note" style="margin:2px 2px 6px">${esc(hd.at || '')} 查</div>`;
-  (hd.why || []).forEach(w => { h += `<div class="miss">⚠ ${esc(w)}</div>`; });
+  // 11/26：电脑那天没算出来（hd.err）→ 写清楚，下面是上一次的结果；没有上一次的就不显示「全部齐全」
+  if (hd.err) h += `<div class="miss" style="border:2px solid var(--bad);font-weight:700">❌ 今天没算出来，${(rows.some(x => x && x.k === 'bkc')) ? '下面显示的是 ' + esc(hd.at || '') + ' 那次的结果，不是今天的' : '也没有上一次的结果，下面不是真结果'}。<br><small style="font-weight:400">${esc(hd.err)}</small></div>`;
+  else h += `<div class="note" style="margin:2px 2px 6px">${esc(hd.at || '')} 查</div>`;
+  (hd.why || []).forEach(w => { if (!hd.err || !/没算出来/.test(w)) h += `<div class="miss">⚠ ${esc(w)}</div>`; });
   const ms = hd.months || [], cs = rows.filter(x => x && x.k === 'bkc');
+  if (!cs.length) return h + `<div class="card"><div class="note">${hd.err ? '没有结果（等电脑下次算好）' : '还没有结果'}</div></div><button class="btn sub" onclick="loadPt(1)">🔄 重新读取</button>`;
   h += `<div class="card"><table class="ptm bkt"><tr><th>编号</th>${ms.map(m => `<th>${Number(m.slice(5))}月</th>`).join('')}</tr>`
     + (hd.letters || []).map(([L, co]) => `<tr class="${bkOpen === L ? 'on' : ''}" onclick="bkTog(${jq(L)})"><td><b>${esc(L)}</b> ${esc(co)}</td>${ms.map(m => { const c = cs.find(x => x.ym === m && x.L === L); const nw = c ? (c.acc || []).filter(a => a.st === 'wait').length : 0; return `<td>${c ? ic(c.st) + `<small>${c.na ? '齐 ' + c.ok + '/' + c.na + (nw ? '・' + nw + ' 等认' : '') : esc(c.t)}</small>` : '—'}</td>`; }).join('')}</tr>`
       + (bkOpen === L ? `<tr class="on"><td colspan="${ms.length + 1}">${ms.map(m => { const c = cs.find(x => x.ym === m && x.L === L); if (!c) return ''; return `<div style="margin:4px 0"><b>${Number(m.slice(5))}月</b> ${ic(c.st)} ${esc(c.t)}</div>` + (c.acc || []).map(a => `<div style="margin:2px 0 2px 10px">${ic(a.st)} <b>${esc(a.a)}</b>（流水 ${a.n} 笔）${esc(a.t)}${(a.f || []).length ? `<small>${a.f.map(esc).join('、')}</small>` : ''}</div>`).join(''); }).join('')}</td></tr>` : '')).join('')
