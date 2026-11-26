@@ -335,7 +335,13 @@ nav button.on{color:var(--brand)}
 .svtabs::-webkit-scrollbar{display:none}
 .svtabs button{flex:1 0 auto;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:8px 12px;font-size:14.5px;font-weight:600}
 .svtabs button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
-.svcmpsel{display:flex;align-items:center;gap:4px;margin:0 0 6px;font-size:12.5px;color:var(--sub)}
+.svcmpsel{display:flex;align-items:center;gap:4px;margin:0 0 6px;font-size:12.5px;color:var(--sub);flex-wrap:wrap}
+/* 11/26 用户：每日页对比那一行右边可以选期间 */
+.svcmpsel .svdrg{margin-left:auto;border-color:var(--brand);color:var(--brand);font-weight:600}
+.svcmpsel .svdrg.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+.svcmpsel .svdrgx{padding:4px 7px}
+.svd.rgin{box-shadow:inset 0 0 0 2px var(--brand)}
+.svd.rgout{opacity:.45}
 .svcmpsel span{margin-right:2px}
 .svcmpsel button,.svseg2 button{border:1px solid var(--line);background:var(--card);color:var(--sub);border-radius:8px;padding:4px 9px;font-size:12.5px}
 .svcmpsel button.on,.svseg2 button.on{background:var(--soft);color:var(--ink);border-color:var(--ink);font-weight:600}
@@ -620,7 +626,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
 })();
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v160';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v161';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -1544,7 +1550,8 @@ function svDl(a, b) {
 }
 const svOku = n => n >= 1e8 ? (n / 1e8).toFixed(2) + '亿' : man(n);
 // 这些天和「去年同一周同星期几」那些天逐天对比（两边都有数据的天才算）
-function svLyMtd(days) { let a = 0, b = 0, n = 0; const P = []; days.forEach(x => { const bd = svCmpDay(x.d, 'ly'), q = bd && SV.map[bd]; if (q) { a += x.t; b += q.t; n++; P.push([x, q]); } }); return Object.assign({ a, b, n }, svLyShops(P)); }
+function svCmpMtd(days, k) { let a = 0, b = 0, n = 0; const P = []; days.forEach(x => { const bd = svCmpDay(x.d, k), q = bd && SV.map[bd]; if (q) { a += x.t; b += q.t; n++; P.push([x, q]); } }); return Object.assign({ a, b, n }, svLyShops(P)); }
+const svLyMtd = days => svCmpMtd(days, 'ly');
 // 11/21 用户：「比去年同期 12% 是几家店铺写清楚」→ 两边各几家（立川一家两台收银算 1 家），再算同店（这段日子两年都开着的店：两边都有一半以上天数有营业额）
 const SV_ONE = ['立川'];
 // 11/21：家数按「店」算（立川一家两台收银算 1 家，和 APP 营业中 31 家同一口径）；rows＝[[车站, 店名, …], …]
@@ -1580,8 +1587,11 @@ const svWan = n => (n >= 0 ? '+' : '−') + man(Math.abs(n));
 function svLastRep() { return SV.days.length ? SV.days[SV.days.length - 1] : null; }
 function svLastHr(before, mk) { for (let i = SV.days.length - 1; i >= 0; i--) { const x = SV.days[i]; if (x[mk || 'ho'] && (!before || x.d < before)) return x; } return null; }
 function svCmpBar() {
-  return `<div class="svcmpsel"><span>对比</span>${Object.keys(SV_CMP).reverse().map(k => `<button class="${svCmpM === k ? 'on' : ''}" onclick="svSetCmp(${jq(k)})"><i class="cdot c${k}"></i>${SV_CMP[k]}</button>`).join('')}</div>`;
+  const rg = svTab === 'day' ? `<button class="svdrg${svRg ? ' on' : ''}" onclick="svDayRg()">📅 ${svRg ? `期间 ${svMD(svRg.a)}〜${svMD(svRg.b)}` : '选期间'}</button>${svRg ? '<button class="svdrgx" onclick="svRgMode(false)" aria-label="不用期间，看整月">✕ 整月</button>' : ''}` : '';
+  return `<div class="svcmpsel"><span>对比</span>${Object.keys(SV_CMP).reverse().map(k => `<button class="${svCmpM === k ? 'on' : ''}" onclick="svSetCmp(${jq(k)})"><i class="cdot c${k}"></i>${SV_CMP[k]}</button>`).join('')}${rg}</div>`;
 }
+// 11/26 用户：每日页「红框加入期间可选择」→ 和时段・各店・人工共用同一个期间（svRg）
+function svDayRg() { if (svRgCal) { svRgCal = null; renderSales(); } else if (svRg) svRgOpen(); else { const em = svRgEnd().slice(0, 7); svRgCal = { m: svMon < em ? svMon : em, a: null, b: null }; renderSales(); } }
 function svDateBar() {
   const today = svToday(), first = SV.days.length ? SV.days[0].d : today;
   return `<div class="svdbar"><button class="iconbtn" onclick="svStep(-1)" aria-label="前一天">‹</button>`
@@ -1595,7 +1605,7 @@ let svRg = null, svRgCal = null, svStX = null;
 const svRgLen = (a, b) => Math.round((svDate(b) - svDate(a)) / 864e5) + 1;
 const svRgLab = (a, b) => a === b ? `${svYMD(a)}（${svWk(a)}）` : `${svYMD(a)}（${svWk(a)}）〜${svYMD(b)}（${svWk(b)}）`;
 function svRgEnd() { const L = svLastRep(); return L ? L.d : svAdd(svToday(), -1); }   // 期间最多到最后一天日报
-function svRgSet(a, b) { if (b < a) [a, b] = [b, a]; svRg = { a, b }; svRgCal = null; renderSales(); }
+function svRgSet(a, b) { if (b < a) [a, b] = [b, a]; svRg = { a, b }; svRgCal = null; if (svTab === 'day') svMon = b.slice(0, 7); renderSales(); }
 function svRgQ(k) {   // 快捷：最近 7 天／最近 30 天／本月／上个月（都到最后一天日报为止）
   const e = svRgEnd(), [y, m] = e.split('-').map(Number);
   if (k === 'm') return [e.slice(0, 8) + '01', e];
@@ -1993,7 +2003,15 @@ function svTabDay(today) {
   const LY = svLyMtd(fdays);
   const curMon = today.slice(0, 7), maxMon = svMaxFcMon(today);   // 11/14：月历上的「约」到明年 12 月
   const F = svMon >= curMon && svMon <= maxMon ? svMonthFc(y, m) : null;
-  let h = `<div class="svmon"><button class="iconbtn" onclick="svMove(-1)" aria-label="上个月">‹</button><b>${y} 年 ${m} 月</b><button class="iconbtn" onclick="svMove(1)" aria-label="下个月">›</button></div>`;
+  let h = svRg ? svRgBar() : svRgCal ? svRgCalHtml() : '';
+  h += `<div class="svmon"><button class="iconbtn" onclick="svMove(-1)" aria-label="上个月">‹</button><b>${y} 年 ${m} 月</b><button class="iconbtn" onclick="svMove(1)" aria-label="下个月">›</button></div>`;
+  if (svRg) {   // 11/26：选了期间 → 上面三格算这段日子（只算有日报的天，今天的实时数不算）
+    const rd = []; for (let d = svRg.a; d <= svRg.b; d = svAdd(d, 1)) { const x = SV.map[d]; if (x && !(x.live && !x.fin)) rd.push(x); }
+    const rs = rd.reduce((t, x) => t + x.t, 0), RL = svCmpMtd(rd, svCmpM), nd0 = svRgLen(svRg.a, svRg.b);
+    h += !rd.length ? `<div class="svnote">${svRgLab(svRg.a, svRg.b)}没有日报</div>`
+      : `<div class="svmini"><div>期间合计（${rd.length} 天）<b>${man(rs)}</b></div><div>日均<b>${man(rs / rd.length)}</b>${rd.length < nd0 ? `${nd0 - rd.length} 天没有日报，不算` : ''}</div><div>比${SV_CMP[svCmpM]}<b>${RL.n ? svDl(RL.a, RL.b) : '—'}</b>${RL.n ? `${SV_CMP[svCmpM]} ${man(RL.b)}` : ''}</div></div>`
+        + (RL.n ? svLyShopsTxt(RL, svCmpM, svCmpM !== 'ly') : '') + '<div class="svnote">蓝框＝期间里的日子。比的是期间里每一天各自的对比日（两边都有数据的天才比）；换上面的「对比」就换成比那一种。</div>';
+  } else
   h += !vals.length ? `<div class="svnote">${svMon > today.slice(0, 7) ? '这个月还没开始' : '这个月没有存营业额'}</div>`
     : `<div class="svmini"><div>合计（${full.length} 天）<b>${man(sum)}</b></div><div>日均<b>${man(full.length ? sum / full.length : 0)}</b></div><div>比去年同期<b>${LY.n ? svDl(LY.a, LY.b) : '—'}</b>${LY.nc ? `今年 ${LY.nc} 家・去年 ${LY.nl} 家` : ''}</div></div>` + (LY.n ? svLyShopsTxt(LY) : '');
   h += `<div class="svcmprule">对比：${SV_CMP[svCmpM]}＝${SV_CMP_RULE[svCmpM]}。每格<span class="c${svCmpM}">彩色小字</span>＝拿去比的那天${svCmpM === 'ly' ? '（去年的）' : ''}和那天的营业额（还没到的日子也先写出来）。</div>`;
@@ -2001,7 +2019,7 @@ function svTabDay(today) {
   for (let i = 0; i < d1.getDay(); i++) cal += '<span></span>';
   for (let i = 1; i <= nd; i++) {
     const ds = svStr(new Date(y, m - 1, i)), x = svGet(ds), dow = (d1.getDay() + i - 1) % 7, a = x ? 0.12 + 0.55 * x.t / mx : 0;
-    cal += `<button class="svd${ds === svDay ? ' on' : ''}${ds === today ? ' td' : ''}${!x && ds > today ? ' fut' : ''}" ${x ? `style="background:rgba(22,163,74,${a.toFixed(2)})"` : 'disabled'} onclick='svPick(${JSON.stringify(ds)})'>`
+    cal += `<button class="svd${ds === svDay ? ' on' : ''}${ds === today ? ' td' : ''}${!x && ds > today ? ' fut' : ''}${svRg ? (ds >= svRg.a && ds <= svRg.b ? ' rgin' : ' rgout') : ''}" ${x ? `style="background:rgba(22,163,74,${a.toFixed(2)})"` : 'disabled'} onclick='svPick(${JSON.stringify(ds)})'>`
       + `<i class="${svDayCls(ds, dow)}"${svHN(ds) ? ` title="${svHN(ds)}"` : ''}>${i}${x && svShort(x) ? '<span class="rr">⚠</span>' : ''}</i><small>${x ? man(x.t) + (x.live ? '*' : '') : F && F.day[ds] != null ? '<span class="fc">约' + man(F.day[ds]) + '</span>' : ''}</small>${x ? (p => p ? `<b class="pf">预${man(p.v)}</b>` : '')(svFcOf(ds)) : ''}${(b => b ? `<em class="cd c${svCmpM}"><span class="${SV_HOLI.has(b) ? 'lyred' : SV_HOLI.has(svAdd(b, 1)) ? 'lypre' : svDate(b).getDay() === 6 ? 'bl' : ''}"${svHN(b) ? ` title="${svHN(b)}"` : SV_HOLI.has(svAdd(b, 1)) ? ` title="${svHN(svAdd(b, 1))}前一天"` : ''}>${svMD(b)}${svWk(b)}</span><br>${SV.map[b] ? man(SV.map[b].t) : '—'}</em>` : '')(svCmpDay(ds, svCmpM))}</button>`;
   }
   const mh = Object.keys(SV_HOLI_NAME).filter(d => d.startsWith(svMon + '-')).sort();
