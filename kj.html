@@ -68,7 +68,7 @@ textarea{min-height:120px;resize:vertical}
 /* 11/24 🎫 积分对账 */
 .ptm{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:6px;table-layout:fixed}.ptm th{text-align:left;color:var(--sub);font-weight:600;padding:4px 2px}.ptm th:first-child{width:28%}
 .ptm td{border-top:1px solid var(--line);padding:5px 2px;vertical-align:top}.ptm td small{display:block;font-size:11.5px;color:var(--sub)}.ptm tr{cursor:pointer}.ptm tr.on td{background:var(--soft)}
-.sq{display:inline-block;width:11px;height:11px;border-radius:3px;border:1px solid #aaa;vertical-align:-1px;margin:0 2px}.sq.g{background:#C4EDCD}.sq.w{background:#fff}.sq.r{background:#FFCCCC}.bbt{font-size:12.5px}.bbt th:first-child{width:19%}.bbt th:nth-child(2){width:11%}.bbt td{padding:5px 1px}.ptm td.bad b{color:var(--bad)}.ptm td.okc b{color:var(--ok)}.gzt{font-size:12.5px}.gzt th:first-child{width:24%}.gzt td{padding:5px 1px;word-break:break-all}
+.sq{display:inline-block;width:11px;height:11px;border-radius:3px;border:1px solid #aaa;vertical-align:-1px;margin:0 2px}.sq.g{background:#C4EDCD}.sq.w{background:#fff}.sq.r{background:#FFCCCC}.bbt{font-size:12.5px}.bbt th:first-child{width:19%}.bbt th:nth-child(2){width:11%}.bbt td{padding:5px 1px}.ptm td.bad b{color:var(--bad)}.ptm td.okc b{color:var(--ok)}.gzt{font-size:12.5px}.gzt th:first-child{width:24%}.gzt td{padding:5px 1px;word-break:break-all}.bkt{font-size:13px}.bkt th:first-child{width:40%}.bkt td{text-align:left}
 .pt3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:6px}.pt3 div{background:var(--soft);border-radius:10px;padding:6px 8px}.pt3 small{display:block;font-size:12px;color:var(--sub)}.pt3 b{font-size:16px}
 .ptsg{display:grid;grid-template-columns:1fr;gap:6px;margin-top:8px}.ptsg select{width:100%;padding:10px;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}.ptsg input{margin:0}.ptsg button{border:0;border-radius:10px;background:var(--ok);color:#fff;font:inherit;font-weight:700;padding:11px}
 /* 11/24 🔎 成本异常 */
@@ -101,7 +101,7 @@ textarea{min-height:120px;resize:vertical}
 // 11/18 用户：「单独的会计部键这个 APP 也做出来，因为给会计部看，然后让他们说有什么想更新的」。
 // 数据接口和「空桌一览」同一个后台（Apps Script）；会计部密码（或老板密码）才看得到。只有登记过的手机能用（手机编号 dv）。
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kuaiji-v32';
+const APPV = 'kuaiji-v33';
 // 11/19 自检：提需求「测试版 → 老板确认 → 正式版」流程跑通（这一行就是自检时上线的改动）
 const TEST = /\/test\//.test(location.pathname);
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 11/19 用户：「会计部跟运营部一样，不是 2 个网页」→ 空桌一览「🧾 会计」打开的是这份网页的副本 kongzhuo/kj.html（内容完全一样）   // 11/19 测试版（kuaiji/test/）：Claude 按需求改好先放这里，老板确认后才换成正式版   // 版本号：和 sw.js 的 V 一起改
@@ -127,7 +127,7 @@ const PVAC = IN_KZ && LS.get('asRole', '') === 'ac';
 function exitPreview() { ['asRole', 'asStaff', 'last', 'acrq'].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} }); location.href = './'; }
 const api = q => fetch(API + '?fmt=json' + q + '&k=' + encodeURIComponent(K) + '&dv=' + DV + '&ua=' + encodeURIComponent(DVUA) + (PVAC ? '&as=ac' : ''), { cache: 'no-store' }).then(r => r.json());
 
-const TABS = [['sx', '📋 事项汇报'], ['ns', '💴 取消料'], ['cy', '🔎 当月预估表异常'], ['pt', '🎫 积分对账'], ['bb', '🎁 BB 费用'], ['gz', '💰 工资・社内对账'], ['msg', '💡 提需求'], ['cash', '资金余额'], ['pay', '要付的钱'], ['pl', '月度损益']];   // 11/19 用户：「没有提需求这个键」——第 5 个在手机上被挤到右边看不见 → 放第 2 个，标签换行全部看得到
+const TABS = [['sx', '📋 事项汇报'], ['ns', '💴 取消料'], ['cy', '🔎 当月预估表异常'], ['pt', '🎫 积分对账'], ['bb', '🎁 BB 费用'], ['gz', '💰 工资・社内对账'], ['bk', '🏦 会计入力银行数校对'], ['msg', '💡 提需求'], ['cash', '资金余额'], ['pay', '要付的钱'], ['pl', '月度损益']];   // 11/19 用户：「没有提需求这个键」——第 5 个在手机上被挤到右边看不见 → 放第 2 个，标签换行全部看得到
 const INFO = {
   cash: ['各公司银行・现金余额，这个月进了多少、出了多少。', 'Google Drive「11家流水」整理出来的现金流（残高）表。'],
   pay: ['请求书・信用卡要付的钱：哪天付、付多少，快到期的标出来。', '公司档案里的请求书、信用卡明细。'],
@@ -166,9 +166,9 @@ async function load() {
   if (tab === 'msg') loadRq();
   if (tab === 'ns') loadNs();
   if (tab === 'cy') loadCy();
-  if (tab === 'pt' || tab === 'bb' || tab === 'gz') loadPt();
+  if (tab === 'pt' || tab === 'bb' || tab === 'gz' || tab === 'bk') loadPt();
 }
-function go(t) { tab = t; LS.set('acTab', t); sendMsg = ''; render(); window.scrollTo(0, 0); if (t === 'sx') loadSx(); if (t === 'msg') loadRq(); if (t === 'ns') loadNs(); if (t === 'cy') loadCy(); if (t === 'pt' || t === 'bb' || t === 'gz') loadPt(); }
+function go(t) { tab = t; LS.set('acTab', t); sendMsg = ''; render(); window.scrollTo(0, 0); if (t === 'sx') loadSx(); if (t === 'msg') loadRq(); if (t === 'ns') loadNs(); if (t === 'cy') loadCy(); if (t === 'pt' || t === 'bb' || t === 'gz' || t === 'bk') loadPt(); }
 function ask(t) { const nm = TABS.find(x => x[0] === t)[1]; draft = `【${nm}】`; go('msg'); setTimeout(() => { const e = $('mv'); if (e) { e.focus(); e.setSelectionRange(e.value.length, e.value.length); } }, 50); }
 function render() {
   $('keybox').style.display = 'none'; $('main').style.display = 'block';
@@ -182,6 +182,7 @@ function render() {
   else if (tab === 'pt') h += renderPt();
   else if (tab === 'bb') h += renderBb();
   else if (tab === 'gz') h += renderGz();
+  else if (tab === 'bk') h += renderBk();
   else {
     const nm = TABS.find(x => x[0] === tab)[1], [what, src] = INFO[tab];
     h += `<div class="miss">🧾 ${nm}：<b>数据源无</b>——还没接上数据（先把页面做出来，请会计部先看看想要什么）。</div>`
@@ -493,7 +494,7 @@ async function loadPt(force) {
     if (d && d.rows) { PT = d; ptErr = ''; LS.set('acpt', JSON.stringify(d)); }
     else ptErr = d && d.error === 'device' ? '这台手机没登记' : '读不到（' + ((d && d.error) || '') + '）';
   } catch (e) { ptErr = '读不到（' + e.message + '）'; }
-  ptBusy = false; if (tab === 'pt' || tab === 'bb' || tab === 'gz') render();
+  ptBusy = false; if (tab === 'pt' || tab === 'bb' || tab === 'gz' || tab === 'bk') render();
 }
 let ptP = LS.get('ptP', 'm0'), ptFrom = LS.get('ptFrom', ''), ptTo = LS.get('ptTo', '');
 function ptSetP(k) { ptP = k; LS.set('ptP', k); ptStore = ''; render(); }
@@ -708,6 +709,62 @@ function renderGz() {
       + `残高新用「${esc(sn.zsheet)}」页${sn.zother ? `（「${esc(sn.zother)}」页${sn.zsame ? '的社内数也一样' : '<b style="color:var(--bad)">的社内数不一样</b>'}）` : ''}；现金一笔一笔配对：出纳账 ${n(sn.ncb)} 笔、流水 ${n(sn.nfl)} 笔。</div>`
       + `<div class="note"><b>要注意（这样对的局限）</b><br>1. 出纳账那一栏其实只有两个数：「银行出」「现金收」用的是同一个收入合计，「现金付」「银行入」也是同一个。<br>2. 出纳账里哪几笔算社内现金，是程序按规则认的（明细写了银行名、金额整万、不是给料・売上・金库），可能漏认或认错。<br>3. 残高新「新」页如果是用 11 家流水整理出来的，它和银行流水就不是两个独立来源。<br>4. 一笔一笔配对只看「公司＋收付＋金额」，不看日期。</div></div>`;
   }
+  h += `<button class="btn sub" onclick="loadPt(1)">🔄 重新读取</button>`;
+  return h;
+}
+
+// ===== 11/26 🏦 会计入力银行数校对（用户：「会计APP里面添加一个会计入力银行数校对，命名位A到K每一家KA云端的银行PDF或者CSV的的存折数据是否齐全了10.1-10.31.8月份的9月份的。是否上传到了KA云端。」）
+// 电脑 会计部\工资对账\存折对账\银行数校对.py 每天 13:30 跟积分对账同一张表上传（行 k＝bkh 总头・bkc 每家每月・bki 要处理，编号 pt|bk|月|公司|账户），读 what=pt（不用改后台）。
+// 只放结论（✅⚠🟡❌、笔数、文件名），存折账号・余额・明细只留电脑。签名和积分对账共用 what=ptdo。
+let bkOpen = LS.get('acbko', '');
+function bkTog(k) { bkOpen = bkOpen === k ? '' : k; LS.set('acbko', bkOpen); render(); }
+const BK_WHY = ['已补上传', '这个账户不用对存折', '其他'];
+async function bkDo(i, undo) {
+  const it = (PT.rows || []).filter(x => x && x.k === 'bki')[i]; if (!it) return;
+  const who = (($('bkw') || {}).value || '').trim(), why = (($('bkr_' + i) || {}).value || ''), note = (($('bkh_' + i) || {}).value || '').trim();
+  if (!undo && !who) { ptMsg[it.id] = '<div class="err">请先在上面写你的名字</div>'; return render(); }
+  if (!undo && !why) { ptMsg[it.id] = '<div class="err">请选原因</div>'; return render(); }
+  if (!undo && why !== '已补上传' && !note) { ptMsg[it.id] = '<div class="err">要写说明（为什么不用对、是什么情况）</div>'; return render(); }
+  if (who) LS.set('acWho', who);
+  ptMsg[it.id] = '<div class="note">保存中…</div>'; render();
+  try {
+    const q = '&what=ptdo&ids=' + encodeURIComponent(JSON.stringify([it.id])) + '&who=' + encodeURIComponent(who || '—') + (undo ? '&act=undo' : '&how=' + encodeURIComponent(why + (note ? '：' + note : '')))
+      + '&ctx=' + encodeURIComponent(JSON.stringify({ 店: it.co, 类: '银行数校对', 摘: it.ym + ' ' + it.acct + ' ' + it.kind }));
+    const d = await api(q);
+    if (d.error) throw new Error(d.error === 'device' ? '这台手机没登记' : d.error);
+    PT = d; LS.set('acpt', JSON.stringify(d)); ptMsg[it.id] = undo ? '<div class="note">已撤销</div>' : '';
+  } catch (e) { ptMsg[it.id] = `<div class="err">没保存：${esc(e.message)}</div>`; }
+  render();
+}
+function renderBk() {
+  const ic = s => ({ ok: '✅', warn: '⚠', wait: '🟡', bad: '❌' })[s] || '—';
+  let h = `<div class="card"><div class="ct">🏦 会计入力银行数校对</div><div class="note">A〜K 11 家公司，8 月起每个月：KA 云端「会计部／仕入れ請求書+賃金台帳／各公司一式／那个月」有没有上传 <b>11 家流水里每个银行账户</b>的存折（照片・网银 PDF・CSV），<b>1 日〜月末是否齐全</b>。<br>电脑每天 <b>13:30</b> 查：网银 PDF・CSV 一笔一笔对 11 家流水（笔数一样、每笔对上＝齐全）；照片・扫描件晚上 OCR 后对金额。只显示结论，存折账号・余额・明细不上 APP。<br>✅ 齐全　⚠ 不齐　🟡 有照片、等电脑认　❌ 没上传<br><b>闭环</b>：⚠ ❌ 的账户列在「要处理」，把存折补传到云端，第二天对上就<b>自动消失</b>；本来不用对的签名写清楚。</div></div>`;
+  if (!PT) return h + `<div class="card"><div class="note">${ptBusy ? '读取中…' : esc(ptErr || '还没有数据')}</div></div>`;
+  if (ptErr) h += `<div class="miss">${esc(ptErr)}（显示的是上次读到的）</div>`;
+  const rows = PT.rows || [], hd = rows.find(x => x && x.k === 'bkh');
+  if (!hd) return h + '<div class="card"><div class="note">还没有生成（电脑每天 13:30 生成）</div></div>';
+  h += `<div class="note" style="margin:2px 2px 6px">${esc(hd.at || '')} 查</div>`;
+  (hd.why || []).forEach(w => { h += `<div class="miss">⚠ ${esc(w)}</div>`; });
+  const ms = hd.months || [], cs = rows.filter(x => x && x.k === 'bkc');
+  h += `<div class="card"><table class="ptm bkt"><tr><th>公司</th>${ms.map(m => `<th>${Number(m.slice(5))}月</th>`).join('')}</tr>`
+    + (hd.letters || []).map(([L, co]) => `<tr class="${bkOpen === L ? 'on' : ''}" onclick="bkTog(${jq(L)})"><td><b>${esc(L)}</b> ${esc(co)}</td>${ms.map(m => { const c = cs.find(x => x.ym === m && x.L === L); const nw = c ? (c.acc || []).filter(a => a.st === 'wait').length : 0; return `<td>${c ? ic(c.st) + `<small>${c.na ? '齐 ' + c.ok + '/' + c.na + (nw ? '・' + nw + ' 等认' : '') : esc(c.t)}</small>` : '—'}</td>`; }).join('')}</tr>`
+      + (bkOpen === L ? `<tr class="on"><td colspan="${ms.length + 1}">${ms.map(m => { const c = cs.find(x => x.ym === m && x.L === L); if (!c) return ''; return `<div style="margin:4px 0"><b>${Number(m.slice(5))}月</b> ${ic(c.st)} ${esc(c.t)}</div>` + (c.acc || []).map(a => `<div style="margin:2px 0 2px 10px">${ic(a.st)} <b>${esc(a.a)}</b>（流水 ${a.n} 笔）${esc(a.t)}${(a.f || []).length ? `<small>${a.f.map(esc).join('、')}</small>` : ''}</div>`).join(''); }).join('')}</td></tr>` : '')).join('')
+    + `</table><div class="note">点公司看每个账户。「齐 3/5」＝这个月流水里有交易的 5 个银行账户里 3 个齐全；「等认」＝有照片・扫描件，电脑晚上认完才知道齐不齐。格子的图标按最差的那个账户。</div></div>`;
+  const its = rows.filter(x => x && x.k === 'bki'), sg = PT.sg || {}, op = its.filter(x => !sg[x.id]), dn = its.filter(x => sg[x.id]);
+  h += `<div class="kp" style="grid-template-columns:repeat(2,1fr)"><div class="${op.length ? 'r' : ''}"><b>${op.length}</b><small>要处理</small></div><div><b style="color:var(--ok)">${dn.length}</b><small>✅ 已签名</small></div></div>`;
+  if (its.length) {
+    h += `<div class="card"><div class="note" style="margin-top:0">签名用的名字</div><input id="bkw" value="${esc(LS.get('acWho', '') || (AC && AC.owner ? '股东' : ''))}" placeholder="你的名字" style="margin-top:4px"></div>`;
+    const card = x => {
+      const s = sg[x.id], i = its.indexOf(x);
+      return `<div class="it ${s ? 'sg' : 'cr'}"><div class="nm">${s ? '✅' : '🔴'} ${esc(x.L)} ${esc(x.co)} · ${esc(x.acct)} <span class="pill p0">${Number(x.ym.slice(5))}月 ${esc(x.kind)}</span></div>`
+        + `<div class="why">${(x.ev || []).map(esc).join('<br>')}</div><div class="fix">👉 ${esc(x.fix)}</div>`
+        + (s ? `<div class="sgd">✅ ${esc(s[0])}　${esc(String(s[1] || '').slice(5, 16))}${s[2] ? '：' + esc(s[2]) : ''}<a onclick="bkDo(${i},1)">撤销</a></div>`
+          : `<div class="ptsg"><select id="bkr_${i}"><option value="">选原因…</option>${BK_WHY.map(w => `<option>${w}</option>`).join('')}</select><input id="bkh_${i}" placeholder="说明（为什么不用对、是什么情况）"><button onclick="bkDo(${i})">✅ 已处理</button></div>`)
+        + (ptMsg[x.id] || '') + '</div>';
+    };
+    if (op.length) h += '<div class="grp">要处理（补传到云端，第二天自动消失）</div>' + op.map(card).join('');
+    if (dn.length) h += '<div class="grp">已签名</div>' + dn.map(card).join('');
+  } else h += '<div class="card"><div class="ok" style="margin:0">✓ 全部齐全</div></div>';
   h += `<button class="btn sub" onclick="loadPt(1)">🔄 重新读取</button>`;
   return h;
 }
