@@ -68,7 +68,7 @@ textarea{min-height:120px;resize:vertical}
 /* 11/24 🎫 积分对账 */
 .ptm{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:6px;table-layout:fixed}.ptm th{text-align:left;color:var(--sub);font-weight:600;padding:4px 2px}.ptm th:first-child{width:28%}
 .ptm td{border-top:1px solid var(--line);padding:5px 2px;vertical-align:top}.ptm td small{display:block;font-size:11.5px;color:var(--sub)}.ptm tr{cursor:pointer}.ptm tr.on td{background:var(--soft)}
-.sq{display:inline-block;width:11px;height:11px;border-radius:3px;border:1px solid #aaa;vertical-align:-1px;margin:0 2px}.sq.g{background:#C4EDCD}.sq.w{background:#fff}.sq.r{background:#FFCCCC}.bbt{font-size:12.5px}.bbt th:first-child{width:19%}.bbt th:nth-child(2){width:11%}.bbt td{padding:5px 1px}.ptm td.bad b{color:var(--bad)}.ptm td.okc b{color:var(--ok)}.gzt{font-size:12.5px}.gzt th:first-child{width:24%}.gzt td{padding:5px 1px;word-break:break-all}.bkt{font-size:13px}.bkt th:first-child{width:40%}.bkt td{text-align:left}
+.sq{display:inline-block;width:11px;height:11px;border-radius:3px;border:1px solid #aaa;vertical-align:-1px;margin:0 2px}.sq.g{background:#C4EDCD}.sq.w{background:#fff}.sq.r{background:#FFCCCC}.bbt{font-size:12.5px}.bbt th:first-child{width:19%}.bbt th:nth-child(2){width:11%}.bbt td{padding:5px 1px}.ptm td.bad b{color:var(--bad)}.ptm td.okc b{color:var(--ok)}.gzt{font-size:12.5px}.gzt th:first-child{width:24%}.gzt td{padding:5px 1px;word-break:break-all}.bkt{font-size:13px}.bkt th:first-child{width:40%}.bkt td{text-align:left}.bkn{font-size:12.5px}.bkn th:first-child{width:40%}.bkn td{padding:4px 2px;word-break:break-all}
 .pt3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-top:6px}.pt3 div{background:var(--soft);border-radius:10px;padding:6px 8px}.pt3 small{display:block;font-size:12px;color:var(--sub)}.pt3 b{font-size:16px}
 .ptsg{display:grid;grid-template-columns:1fr;gap:6px;margin-top:8px}.ptsg select{width:100%;padding:10px;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}.ptsg input{margin:0}.ptsg button{border:0;border-radius:10px;background:var(--ok);color:#fff;font:inherit;font-weight:700;padding:11px}
 /* 11/24 🔎 成本异常 */
@@ -101,7 +101,7 @@ textarea{min-height:120px;resize:vertical}
 // 11/18 用户：「单独的会计部键这个 APP 也做出来，因为给会计部看，然后让他们说有什么想更新的」。
 // 数据接口和「空桌一览」同一个后台（Apps Script）；会计部密码（或老板密码）才看得到。只有登记过的手机能用（手机编号 dv）。
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kuaiji-v36';
+const APPV = 'kuaiji-v37';
 // 11/19 自检：提需求「测试版 → 老板确认 → 正式版」流程跑通（这一行就是自检时上线的改动）
 const TEST = /\/test\//.test(location.pathname);
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 11/19 用户：「会计部跟运营部一样，不是 2 个网页」→ 空桌一览「🧾 会计」打开的是这份网页的副本 kongzhuo/kj.html（内容完全一样）   // 11/19 测试版（kuaiji/test/）：Claude 按需求改好先放这里，老板确认后才换成正式版   // 版本号：和 sw.js 的 V 一起改
@@ -716,8 +716,9 @@ function renderGz() {
 // ===== 11/26 🏦 会计入力银行数校对（用户：「会计APP里面添加一个会计入力银行数校对，命名位A到K每一家KA云端的银行PDF或者CSV的的存折数据是否齐全了10.1-10.31.8月份的9月份的。是否上传到了KA云端。」）
 // 电脑 会计部\工资对账\存折对账\银行数校对.py 每天 13:30 跟积分对账同一张表上传（行 k＝bkh 总头・bkc 每家每月・bki 要处理，编号 pt|bk|月|公司|账户），读 what=pt（不用改后台）。
 // 只放结论（✅⚠🟡❌、笔数、文件名），存折账号・余额・明细只留电脑。签名和积分对账共用 what=ptdo。
-let bkOpen = LS.get('acbko', '');
+let bkOpen = LS.get('acbko', ''), bkM = LS.get('acbkm', '');
 function bkTog(k) { bkOpen = bkOpen === k ? '' : k; LS.set('acbko', bkOpen); render(); }
+function bkPickM(m) { bkM = m; LS.set('acbkm', m); render(); }
 const BK_WHY = ['已补上传', '这个账户不用对存折', '其他'];
 async function bkDo(i, undo) {
   const it = (PT.rows || []).filter(x => x && x.k === 'bki')[i]; if (!it) return;
@@ -753,6 +754,17 @@ function renderBk() {
     + (hd.letters || []).map(([L, co]) => `<tr class="${bkOpen === L ? 'on' : ''}" onclick="bkTog(${jq(L)})"><td><b>${esc(L)}</b> ${esc(co)}</td>${ms.map(m => { const c = cs.find(x => x.ym === m && x.L === L); const nw = c ? (c.acc || []).filter(a => a.st === 'wait').length : 0; return `<td>${c ? ic(c.st) + `<small>${c.na ? '齐 ' + c.ok + '/' + c.na + (nw ? '・' + nw + ' 等认' : '') : esc(c.t)}</small>` : '—'}</td>`; }).join('')}</tr>`
       + (bkOpen === L ? `<tr class="on"><td colspan="${ms.length + 1}">${ms.map(m => { const c = cs.find(x => x.ym === m && x.L === L); if (!c) return ''; return `<div style="margin:4px 0"><b>${Number(m.slice(5))}月</b> ${ic(c.st)} ${esc(c.t)}</div>` + (c.acc || []).map(a => `<div style="margin:2px 0 2px 10px">${ic(a.st)} <b>${esc(a.a)}</b>（流水 ${a.n} 笔）${esc(a.t)}${(a.f || []).length ? `<small>${a.f.map(esc).join('、')}</small>` : ''}</div>`).join(''); }).join('')}</td></tr>` : '')).join('')
     + `</table><div class="note">点公司看每个账户。「齐 3/5」＝这个月流水里有交易的 5 个银行账户里 3 个齐全；「等认」＝有照片・扫描件，电脑晚上认完才知道齐不齐。有账户的照片还没认完时整格先显示 🟡，认完再判 ✅／⚠／❌；F 0 等暂时没有数据的显示灰色「—」。</div></div>`;
+  // 11/26 用户「放上 APP」：存折笔数对账——每个账户 流水笔数／存折笔数／一笔一笔对上几笔／结论（只放笔数，不放账号・余额・金额・日期）
+  if (ms.indexOf(bkM) < 0) bkM = ms[ms.length - 1];
+  const icn = c => ({ ok: '✅', ocr: '🟡', warn: '⚠', wait: '🟡', bad: '❌', na: '—' })[c] || '—';
+  h += `<div class="card"><div class="ct">📒 存折笔数（11 家流水 ↔ 存折）</div><div class="tabs" style="position:static;margin:4px 0 6px;padding:0">${ms.map(m => `<button class="${m === bkM ? 'on' : ''}" onclick="bkPickM(${jq(m)})">${Number(m.slice(5))}月</button>`).join('')}</div>`
+    + `<table class="ptm bkn"><tr><th>账户</th><th>流水</th><th>存折</th><th>对上</th><th>结论</th></tr>`
+    + (hd.letters || []).map(([L, co]) => {
+      const c = cs.find(x => x.ym === bkM && x.L === L);
+      if (!c) return '';
+      const head = `<tr><td colspan="5" style="background:var(--soft)"><b>${esc(L)} ${esc(co)}</b>${c.st === 'na' ? ' <small style="display:inline">— ' + esc(c.t) + '</small>' : ''}</td></tr>`;
+      return head + (c.acc || []).map(a => `<tr><td>${esc(a.a)}<small>${esc(a.k || '')}</small></td><td>${a.n}</td><td>${a.p == null ? '—' : a.p}</td><td class="${a.o != null && a.o < a.n ? 'bad' : ''}">${a.o == null ? '—' : (a.o < a.n ? '<b>' + a.o + '</b>' : a.o)}</td><td>${icn(a.c || a.st)}</td></tr>`).join('');
+    }).join('') + `</table><div class="note">「流水」＝11 家流水这个月这个账户的笔数；「存折」＝存折上这个月的笔数；「对上」＝一笔一笔（收付＋金额）对上的笔数。<br>✅ 网银・CSV 笔数一样、每笔都对上（照片：流水 8 成以上在照片上找到）　🟡 照片：存折笔数是电脑 OCR 数的行数，常数不准，以「对上」为准；或照片还没认　⚠ 不齐　❌ 没上传。⚠ ❌ 的在下面「要处理」签名。</div></div>`;
   const its = rows.filter(x => x && x.k === 'bki'), sg = PT.sg || {}, op = its.filter(x => !sg[x.id]), dn = its.filter(x => sg[x.id]);
   h += `<div class="kp" style="grid-template-columns:repeat(2,1fr)"><div class="${op.length ? 'r' : ''}"><b>${op.length}</b><small>要处理</small></div><div><b style="color:var(--ok)">${dn.length}</b><small>✅ 已签名</small></div></div>`;
   if (its.length) {
