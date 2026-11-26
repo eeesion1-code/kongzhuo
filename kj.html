@@ -101,7 +101,7 @@ textarea{min-height:120px;resize:vertical}
 // 11/18 用户：「单独的会计部键这个 APP 也做出来，因为给会计部看，然后让他们说有什么想更新的」。
 // 数据接口和「空桌一览」同一个后台（Apps Script）；会计部密码（或老板密码）才看得到。只有登记过的手机能用（手机编号 dv）。
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kuaiji-v29';
+const APPV = 'kuaiji-v30';
 // 11/19 自检：提需求「测试版 → 老板确认 → 正式版」流程跑通（这一行就是自检时上线的改动）
 const TEST = /\/test\//.test(location.pathname);
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 11/19 用户：「会计部跟运营部一样，不是 2 个网页」→ 空桌一览「🧾 会计」打开的是这份网页的副本 kongzhuo/kj.html（内容完全一样）   // 11/19 测试版（kuaiji/test/）：Claude 按需求改好先放这里，老板确认后才换成正式版   // 版本号：和 sw.js 的 V 一起改
@@ -617,12 +617,15 @@ function renderBb() {
 let gzM = LS.get('acgzm', '');
 function gzPickM(m) { gzM = m; LS.set('acgzm', m); render(); }
 const GZ_WHY = ['已改工资统计', '已改出纳账', '两边都对（另外发的钱等）', '其他'];
+// 11/26 存折（第 4 方）对不上・缺存折 的签名原因
+const GZ_WHY_PB = ['已改流水', '已补存折', '两边都对（写清楚）', '这个账户不用对存折', '其他'];
+const gzWhy = x => (x.kind === '存折' || x.kind === '缺存折') ? GZ_WHY_PB : GZ_WHY;
 async function gzDo(i, undo) {
   const it = (PT.rows || []).filter(x => x && x.k === 'gzi' && x.ym === gzM)[i]; if (!it) return;
   const who = (($('gzw') || {}).value || '').trim(), why = (($('gzr_' + i) || {}).value || ''), note = (($('gzh_' + i) || {}).value || '').trim();
   if (!undo && !who) { ptMsg[it.id] = '<div class="err">请先在上面写你的名字</div>'; return render(); }
   if (!undo && !why) { ptMsg[it.id] = '<div class="err">请选原因</div>'; return render(); }
-  if (!undo && why !== '已改工资统计' && why !== '已改出纳账' && !note) { ptMsg[it.id] = '<div class="err">要写说明（发给谁、为什么）</div>'; return render(); }
+  if (!undo && !['已改工资统计', '已改出纳账', '已改流水', '已补存折'].includes(why) && !note) { ptMsg[it.id] = '<div class="err">要写说明（发给谁、为什么）</div>'; return render(); }
   if (who) LS.set('acWho', who);
   ptMsg[it.id] = '<div class="note">保存中…</div>'; render();
   try {
@@ -637,7 +640,7 @@ async function gzDo(i, undo) {
 function renderGz() {
   const n = v => v == null ? '—' : Math.round(Number(v) || 0).toLocaleString('ja-JP');
   const ck = ok => ok == null ? '<span class="pill">还不能对</span>' : ok ? '<b style="color:var(--ok)">✅ 一致</b>' : '<b style="color:var(--bad)">⚠ 对不上</b>';
-  let h = `<div class="card"><div class="ct">💰 工资・社内对账</div><div class="note">按<b>付款月</b>对（例：10 月 26 日发的＝9 月份的工资）。电脑每天 <b>13:30</b> 重算。<br>① <b>每店现金工资</b>：「工资统计」表（G 盘 2026給料明細，10 月付的看「26.09」页）每店合计 ＝ KA 云端<b>现金出纳账</b>各店「给料」。<br>② <b>社内</b>：银行取现金・现金存银行・集团银行互转，残高新 ＝ 银行流水 ＝ 现金出纳账。<br>本部工资（社长・本部給料）不在这里对；工资合计（银行＋现金↔残高新）只在电脑上看。<br><b>闭环</b>：对不上的列在「要处理」，只在源头改（工资统计／出纳账／残高新），第二天重算对上了就<b>自动消失</b>；两边都对的（例：另外发的钱）签名写清楚。</div></div>`;
+  let h = `<div class="card"><div class="ct">💰 工资・社内对账</div><div class="note">按<b>付款月</b>对（例：10 月 26 日发的＝9 月份的工资）。电脑每天 <b>13:30</b> 重算。<br>① <b>每店现金工资</b>：「工资统计」表（G 盘 2026給料明細，10 月付的看「26.09」页）每店合计 ＝ KA 云端<b>现金出纳账</b>各店「给料」。<br>② <b>社内</b>：银行取现金・现金存银行・集团银行互转，残高新 ＝ 银行流水 ＝ 现金出纳账 ＝ <b>银行存折原件</b>（11/26 加，第 4 方：G 盘 会计部「仕入れ請求書+賃金台帳」各公司当月存折，电脑自动读）。<br>本部工资（社长・本部給料）不在这里对；工资合计（银行＋现金↔残高新）只在电脑上看。<br><b>闭环</b>：对不上的列在「要处理」，只在源头改（工资统计／出纳账／残高新），第二天重算对上了就<b>自动消失</b>；两边都对的（例：另外发的钱）签名写清楚。</div></div>`;
   if (!PT) return h + `<div class="card"><div class="note">${ptBusy ? '读取中…' : esc(ptErr || '还没有数据')}</div></div>`;
   if (ptErr) h += `<div class="miss">${esc(ptErr)}（显示的是上次读到的）</div>`;
   const rows = PT.rows || [], hs = rows.filter(x => x && x.k === 'gzh');
@@ -659,7 +662,7 @@ function renderGz() {
       return `<div class="it ${s ? 'sg' : 'cr'}"><div class="nm">${s ? '✅' : '🔴'} ${esc(x.st)}${x.co ? ' · ' + esc(x.co) : ''} <span class="pill p0">${esc(x.kind)}</span>${x.d ? ` <b style="color:var(--bad)">差 ${x.d > 0 ? '+' : ''}${n(x.d)}</b>` : ''}</div>`
         + `<div class="why">${(x.ev || []).map(esc).join('<br>')}</div><div class="fix">👉 ${esc(x.fix)}</div>`
         + (s ? `<div class="sgd">✅ ${esc(s[0])}　${esc(String(s[1] || '').slice(5, 16))}${s[2] ? '：' + esc(s[2]) : ''}<a onclick="gzDo(${i},1)">撤销</a></div>`
-          : `<div class="ptsg"><select id="gzr_${i}"><option value="">选原因…</option>${GZ_WHY.map(w => `<option>${w}</option>`).join('')}</select><input id="gzh_${i}" placeholder="说明（发给谁、为什么）"><button onclick="gzDo(${i})">✅ 已处理</button></div>`)
+          : `<div class="ptsg"><select id="gzr_${i}"><option value="">选原因…</option>${gzWhy(x).map(w => `<option>${w}</option>`).join('')}</select><input id="gzh_${i}" placeholder="${x.kind === '存折' || x.kind === '缺存折' ? '说明（是什么钱、为什么）' : '说明（发给谁、为什么）'}"><button onclick="gzDo(${i})">✅ 已处理</button></div>`)
         + (ptMsg[x.id] || '') + '</div>';
     };
     if (op.length) h += '<div class="grp">要处理（改好源头第二天自动消失）</div>' + op.map(card).join('');
@@ -675,13 +678,20 @@ function renderGz() {
     + `<tr><td><b>合计</b></td><td><b>${n(hd.a)}</b></td><td><b>${n(hd.b)}</b></td><td class="${hd.b - hd.a ? 'bad' : ''}"><b>${n(hd.b - hd.a)}</b></td></tr></table></div>`;
   // 11/25 用户：「这2处只先保存在电脑内部我看」→ 工资合计 不上 APP（之后用户「③可以上线变成②」→ 社内重新上 APP，编号 ②），电脑 会计部\工资对账\结果\工资社内对账_本机.xlsx
   if (sn) {
-    h += `<div class="card"><div class="ct">② 社内：残高新 ↔ 银行流水 ↔ 出纳账　${ck(sn.ok)}</div><table class="ptm gzt"><tr><th>项目</th><th>残高新</th><th>银行流水</th><th>出纳账</th></tr>`
-      + (sn.L || []).map(x => `<tr${x[4] ? '' : ' style="color:var(--bad)"'}><td>${esc(x[0])}</td><td>${n(x[1])}</td><td>${n(x[2])}</td><td>${n(x[3])}</td></tr>`).join('') + `</table>`
+    // 11/26 用户：「会计APP的社内对账，可以跟银行存折明细也对下…这样4种核对」→ 加「存折」栏（存折只核到有存折的账户；没收到存折的账户列在下面）
+    const P = sn.pbhave ? (sn.P || []) : [], PC = sn.PC || [], wan = v => v == null ? '—' : (Math.round(Number(v) / 1000) / 10).toLocaleString('ja-JP') + '万';   // 5 栏手机放不下 → 以万为单位
+    const pbx = i => P[i] == null ? '<small>—</small>' : `<span${P[i] !== PC[i] ? ' style="color:var(--bad);font-weight:700"' : ''}>${wan(P[i])}</span>`;
+    h += `<div class="card"><div class="ct">② 社内：残高新 ↔ 银行流水 ↔ 出纳账 ↔ 存折　${ck(sn.ok)}${sn.pbhave ? ' ' + ck(sn.pbok) : ''}</div><table class="ptm gzt"><tr><th>项目</th><th>残高新</th><th>银行流水</th><th>出纳账</th>${sn.pbhave ? '<th>存折</th>' : ''}</tr>`
+      + (sn.L || []).map((x, i) => `<tr${x[4] ? '' : ' style="color:var(--bad)"'}><td>${esc(x[0])}</td><td>${wan(x[1])}</td><td>${wan(x[2])}</td><td>${wan(x[3])}</td>${sn.pbhave ? `<td>${pbx(i)}</td>` : ''}</tr>`).join('') + `</table><div class="note" style="margin-top:2px">单位：万円（四舍五入到千円）</div>`
+      + (sn.pbhave ? `<div class="note"><b>存折</b>：读了 ${n(sn.pbbooks)} 本，认出是哪个账户的 ${n(sn.pbmapped)} 本；存折栏只算<b>有存折的账户</b>，要和银行流水里同样这些账户的数一样（${P.map((p, i) => p == null ? '' : `${esc(sn.L[i][0])} 流水 ${wan(PC[i])}`).filter(Boolean).join('、')}）。${sn.pbok ? '存折核到的<b style="color:var(--ok)">全部一致</b>。' : `<b style="color:var(--bad)">有 ${n(sn.pbnbad)} 笔对不上</b>（在「要处理」）。`}</div>`
+        + ((sn.pbmiss || []).length ? `<div class="miss">没有存折、没法核的账户 ${sn.pbmiss.length} 个：${sn.pbmiss.map(esc).join('；')}</div>` : '')
+        + ((sn.pbunread || []).length ? `<div class="miss">有存折但还认不出是哪个账户的 ${sn.pbunread.length} 本：${sn.pbunread.map(esc).join('；')}</div>` : '')
+        + ((sn.pbg || []).length ? `<div class="note">G 盘没有这个月存折文件夹的公司：${sn.pbg.map(esc).join('、')}</div>` : '') : '')
       + ((sn.miss_cb || []).length ? `<div class="miss">流水有、出纳账没有：${sn.miss_cb.map(esc).join('；')}</div>` : '')
       + ((sn.miss_fl || []).length ? `<div class="miss">出纳账有、流水没有：${sn.miss_fl.map(esc).join('；')}</div>` : '')
       + `<div class="note"><b>取现金</b>＝从公司银行取出放进现金（银行出＝现金收）；<b>存银行</b>＝现金存回银行（现金付＝银行入）；<b>社内振込</b>＝集团银行之间互转，出纳账没有。`
       + `残高新用「${esc(sn.zsheet)}」页${sn.zother ? `（「${esc(sn.zother)}」页${sn.zsame ? '的社内数也一样' : '<b style="color:var(--bad)">的社内数不一样</b>'}）` : ''}；现金一笔一笔配对：出纳账 ${n(sn.ncb)} 笔、流水 ${n(sn.nfl)} 笔。</div>`
-      + `<div class="note"><b>要注意（这样对的局限）</b><br>1. 出纳账那一栏其实只有两个数：「银行出」「现金收」用的是同一个收入合计，「现金付」「银行入」也是同一个。<br>2. 出纳账里哪几笔算社内现金，是程序按规则认的（明细写了银行名、金额整万、不是给料・売上・金库），可能漏认或认错。<br>3. 残高新「新」页如果是用 11 家流水整理出来的，它和银行流水就不是两个独立来源。<br>4. 一笔一笔配对只看「公司＋收付＋金额」，不看日期。</div></div>`;
+      + `<div class="note"><b>要注意（这样对的局限）</b><br>1. 出纳账那一栏其实只有两个数：「银行出」「现金收」用的是同一个收入合计，「现金付」「银行入」也是同一个。<br>2. 出纳账里哪几笔算社内现金，是程序按规则认的（明细写了银行名、金额整万、不是给料・売上・金库），可能漏认或认错。<br>3. 残高新「新」页如果是用 11 家流水整理出来的，它和银行流水就不是两个独立来源。<br>4. 出纳账和流水一笔一笔配对只看「公司＋收付＋金额」，不看日期。<br>5. 存折：照片是电脑 OCR 认的，用余额链（上一笔余额±金额＝这一笔余额）验算；存折和流水按「账户＋收付＋金额」配，日期先找同一天、再前后 4 天。存折的账号・余额只存电脑，不上 APP。</div></div>`;
   }
   h += `<button class="btn sub" onclick="loadPt(1)">🔄 重新读取</button>`;
   return h;
