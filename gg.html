@@ -44,7 +44,7 @@ main{max-width:760px;margin:0 auto;padding:10px 16px 40px}
 table{width:100%;border-collapse:collapse;font-size:14px}th,td{padding:7px 4px;border-top:1px solid var(--line);text-align:right;white-space:nowrap}
 th{font-size:12px;color:var(--sub);font-weight:600;border-top:0}td:first-child,th:first-child{text-align:left;white-space:normal}
 .case{background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow);padding:10px 12px;margin:10px 0}
-.case.todo{border-left:4px solid var(--bad)}.case.wait{border-left:4px solid var(--warn)}.case.done{border-left:4px solid var(--good);opacity:.85}
+.case.todo{border-left:4px solid var(--bad)}.case.urg{background:var(--badBg);border:2px solid var(--bad)}.urgent{background:var(--badBg);border:2px solid var(--bad);border-radius:12px;padding:10px 12px;margin:10px 0}.urgent .ut{color:var(--bad);font-weight:800;font-size:16px}.urgent .ur{border-top:1px dashed var(--bad);padding:7px 0 2px;margin-top:6px;font-size:13.5px}.urgent .ur a{color:var(--bad);font-weight:700;text-decoration:underline;cursor:pointer}.case.wait{border-left:4px solid var(--warn)}.case.done{border-left:4px solid var(--good);opacity:.85}
 .case .h{font-weight:700;font-size:15.5px}.case .m{font-size:13px;color:var(--sub);margin-top:2px}.case .amt{font-weight:700}
 .step{border-top:1px dashed var(--line);margin-top:8px;padding-top:8px;font-size:14px}
 .step .t{font-weight:700;font-size:13.5px;color:var(--sub)}
@@ -240,7 +240,7 @@ function detPanel(o) {
 }
 function caseCard(o) {
   const id = o['编号'], s = stOf(o), m = msgs[id], d = o['预约日'].slice(5).replace('-', '/');
-  let h = `<div class="case ${s}"><div class="h">${esc(d)} ${esc(o['时间'])}　${esc(o['公司'])} ${esc(o['店'])}</div>`
+  let h = `<div class="case ${s}${BACK(o) ? ' urg' : ''}" id="case_${esc(id)}"><div class="h">${BACK(o) ? '<span class="no">🚨 紧急</span>　' : ''}${esc(d)} ${esc(o['时间'])}　${esc(o['公司'])} ${esc(o['店'])}</div>`
     + `<div class="m">${esc(o['客人'])} 様　${esc(o['人数'])}名　${esc(o['内容'])}　合计 <span class="amt">${yen(o['合计'])}</span>`
     + (o['Slack链接'] ? `　<a href="${esc(o['Slack链接'])}" target="_blank" style="color:var(--brand)">Slack 原文</a>` : '') + '</div>'
     // 11/19 用户：「点击打开这，就是显示客人电话的预约台账页面」→ 电脑程序（rb配对.py，只读）配上 レストランボード 的这组预约；电话只给老板・广告预约部・会计部
@@ -265,7 +265,7 @@ function caseCard(o) {
     h += `<span class="${pay ? 'ok' : 'no'}">✓ ${esc(o['联系・结果'])}</span>${o['请求额'] ? '　请求 <b>' + yen(o['请求额']) + '</b>' : ''}　${esc(o['联系・谁'])}　<small>${esc(o['联系・时间'].slice(5))}</small>`
       + (o['联系・说明'] ? `<div class="note">说明：${esc(o['联系・说明'])}</div>` : '') + (o['到账・金额'] && !AGAIN(o) ? '' : `<a class="undo" onclick="undo(${jq(id)},'call')">撤销</a>`);
   } else {
-    if (BACK(o)) h += `<div style="background:#fee2e2;border-radius:8px;padding:8px 10px;margin:4px 0;color:var(--bad)"><b>↩ 会计部查到没回款，退回预约中心跟进</b><div style="color:var(--ink);font-size:13px;margin-top:2px">会计：${esc(ngWhy(o))}（${esc(o['到账・谁'])} ${esc(String(o['到账・时间']).slice(5))}）<br>上次联系：${esc(o['联系・结果'])} 请求 ${yen(o['请求额'])}　${esc(o['联系・谁'])} ${esc(String(o['联系・时间']).slice(5))}${o['联系・说明'] ? '　' + esc(o['联系・说明']) : ''}</div><div class="note">请再联系客人，在下面选结果重新签名：客人说已经付了／会付就选「同意付款」（会计部会再确认到账）。</div></div>`;
+    if (BACK(o)) h += `<div style="background:var(--badBg);border-radius:8px;padding:8px 10px;margin:4px 0;color:var(--bad)"><b>↩ 会计部查到没回款，退回预约中心跟进</b><div style="color:var(--ink);font-size:13px;margin-top:2px">会计：${esc(ngWhy(o))}（${esc(o['到账・谁'])} ${esc(String(o['到账・时间']).slice(5))}）<br>上次联系：${esc(o['联系・结果'])} 请求 ${yen(o['请求额'])}　${esc(o['联系・谁'])} ${esc(String(o['联系・时间']).slice(5))}${o['联系・说明'] ? '　' + esc(o['联系・说明']) : ''}</div><div class="note">请再联系客人，在下面选结果重新签名：客人说已经付了／会付就选「同意付款」（会计部会再确认到账）。</div></div>`;
     if (o['联系・结果'] === '请求中') h += `<div><span class="wt">⏳ 请求中 ${yen(o['请求额'])}</span>　${esc(o['联系・谁'])}　<small>${esc(o['联系・时间'].slice(5))}</small>${o['联系・说明'] ? '<div class="note">说明：' + esc(o['联系・说明']) + '</div>' : ''}<div class="note">客人回复了就在下面选结果再签名。</div></div>`;
     h += '<div class="res">' + RES.map(r => `<label><input type="radio" name="r_${esc(id)}" value="${r}">${r}</label>`).join('') + '</div>'
       + `<div class="row2"><input id="a_${esc(id)}" inputmode="numeric" placeholder="请求金额" value="${esc(o['请求额'] || o['合计'])}"><input id="h_${esc(id)}" placeholder="说明（拒绝・联系不上・不收必填）" maxlength="200"></div>`
@@ -718,10 +718,17 @@ function render() {
   h += `<div class="card"><div class="ct">🏪 按店（${esc(PL)}）</div>` + (ks.length ? '<table><tr><th>店</th><th>组数</th><th>预约合计</th><th>请求</th><th>已收回</th></tr>'
     + ks.map(k => `<tr><td>${esc(k)}</td><td>${by[k].n}</td><td>${yen(by[k].a)}</td><td>${yen(by[k].q)}</td><td>${yen(by[k].g)}</td></tr>`).join('') + '</table>' : '<div class="note">这段期间没有无断取消。</div>') + '</div>';
   // 要处理（所有月份）
-  const todo = all.filter(o => stOf(o) === 'todo').sort((a, b) => (b['预约日'] + b['时间']).localeCompare(a['预约日'] + a['时间']));
+  const todo = all.filter(o => stOf(o) === 'todo').sort((a, b) => (BACK(b) - BACK(a)) || (b['预约日'] + b['时间']).localeCompare(a['预约日'] + a['时间']));   // 🚨 紧急的排最前
+  // 11/26 用户：「添加一个会计部确认客人没有回款成功、流转到预约中心确认，命名为紧急处理…红色底，这样预约中心知道要先做这事」
+  //   → 按店下面、签名名字上面放红底「🚨 紧急」块（所有月份），点「去处理」跳到下面那单的卡片（卡片也是红底、排在要处理最前）
+  const urg = todo.filter(BACK);
+  if (urg.length) h += `<div class="urgent"><div class="ut">🚨 紧急处理：客人答应付取消料，会计查无入金（${urg.length} 组）</div>`
+    + '<div class="note" style="color:var(--ink)">会计部查了存折没看到这笔钱，退回预约中心，<b>请先处理这几单</b>：联系客人——说已经付了，问清付款日期・汇款名义写在说明里，选「同意付款」让会计再查；还没付就催款，客人不付了选「客人回复不付款」。</div>'
+    + urg.map(o => `<div class="ur"><b>${esc(o['预约日'].slice(5).replace('-', '/'))} ${esc(o['公司'])} ${esc(o['店'])}　${esc(o['客人'])} 様　${yen(o['请求额'])}</b>`
+      + `<br>会计 ${esc(o['到账・谁'])} ${esc(String(o['到账・时间']).slice(5))}：${esc(ngWhy(o))}　<a onclick="var e=document.getElementById(${jq('case_' + o['编号'])});e&&e.scrollIntoView({behavior:'smooth',block:'start'})">去处理 ↓</a></div>`).join('') + '</div>';
   const wait = all.filter(o => stOf(o) === 'wait').sort((a, b) => (b['预约日'] + b['时间']).localeCompare(a['预约日'] + a['时间']));
   h += `<div class="me">✍ 签名用的名字<input id="who" placeholder="例：预约中心 王" maxlength="20" value="${esc(LS.get('ggWho', ''))}"></div>`;
-  h += `<div class="sec">🔴 预约中心要处理（${todo.length}）</div>` + (todo.length ? todo.map(caseCard).join('') : '<div class="note">都处理完了。</div>');
+  h += `<div class="sec">🔴 预约中心要处理（${todo.length}${urg.length ? '，其中 🚨 紧急 ' + urg.length : ''}）</div>` + (todo.length ? todo.map(caseCard).join('') : '<div class="note">都处理完了。</div>');
   h += `<div class="sec">🟡 等会计部确认到账（${wait.length}）</div>` + (wait.length ? wait.map(caseCard).join('') : '<div class="note">没有。</div>');
   const done = ms.filter(o => stOf(o) === 'done');
   h += `<details><summary>🟢 ${esc(PL)} 已完成（${done.length}）</summary>${done.map(caseCard).join('') || '<div class="note">没有。</div>'}</details>`;
