@@ -626,7 +626,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
 })();
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v161';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v162';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -1132,12 +1132,15 @@ function pwToggle(id) { pwOpen.has(id) ? pwOpen.delete(id) : pwOpen.add(id); ren
 
 // ===== 11/13 集团总营业额（只给老板密码）：日历看每天集团合计，点某天看各店；今天用实时数据 =====
 let SV = null, svBusy = false, svDay = '', svMon = '', svErr = '';
-const yen = n => '¥' + Math.round(n || 0).toLocaleString('ja-JP');
+const YEN_F = new Intl.NumberFormat('ja-JP'), yen = n => '¥' + YEN_F.format(Math.round(n || 0));   // 11/26 提速：toLocaleString 每次都新建格式器，很慢
 const man = n => (n / 10000).toFixed(n >= 1e6 ? 0 : 1) + '万';
 const yenNum = s => +(String(s || '').replace(/[^\d]/g, '')) || 0;
 function svDate(ds) { const [y, m, d] = ds.split('-').map(Number); return new Date(y, m - 1, d); }
 function svStr(dt) { return dt.getFullYear() + '-' + String(dt.getMonth() + 1).padStart(2, '0') + '-' + String(dt.getDate()).padStart(2, '0'); }
-function svAdd(ds, n) { const t = svDate(ds); t.setDate(t.getDate() + n); return svStr(t); }
+// 11/26 用户「APP 有点卡」→ 预测一次要转几万次日期：同一个日子的结果记下来（纯函数，可以记）
+const SV_ADD = new Map(), SV_DOW = new Map(), SV_CMPD = new Map();
+function svAdd(ds, n) { const k = ds + '|' + n; let r = SV_ADD.get(k); if (r === undefined) { if (SV_ADD.size > 60000) SV_ADD.clear(); const t = svDate(ds); t.setDate(t.getDate() + n); r = svStr(t); SV_ADD.set(k, r); } return r; }
+function svDow(ds) { let r = SV_DOW.get(ds); if (r === undefined) { r = svDate(ds).getDay(); SV_DOW.set(ds, r); } return r; }
 // 营业日：凌晨 5 点前算前一天
 function svToday() { const t = pwNow(); if (t.getHours() < 5) t.setDate(t.getDate() - 1); return svStr(t); }
 // 11/14 用户：网页卡 → 营业额历史（约 1.2MB，压缩后 250KB，要等 2〜4 秒）存在手机里（Cache API），点开马上显示；
@@ -1269,7 +1272,8 @@ function svSameWk(ds, y, mo) {
     if (c.getDay() === d.getDay() && svWom(cs) === w && (!best || Math.abs(i - d.getDate()) < Math.abs(svDate(best).getDate() - d.getDate()))) best = cs; }
   return best;
 }
-function svCmpDay(ds, m) {
+function svCmpDay(ds, m) { const k = ds + m; if (SV_CMPD.has(k)) return SV_CMPD.get(k); const r = svCmpDay0(ds, m); SV_CMPD.set(k, r); return r; }
+function svCmpDay0(ds, m) {
   if (m === 'lw') return svAdd(ds, -7);
   const d = svDate(ds);
   if (m === 'ly') return svSameWk(ds, d.getFullYear() - 1, d.getMonth());
@@ -1294,8 +1298,8 @@ function svJpHoli(y) {
   [[1, 1, '元日'], [1, mon(1, 2), '成人の日'], [2, 11, '建国記念の日'], [2, 23, '天皇誕生日'], [3, spring, '春分の日'], [4, 29, '昭和の日'],
    [5, 3, '憲法記念日'], [5, 4, 'みどりの日'], [5, 5, 'こどもの日'], [7, mon(7, 3), '海の日'], [8, 11, '山の日'], [9, mon(9, 3), '敬老の日'],
    [9, autumn, '秋分の日'], [10, mon(10, 2), 'スポーツの日'], [11, 3, '文化の日'], [11, 23, '勤労感謝の日']].forEach(([m, d, n]) => H[p(m, d)] = n);
-  Object.keys(H).sort().forEach(ds => { if (svDate(ds).getDay() === 0) { let t = svAdd(ds, 1); while (H[t]) t = svAdd(t, 1); H[t] = '振替休日'; } });
-  for (let d = p(1, 2); d < p(12, 31); d = svAdd(d, 1)) if (!H[d] && H[svAdd(d, -1)] && H[svAdd(d, 1)] && svDate(d).getDay() !== 0) H[d] = '国民の休日';
+  Object.keys(H).sort().forEach(ds => { if (svDow(ds) === 0) { let t = svAdd(ds, 1); while (H[t]) t = svAdd(t, 1); H[t] = '振替休日'; } });
+  for (let d = p(1, 2); d < p(12, 31); d = svAdd(d, 1)) if (!H[d] && H[svAdd(d, -1)] && H[svAdd(d, 1)] && svDow(d) !== 0) H[d] = '国民の休日';
   return H;
 }
 const SV_HOLI_NAME = {};
@@ -1358,9 +1362,9 @@ function svTkMonths(today) {
   return `<div class="svcard"><div class="svct">外卖每月<small>金额 · 占营业额；环比＝比上个月，同比＝比去年同月</small></div><table class="svcmpt"><tr><th>月</th><th>外卖</th><th>环比</th><th>同比</th></tr>${rows}</table>`
     + '<div class="svnote">外卖＝ダイニー「媒体」是 Uber・弁当 的单（2025/9 以前 ダイニー 没有的日子用云端日报的 UBER・弁当 栏）。这个月按天对齐比（同一周同星期几）。</div></div>';
 }
-function svType(ds) { return SV_HOLI.has(ds) ? 'H' : SV_HOLI.has(svAdd(ds, 1)) ? 'P' : 'w' + svDate(ds).getDay(); }
+function svType(ds) { return SV_HOLI.has(ds) ? 'H' : SV_HOLI.has(svAdd(ds, 1)) ? 'P' : 'w' + svDow(ds); }
 const SV_TYPE = { H: '祝日', P: '祝日前一天' };
-let svFcMemo = {};
+let svFcMemo = {}, svFcKey = '';
 const cnBig = n => n >= 1e8 ? `${Math.floor(n / 1e8)} 亿 ${Math.round((n % 1e8) / 1e4).toLocaleString('ja-JP')} 万` : `${Math.round(n / 1e4).toLocaleString('ja-JP')} 万`;
 // ===== 11/14 预测改版（用户：今年 12 月〜明年 12 月的预测不准；去年的数据收银台拿得到 → 历史补齐）=====
 // 每家店分开算，再加起来（已经关的店＝最近 14 天没数据，不算）：
@@ -1379,8 +1383,8 @@ const svSpecial = ds => svYend(ds) || svType(ds)[0] !== 'w';
 function svMonDays(y, m) { const out = [], nd = new Date(y, m, 0).getDate(); for (let i = 1; i <= nd; i++) out.push(svStr(new Date(y, m - 1, i))); return out; }
 // y 年 m 月里和 ds 同一周、星期 w（不给＝ds 的星期几）的那天；avoid＝避开祝日・年末年始（同一周没有就找同月最近的）
 function svSameWk2(ds, y, m, w, avoid) {
-  if (w == null) w = svDate(ds).getDay();
-  const dd = +ds.slice(8), wm = svWom(ds), ok = c => svDate(c).getDay() === w && !(avoid && svSpecial(c));
+  if (w == null) w = svDow(ds);
+  const dd = +ds.slice(8), wm = svWom(ds), ok = c => svDow(c) === w && !(avoid && svSpecial(c));
   const near = cs => cs.reduce((b, c) => !b || Math.abs(+c.slice(8) - dd) < Math.abs(+b.slice(8) - dd) ? c : b, null);
   const ms = svMonDays(y, m).filter(ok);
   return near(ms.filter(c => svWom(c) === wm)) || near(ms);
@@ -1414,7 +1418,7 @@ function svFModel(C) {
     const c = cnt[n] || 0, gr = ly[n] ? cur[n] / ly[n] : G;
     g[n] = Math.min(FC_GMAX, Math.max(FC_GMIN, (c * gr + FC_K * G) / (c + FC_K)));
     const by = [[], [], [], [], [], [], []], all = [];
-    for (let k = 1; k <= 28; k++) { const d = svAdd(C, -k), v = S[n] && S[n][d]; if (v != null && !svSpecial(d)) { by[svDate(d).getDay()].push(v); all.push(v); } }
+    for (let k = 1; k <= 28; k++) { const d = svAdd(C, -k), v = S[n] && S[n][d]; if (v != null && !svSpecial(d)) { by[svDow(d)].push(v); all.push(v); } }
     const m0 = all.length ? av(all) : 0; base[n] = by.map(a => a.length >= 2 ? av(a) : m0);
   });
   return svFcMemo[mk] = { C, S, first, open, g, G, pd, base, memo: {}, usedMon: {} };
@@ -1424,13 +1428,13 @@ function svFLy(M, n, e) {
   if (e >= M.C) return svFStore(M, n, e);
   if (!M.first[n] || M.first[n] > svAdd(e, -30)) return null;
   const v = M.S[n][e]; if (v != null) return v;
-  const w = svDate(e).getDay(), vs = svMonDays(+e.slice(0, 4), +e.slice(5, 7)).filter(c => c < M.C && M.S[n][c] != null && svDate(c).getDay() === w && !svSpecial(c)).map(c => M.S[n][c]);
+  const w = svDow(e), vs = svMonDays(+e.slice(0, 4), +e.slice(5, 7)).filter(c => c < M.C && M.S[n][c] != null && svDow(c) === w && !svSpecial(c)).map(c => M.S[n][c]);
   if (vs.length) return vs.reduce((a, b) => a + b, 0) / vs.length;
   // 11/14 用户：收银台没有数据的店×月，用云端 KA 月报（业绩表格）的月合计，按这家店最近 4 周的星期几规律分到每天
   const ym = e.slice(0, 7), mt = SV.mon && SV.mon[n] && SV.mon[n][ym];
   if (!mt) return null;
   M.usedMon[ym] = 1;
-  const b = M.base[n] || [], wOf = c => { const t = svType(c); return b[t === 'H' ? 0 : t === 'P' ? 6 : svDate(c).getDay()] || 0; };
+  const b = M.base[n] || [], wOf = c => { const t = svType(c); return b[t === 'H' ? 0 : t === 'P' ? 6 : svDow(c)] || 0; };
   const ds = svMonDays(+ym.slice(0, 4), +ym.slice(5, 7)), tot = ds.reduce((a, c) => a + wOf(c), 0);
   return tot ? mt * wOf(e) / tot : mt / ds.length;
 }
@@ -1443,7 +1447,7 @@ function svFStore(M, n, d) {
 // 某天的预测：t 合计；o／on 老店合计・家数；ly 老店去年对应那天（没乘增减）；nw／nn 新店
 function svFDay(ds, C) {
   const M = svFModel(C), key = '#' + ds; if (M.memo[key]) return M.memo[key];
-  const t = svType(ds), w = t === 'H' ? 0 : t === 'P' ? 6 : svDate(ds).getDay(), e = svRefDay(ds);
+  const t = svType(ds), w = t === 'H' ? 0 : t === 'P' ? 6 : svDow(ds), e = svRefDay(ds);
   let o = 0, bo = 0, on = 0, ly = 0; const nws = [];
   M.open.forEach(n => { const v = svFStore(M, n, ds); if (v == null) { nws.push(n); return; } o += v; bo += M.base[n][w]; on++; ly += svFLy(M, n, e) || 0; });
   const ratio = bo ? o / bo : 1; let nw = 0; nws.forEach(n => nw += M.base[n][w] * (SV.sk ? 1 : ratio));   // 11/15 三幸園外卖：去年 12 月外卖没跟着忘年会涨 → 按最近 4 周水平持平，不乘堂食的季节变化
@@ -1539,7 +1543,7 @@ const SV_TABS = [['ov', '总览'], ['day', '每日'], ['hr', '时段'], ['st', '
 function svGo(tab, ds) { { const pt = svTab, pd = svDay, pm = svMon; if (pt !== tab || ds) navPush('sv', () => { svDay = pd; svMon = pm; svTab = pt; LS.set('svTab', pt); renderSales(); }); } if (ds) { svDay = ds; svMon = ds.slice(0, 7); svRg = null; svRgCal = null; } svTab = tab; LS.set('svTab', tab); renderSales(); const v = document.getElementById('salesView'); if (v) v.scrollTop = 0; }
 function svStep(n) { const d = svAdd(svDay, n); if (d <= svToday()) svPick(d); }
 function svSetSort(s) { svStSort = s; LS.set('svStSort', s); renderSales(); }
-const svWk = ds => '日一二三四五六'[svDate(ds).getDay()];
+const svWk = ds => '日一二三四五六'[svDow(ds)];
 const svMD = ds => +ds.slice(5, 7) + '/' + +ds.slice(8);
 const svYMD = ds => (ds.slice(0, 4) === svToday().slice(0, 4) ? '' : ds.slice(2, 4) + '/') + svMD(ds);
 // 增减：▲▼＋颜色（不只靠颜色）
@@ -1842,7 +1846,7 @@ function svStMonFc(ym) {
     const x = ds < today && (SV.map[ds] || (ds === svLiveDay() && svGet(ds)));
     if (x) { x.s.forEach(r => { const k = svCostK(C, r[1]); if (k) o(k).a += r[2] || 0; }); return; }
     if (!M) return;
-    const f = svFDay(ds), adj = f.t0 ? f.t / f.t0 : 1, tp = svType(ds), w = tp === 'H' ? 0 : tp === 'P' ? 6 : svDate(ds).getDay();
+    const f = svFDay(ds), adj = f.t0 ? f.t / f.t0 : 1, tp = svType(ds), w = tp === 'H' ? 0 : tp === 'P' ? 6 : svDow(ds);
     M.open.forEach(n => { const k = svCostK(C, n); if (!k) return; let v = svFStore(M, n, ds); if (v == null) v = (M.base[n] || [])[w] || 0; o(k).f += v * adj; });
   });
   return svFcMemo[key] = out;
@@ -1914,7 +1918,7 @@ function svColsChart(list, opt) {
   return `<div class="svcols">` + list.map((o, i) => `<button ${o.f ? 'disabled' : `onclick="svGo('day',${jq(o.d)})"`} title="${svMD(o.d)}（${svWk(o.d)}${svHN(o.d) ? '・' + svHN(o.d) : ''}）${o.v ? (o.f ? '预测约 ' : '') + man(o.v) : ''}${o.c ? '　' + SV_CMP[svCmpM] + ' ' + man(o.c) : ''}">`
       + `${(i === top || i === lastI) && opt.label !== false ? `<em style="bottom:calc(${(100 * o.v / mx).toFixed(1)}% + 2px)">${man(o.v)}</em>` : ''}`
       + `<i class="${o.f ? 'f' : ''}${o.d === svDay ? ' on' : ''}" style="height:${(100 * (o.v || 0) / mx).toFixed(1)}%"></i>${o.c ? `<s style="bottom:${(100 * o.c / mx).toFixed(1)}%"></s>` : ''}</button>`).join('')
-    + `</div><div class="svcolx">` + list.map((o, i) => { const w = svDate(o.d).getDay(), dd = +o.d.slice(8);
+    + `</div><div class="svcolx">` + list.map((o, i) => { const w = svDow(o.d), dd = +o.d.slice(8);
       if (list.length > 16) return `<span>${dd === 1 || dd % 5 === 0 || i === list.length - 1 ? dd : ''}</span>`;
       return `<span class="${w === 0 || w === 6 || SV_HOLI.has(o.d) ? 'we' : ''}">${dd}<br>${svWk(o.d)}</span>`; }).join('') + '</div>';
 }
@@ -1922,7 +1926,8 @@ function svColsChart(list, opt) {
 function renderSales() {
   const el = document.getElementById('svBody');
   if (!SV) { el.innerHTML = `<div id="msg">${svErr ? '读不到营业额历史（' + esc(svErr) + '）。关掉再点一次试试' : '读取中…'}</div>`; return; }
-  svFcMemo = {};
+  { const fk = svToday() + '|' + (D ? D.stamp + '|' + D.sales + '|' + (D.stores || []).filter(x => x.name === '三幸園').map(x => x.sales).join() : '');   // 11/26 提速：以前每画一次就整套预测重算；现在日子・实时数没变就沿用
+    if (fk !== svFcKey) { svFcMemo = {}; svFcKey = fk; } }
   const today = svToday();
   if (SV.sk && svTab === 'st') svTab = 'ov';
   if (svTab === 'lab' && !svHasLab()) svTab = 'ov';
@@ -2020,7 +2025,7 @@ function svTabDay(today) {
   for (let i = 1; i <= nd; i++) {
     const ds = svStr(new Date(y, m - 1, i)), x = svGet(ds), dow = (d1.getDay() + i - 1) % 7, a = x ? 0.12 + 0.55 * x.t / mx : 0;
     cal += `<button class="svd${ds === svDay ? ' on' : ''}${ds === today ? ' td' : ''}${!x && ds > today ? ' fut' : ''}${svRg ? (ds >= svRg.a && ds <= svRg.b ? ' rgin' : ' rgout') : ''}" ${x ? `style="background:rgba(22,163,74,${a.toFixed(2)})"` : 'disabled'} onclick='svPick(${JSON.stringify(ds)})'>`
-      + `<i class="${svDayCls(ds, dow)}"${svHN(ds) ? ` title="${svHN(ds)}"` : ''}>${i}${x && svShort(x) ? '<span class="rr">⚠</span>' : ''}</i><small>${x ? man(x.t) + (x.live ? '*' : '') : F && F.day[ds] != null ? '<span class="fc">约' + man(F.day[ds]) + '</span>' : ''}</small>${x ? (p => p ? `<b class="pf">预${man(p.v)}</b>` : '')(svFcOf(ds)) : ''}${(b => b ? `<em class="cd c${svCmpM}"><span class="${SV_HOLI.has(b) ? 'lyred' : SV_HOLI.has(svAdd(b, 1)) ? 'lypre' : svDate(b).getDay() === 6 ? 'bl' : ''}"${svHN(b) ? ` title="${svHN(b)}"` : SV_HOLI.has(svAdd(b, 1)) ? ` title="${svHN(svAdd(b, 1))}前一天"` : ''}>${svMD(b)}${svWk(b)}</span><br>${SV.map[b] ? man(SV.map[b].t) : '—'}</em>` : '')(svCmpDay(ds, svCmpM))}</button>`;
+      + `<i class="${svDayCls(ds, dow)}"${svHN(ds) ? ` title="${svHN(ds)}"` : ''}>${i}${x && svShort(x) ? '<span class="rr">⚠</span>' : ''}</i><small>${x ? man(x.t) + (x.live ? '*' : '') : F && F.day[ds] != null ? '<span class="fc">约' + man(F.day[ds]) + '</span>' : ''}</small>${x ? (p => p ? `<b class="pf">预${man(p.v)}</b>` : '')(svFcOf(ds)) : ''}${(b => b ? `<em class="cd c${svCmpM}"><span class="${SV_HOLI.has(b) ? 'lyred' : SV_HOLI.has(svAdd(b, 1)) ? 'lypre' : svDow(b) === 6 ? 'bl' : ''}"${svHN(b) ? ` title="${svHN(b)}"` : SV_HOLI.has(svAdd(b, 1)) ? ` title="${svHN(svAdd(b, 1))}前一天"` : ''}>${svMD(b)}${svWk(b)}</span><br>${SV.map[b] ? man(SV.map[b].t) : '—'}</em>` : '')(svCmpDay(ds, svCmpM))}</button>`;
   }
   const mh = Object.keys(SV_HOLI_NAME).filter(d => d.startsWith(svMon + '-')).sort();
   // 11/16 用户：去年的日历也有红日子 → 对比日落在去年的祝日／星期天也标红；列出对比那个月的祝日
@@ -2469,7 +2474,7 @@ function svLabBudget(L) {
   svMonDays(y, m).forEach(ds => {
     const x = ds < today && SV.map[ds];
     if (x) { x.s.forEach(r => { const k = nm(r[1]); fc[k] = (fc[k] || 0) + r[2]; act[k] = (act[k] || 0) + r[2]; }); return; }
-    const t = svType(ds), w = t === 'H' ? 0 : t === 'P' ? 6 : svDate(ds).getDay();
+    const t = svType(ds), w = t === 'H' ? 0 : t === 'P' ? 6 : svDow(ds);
     M.open.forEach(n => { const v = svFStore(M, n, ds), k = nm(n); fc[k] = (fc[k] || 0) + (v != null ? v : (M.base[n] ? M.base[n][w] || 0 : 0)); });
   });
   const band = s => B.filter(b => s / 1e4 >= b[0]).pop() || B[0];
