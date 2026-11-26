@@ -101,7 +101,7 @@ textarea{min-height:120px;resize:vertical}
 // 11/18 用户：「单独的会计部键这个 APP 也做出来，因为给会计部看，然后让他们说有什么想更新的」。
 // 数据接口和「空桌一览」同一个后台（Apps Script）；会计部密码（或老板密码）才看得到。只有登记过的手机能用（手机编号 dv）。
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kuaiji-v31';
+const APPV = 'kuaiji-v32';
 // 11/19 自检：提需求「测试版 → 老板确认 → 正式版」流程跑通（这一行就是自检时上线的改动）
 const TEST = /\/test\//.test(location.pathname);
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 11/19 用户：「会计部跟运营部一样，不是 2 个网页」→ 空桌一览「🧾 会计」打开的是这份网页的副本 kongzhuo/kj.html（内容完全一样）   // 11/19 测试版（kuaiji/test/）：Claude 按需求改好先放这里，老板确认后才换成正式版   // 版本号：和 sw.js 的 V 一起改
@@ -495,6 +495,9 @@ async function loadPt(force) {
   } catch (e) { ptErr = '读不到（' + e.message + '）'; }
   ptBusy = false; if (tab === 'pt' || tab === 'bb' || tab === 'gz') render();
 }
+let ptP = LS.get('ptP', 'm0'), ptFrom = LS.get('ptFrom', ''), ptTo = LS.get('ptTo', '');
+function ptSetP(k) { ptP = k; LS.set('ptP', k); ptStore = ''; render(); }
+function ptSetC() { ptFrom = ($('ptf') || {}).value || ''; ptTo = ($('ptt') || {}).value || ''; LS.set('ptFrom', ptFrom); LS.set('ptTo', ptTo); render(); }
 function ptItems() { return PT ? (PT.rows || []).filter(x => x && x.k === 'it') : []; }
 function ptPick(s) { ptStore = ptStore === s ? '' : s; render(); const e = $('ptlist'); if (e) e.scrollIntoView(); }
 function ptTog() { ptShowDone = !ptShowDone; render(); }
@@ -521,19 +524,41 @@ function renderPt() {
   let h = `<div class="card"><div class="ct">🎫 积分对账（H・T・G）</div><div class="note">电脑每天 <b>13:30</b> 比三个数：<b>预约台账</b>（レストランボード 上客人用了多少积分）、<b>收银</b>（实际抵扣）、<b>店铺日报</b>（K=H・L=G・N=T）。<br>闭环：数据<b>只在源头改</b>（日报那一格／レストランボード 的状态／收银），第二天重算对上了就<b>自动消失</b>；改不了源头的（例：客人当天没用积分）在下面选原因签名。</div></div>`;
   if (!PT) return h + `<div class="card"><div class="note">${ptBusy ? '读取中…' : esc(ptErr || '还没有数据')}</div></div>`;
   if (ptErr) h += `<div class="miss">${esc(ptErr)}（显示的是上次读到的）</div>`;
-  const hd = (PT.rows || []).find(x => x && x.k === 'head') || {}, sts = (PT.rows || []).filter(x => x && x.k === 'st'), sg = PT.sg || {}, all = ptItems(), nw = new Set(hd.new || []);
+  const hd = (PT.rows || []).find(x => x && x.k === 'head') || {}, sg = PT.sg || {}, all = ptItems(), nw = new Set(hd.new || []);
   if (!hd.d) return h + '<div class="card"><div class="note">还没有生成（电脑每天 13:30 生成）</div></div>';
+  // 11/26 用户：「积分对账的期间选择也是需要的」→ 本月・上月・自选（电脑每天算 本月＋上个月整月；自选只能在这两个月里选）
+  const hpv = (PT.rows || []).find(x => x && x.k === 'hp'), stm = (PT.rows || []).filter(x => x && x.k === 'st'), stp = (PT.rows || []).filter(x => x && x.k === 'stp');
+  const lo = hpv ? hpv.from : hd.from, hi = hd.to;
+  if (ptP === 'm1' && !hpv) ptP = 'm0';
+  let fr = hd.from, to = hd.to, sts = stm, sumv = hd.sum || [], lab = Number((hd.m || hd.from || '').slice(5, 7)) + '月';
+  if (ptP === 'm1') { fr = hpv.from; to = hpv.to; sts = stp; sumv = hpv.sum || []; lab = Number(hpv.m.slice(5)) + '月'; }
+  if (ptP === 'c') {
+    fr = ptFrom && ptFrom >= lo ? ptFrom : lo; to = ptTo && ptTo <= hi ? ptTo : hi; if (fr > to) [fr, to] = [to, fr];
+    lab = fr.slice(5).replace('-', '/') + '〜' + to.slice(5).replace('-', '/');
+    const agg = {};
+    stm.concat(stp).forEach(s => {
+      const ym = (s.m || hd.m || '');
+      const a = agg[s.st] = agg[s.st] || { st: s.st, H: { pos: 0, dr: 0 }, T: { pos: 0, dr: 0 }, G: { pos: 0, dr: 0 } };
+      ['H', 'T', 'G'].forEach(q => Object.entries((s[q] || {}).dd || {}).forEach(([dd, v]) => { const d = ym + '-' + dd; if (d >= fr && d <= to) { a[q].pos += v[2]; a[q].dr += v[3]; } }));
+    });
+    sts = stm.map(s => agg[s.st]).filter(Boolean);
+    sumv = [];
+  }
+  const inP = x => String(x.d || '') >= fr && String(x.d || '') <= to;
   const td = new Date(), tds = td.getFullYear() + '-' + String(td.getMonth() + 1).padStart(2, '0') + '-' + String(td.getDate()).padStart(2, '0');
   if (hd.d !== tds) h += `<div class="miss">⚠ 这是 ${esc(hd.d)} 生成的，今天的还没出来（电脑每天 13:30 跑）。</div>`;
   if ((hd.dr_bad || []).length) h += `<div class="miss">⚠ 这几家店的日报没读到：${esc(hd.dr_bad.join('、'))}</div>`;
-  const open = all.map((x, i) => [x, i]).filter(([x]) => !sg[x.id]), done = all.map((x, i) => [x, i]).filter(([x]) => sg[x.id]);
+  const open = all.map((x, i) => [x, i]).filter(([x]) => !sg[x.id] && inP(x)), done = all.map((x, i) => [x, i]).filter(([x]) => sg[x.id] && inP(x));
+  h += '<div class="seg2" style="flex-wrap:wrap">' + [['m0', '本月'], ['m1', '上月'], ['c', '自选']].filter(([k]) => k !== 'm1' || hpv).map(([k, nm]) => `<button class="${ptP === k ? 'on' : ''}" style="flex:1 0 30%" onclick="ptSetP(${jq(k)})">${nm}</button>`).join('') + '</div>';
+  if (ptP === 'c') h += `<div class="stk" style="display:grid;grid-template-columns:1fr auto 1fr auto;gap:6px;align-items:center"><input id="ptf" type="date" min="${esc(lo)}" max="${esc(hi)}" value="${esc(fr)}"><span>〜</span><input id="ptt" type="date" min="${esc(lo)}" max="${esc(hi)}" value="${esc(to)}"><button class="btn" style="margin:0;padding:10px 12px;width:auto" onclick="ptSetC()">看</button></div><div class="note">能选 ${esc(lo.slice(5).replace('-', '/'))}〜${esc(hi.slice(5).replace('-', '/'))}（电脑每天算本月和上个月）。</div>`;
+  if (ptP === 'm1' && hpv.from > hpv.m + '-01') h += `<div class="miss">上月只比 ${esc(hpv.from.slice(5).replace('-', '/'))} 起：收银的积分付款数据从这天才开始保存，之前的日子没法比。</div>`;
   const nr = open.filter(([x]) => x.lv === 'r').length;
-  h += `<div class="note" style="margin:2px 2px 6px">${esc((hd.from || '').slice(5))}〜${esc((hd.to || '').slice(5))}・${esc(hd.at || '')} 算</div>`;
+  h += `<div class="note" style="margin:2px 2px 6px">期间：<b>${esc(lab)}</b>（${esc(fr.slice(5))}〜${esc(to.slice(5))}）・${esc(hd.at || '')} 算</div>`;
   h += `<div class="kp" style="grid-template-columns:repeat(3,1fr)"><div class="r"><b>${nr}</b><small>🔴 要查</small></div><div><b style="color:#d97706">${open.length - nr}</b><small>🟡 改状态/补日报</small></div><div><b style="color:var(--ok)">${done.length}</b><small>✅ 已处理</small></div></div>`;
-  h += `<div class="card"><div class="ct">🧠 负责人分析</div><ul class="an">${(hd.sum || []).map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>`;
+  if (sumv.length) h += `<div class="card"><div class="ct">🧠 负责人分析</div><ul class="an">${sumv.map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>`;
   const oc = {};
   open.forEach(([x]) => { const k = x.st + '|' + x.p; oc[k] = (oc[k] || 0) + 1; });
-  h += `<div class="card"><div class="ct">各店（点店名只看那家）</div><div class="note" style="margin-top:0">格子：⚠＝还没处理的条数；下面小字＝本月 收银／日报（${'预约从 11/16 起才比'}）</div><table class="ptm"><tr><th>店</th><th>H</th><th>T</th><th>G</th></tr>`
+  h += `<div class="card"><div class="ct">各店（点店名只看那家）</div><div class="note" style="margin-top:0">格子：⚠＝还没处理的条数；下面小字＝这段期间 收银／日报（${'预约从 11/16 起才比'}）</div><table class="ptm"><tr><th>店</th><th>H</th><th>T</th><th>G</th></tr>`
     + sts.map(s => `<tr class="${ptStore === s.st ? 'on' : ''}" onclick="ptPick(${jq(s.st)})"><td>${esc(s.st)}</td>` + ['H', 'T', 'G'].map(p => {
       const v = s[p] || {}, c = oc[s.st + '|' + p] || 0;
       return `<td class="${c ? 'bad' : 'okc'}"><b>${c ? '⚠' + c : '✓'}</b><small>${n(v.pos)}／${n(v.dr)}</small></td>`;
