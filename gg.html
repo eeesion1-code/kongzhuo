@@ -165,7 +165,9 @@ async function load() {
   busy = false; render();
   if (tab === 'wc' && K && NS) loadWc();   // 11/19 网页检查（密码・设备先由上面无断取消那次确认）
   if (tab === 'tj' && K && NS) loadTj();
+  else if (K && NS && !tjPf) { tjPf = 1; setTimeout(() => (window.requestIdleCallback || (f => f()))(() => loadTj(), { timeout: 5000 }), 2500); }   // 11/26：T榜价格先在后台读好
 }
+let tjPf = 0;
 async function act(id, q, okText) {
   const who = (($('who') || {}).value || '').trim();
   if (!who) { msgs[id] = ['e', '请先在上面写你的名字']; return render(); }
@@ -617,11 +619,16 @@ if (TEST) document.body.insertAdjacentHTML('afterbegin', '<div class="testbar">�
 // 电脑 广告部\T排名竞品价格\竞品价格.py 每月 1 日起自动读一次（这个月没成功就每天再试）→ 后台工作表「T排名竞品价格」（what=tj 读）。
 // 每家店的 食べログ 套餐页・料理页截图存在电脑 存档\截图\月份\区域\（留档）。
 let TJ = (() => { try { return JSON.parse(LS.get('ggtj', 'null')); } catch (e) { return null; } })(), tjErr = '', tjBusy = false, tjArea = LS.get('ggTjA', ''), tjOpen = new Set();
-async function loadTj() {
+// 11/26 用户「按到广告部，然后T榜价格特别慢」：以前每点一次都重新下载 50 万字节（一个月才变一次）→ 手机里有、6 小时内读过就直接显示不再下载；
+//   打开广告预约部时手机空闲就先在后台读好；要最新的点「重新读」
+let tjAt = +LS.get('ggtjAt', '0') || 0;
+async function loadTj(force) {
+  if (tjBusy) return;
+  if (!force && TJ && TJ.rows && Date.now() - tjAt < 6 * 3600e3) { if (tab === 'tj') render(); return; }
   tjBusy = true; if (tab === 'tj') render();
   try {
     const d = await api('&what=tj');
-    if (d && d.rows) { TJ = d; tjErr = ''; LS.set('ggtj', JSON.stringify(d)); }
+    if (d && d.rows) { TJ = d; tjErr = ''; tjAt = Date.now(); LS.set('ggtj', JSON.stringify(d)); LS.set('ggtjAt', String(tjAt)); }
     else if (d && d.error === 'device') tjErr = '这台设备还没登记';
     else if (d && (d.error === 'key' || d.error === 'owner')) tjErr = '这个密码看不到 T榜价格（只给股东・广告预约部）';
     else if (d && d.error === 'what') tjErr = '后台还没部署新版本';
@@ -649,7 +656,7 @@ function tjOur(o) {
     + `<a class="undo" style="margin:0" onclick="tjTog(${jq(id)})">${tjOpen.has(id) ? '收起套餐' : '看我们的套餐（' + ((o.cs || []).length) + '）'}</a>${tjOpen.has(id) ? tjCs(o.cs) : ''}</div>`;
 }
 function renderTj() {
-  $('at').textContent = TJ && TJ.at ? TJ.at.slice(5) + (tjBusy ? ' 读取中…' : ' 读取') : (tjBusy ? '读取中…' : '');
+  $('at').innerHTML = (TJ && TJ.at ? esc(TJ.at.slice(5)) + (tjBusy ? ' 读取中…' : ' 读取') : (tjBusy ? '读取中…' : '')) + (TJ && !tjBusy ? ' <a class="undo" style="margin:0" onclick="loadTj(true)">重新读</a>' : '');
   let h = tabsHtml();
   if (tjErr) h += `<div class="msg e">${esc(tjErr)}</div>`;
   if (!TJ || !TJ.rows || !TJ.rows.length) { paint(h + `<div class="empty">${tjBusy ? '读取中…' : '还没有数据'}</div>`); return; }
