@@ -629,7 +629,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
 })();
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v167';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v168';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -971,7 +971,7 @@ function loadPw(force) {
   pwBusy = true;
   fetch(API + '?fmt=json&what=pw' + KQ(), { cache: 'no-store' })
     .then(r => r.json())
-    .then(d => { pwBusy = false; if (d.error) throw new Error(d.error); PW = d; pwGot = Date.now(); LS.set('pw', JSON.stringify(d)); if (tab === 'pw') render(); })
+    .then(d => { pwBusy = false; if (d.error) throw new Error(d.error); PW = d; PWO = null; pwGot = Date.now(); LS.set('pw', JSON.stringify(d)); if (tab === 'pw') render(); })
     .catch(() => { pwBusy = false; if (!PW) { try { PW = JSON.parse(LS.get('pw', 'null')); } catch (e) {} } if (!PW) pwErr = true; if (tab === 'pw') render(); });
 }
 // 11/26：31 天以前的排位（后台 what=pwold）：PWO＝选单 [{date,g,p,as,cur}]；PWOD＝已经读回来的那几天 {日期: {read, stores, cmp}}
@@ -1015,7 +1015,7 @@ function pwRangeHtml(rg, rows, rowsOf, td, dates) {
   const D = ds.map(day), has = D.filter(o => o.g || (o.cur && o.cur[0]));
   const G = D.reduce((a, o) => a + o.g, 0), P = D.reduce((a, o) => a + o.p, 0), pre = D.filter(o => (o.src === 'pre' || o.src === 'fut') && o.g), pg = pre.reduce((a, o) => a + o.g, 0), pas = pre.reduce((a, o) => a + (o.as || 0), 0);
   const SRC = { pre: '开店前读', fin: '事后读', fut: '现在订到', cmp: '只有总预约', none: '还没读到' };
-  let h = `<div class="pwsum">${pwMd(rg.a)}〜${pwMd(rg.b)}（${ds.length} 天，有数据 ${has.length} 天）　预约 <b>${G}</b> 组 <b>${P}</b> 人`
+  let h = `<div class="pwsum">${pwDayLabel(rg.a).md}〜${pwDayLabel(rg.b).md}（${ds.length} 天，有数据 ${has.length} 天）　预约 <b>${G}</b> 组 <b>${P}</b> 人`
     + (pg ? `，有排位读数的 ${pre.length} 天已排桌 <b class="${pwRateCls(Math.round(100 * pas / pg))}">${Math.round(100 * pas / pg)}%</b>` : '') + `<br><small>点某一天看那天各店</small></div>`;
   h += '<div class="card"><table class="pwrt"><tr><th>日子</th><th>组</th><th>人</th><th>已排</th><th>总预约（台账）</th></tr>' + D.map(o => {
     const L = pwDayLabel(o.date), rt = (o.src === 'pre' || o.src === 'fut') && o.g ? Math.round(100 * (o.as || 0) / o.g) : null;
@@ -1044,7 +1044,8 @@ function pwDayLabel(ds) {
   const [y, m, d] = ds.split('-').map(Number), dt = new Date(y, m - 1, d);
   const t = pwBiz(), t0 = new Date(t.getFullYear(), t.getMonth(), t.getDate());
   const left = Math.round((dt - t0) / 86400000);
-  return { md: m + '/' + d + '(' + WD[dt.getDay()] + ')', left: left === 0 ? '今天' : left === -1 ? '昨天' : left < 0 ? (-left) + ' 天前' : left === 1 ? '明天' : '还有 ' + left + ' 天' };
+  return { md: (y !== t.getFullYear() ? String(y).slice(2) + '/' : '') + m + '/' + d + '(' + WD[dt.getDay()] + ')',   // 11/27：不是今年的写年份（25/12/19）
+           left: left === 0 ? '今天' : left === -1 ? '昨天' : left < 0 ? (-left) + ' 天前' : left === 1 ? '明天' : '还有 ' + left + ' 天' };
 }
 const pwRateCls = r => r >= 90 ? 'g' : r >= 50 ? 'm' : 'rr';
 const pwAssigned = r => Math.round(r.groups * (r.rate || 0) / 100);
