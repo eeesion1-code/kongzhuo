@@ -107,6 +107,8 @@ h1{font-size:20px;margin:0;flex:1;letter-spacing:.5px}
 /* 11/13 集团总营业额（老板） */
 .salesbtn{display:none;border:0;background:var(--brand);color:#fff;border-radius:10px;padding:0 12px;font-size:13px;font-weight:600;white-space:nowrap}
 .stat.sales{cursor:pointer}
+/* 11/27 用户：今日营业额的框拉长＋同一时间和上周同星期・去年同星期比 */
+.stat.sales.wide{grid-column:1/-1}.scmpw{margin-top:6px;padding-top:6px;border-top:1px dashed var(--line);font-size:13px;color:var(--sub);line-height:1.6}.scmpw .scmp{display:flex;flex-wrap:wrap;gap:2px 8px;align-items:baseline}.scmpw .scmp b{color:var(--ink);font-size:15px}.scmpw .scmp .dl{font-weight:800;font-size:15px}.scmpw small{display:inline;font-size:11.5px}
 /* 11/15 三幸園专属页面：集团｜三幸園 切换 */
 .svco{display:flex;gap:8px;margin:0 0 10px}.svco button{flex:1;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;padding:10px 8px;font-size:15px;font-weight:700}.svco button.on{background:var(--brand);border-color:var(--brand);color:#fff}
 #salesView{display:none;position:fixed;inset:0;z-index:30;background:var(--bg);overflow-y:auto;-webkit-overflow-scrolling:touch}
@@ -638,7 +640,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
 })();
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v172';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v173';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -824,14 +826,38 @@ function toggleTile(ev) { ev.currentTarget.classList.toggle('open'); }
 
 // 11/24 用户「昨天营业额不更新」：上午实时还没开始读时，首页卡片是昨天实时程序的最后读数（不准：11/23 两个程序同时跑多算了）；
 //   营业额历史里那天已经有收银后台的数 → 卡片换成后台数，下面小字写实时最后读数（还有店没补到的写「其中 N 家实时估计」）。
+// 11/27 用户：「这个地方的框拉长。因为刷新时间都是一样的加入时间段的对比，上个礼拜同星期，和去年的同星期对比」
+//   营业额历史每天都有「每个钟头结账多少」（hc，百円，从 h0 点起 24 格）→ 那天到「同一时刻」为止的营业额＝整点前的格子加起来＋这个钟头按分钟比例
+//   11/27 核对：实时读数＝已经点了的（含没结账），和「按下单」hd 几乎一样（11/26 20:31 实时 722.8 万・hd 724.5 万；11/20 20:33 1202 万・1255 万）；按结账 hc 会差一大截
+function svCumAt(x, hh, mm, k) {
+  const a = x && x[k || 'hd']; if (!a) return null;
+  const idx = (hh - (x.h0 == null ? 5 : x.h0) + 24) % 24;
+  let v = 0; for (let i = 0; i < idx; i++) v += a[i] || 0;
+  return Math.round(100 * (v + (a[idx] || 0) * mm / 60));
+}
+// 没有按下单数据的日子（2026/11 以前，例：去年同星期）→ 那天整天 × 最近 4 个同星期到这个时刻通常已经下单几成（估算）
+function svHdShare(ds, hh, mm) {
+  const sh = []; for (let k = 1; k <= 8 && sh.length < 4; k++) { const x = SVG.map[svAdd(ds, -7 * k)]; if (x && x.hd && x.t) sh.push(svCumAt(x, hh, mm) / x.t); }
+  return sh.length ? sh.reduce((a, b) => a + b, 0) / sh.length : null;
+}
+function homeSalesCmp() {
+  if (!D.owner || !SVG || !D.sales) return '';
+  const t = parseT(D.stamp) || parseT(D.now), a = yenNum(D.sales); if (!t || !a) return '';
+  const ld = svLiveDay(), hh = t.getHours(), mm = t.getMinutes(), hm = hh + ':' + String(mm).padStart(2, '0');
+  const row = (lab, k) => { const d = svCmpDay(ld, k), x = d && SVG.map[d]; if (!x) return '';
+    let v = svCumAt(x, hh, mm), est = false; if (!v) { const r = svHdShare(ld, hh, mm); if (r) { v = Math.round(x.t * r); est = true; } }
+    return v ? `<div class="scmp"><span>${lab} ${svYMD(d)}（${svWk(d)}）到 ${hm}${est ? '<small>（估算）</small>' : ''}</span><b>${yen(v)}</b>${svDl(a, v)}<small>那天整天 ${man(x.t)}</small></div>` : ''; };
+  const r = row('上周同星期', 'lw') + row('去年同星期', 'ly');
+  return r ? `<div class="scmpw">同一时间对比（现在 ${hm} 的读数 vs 那天 ${hm} 为止点了的营业额）${r}<small>那天的数来自收银台「按下单时间」（2026/11 起才有）；更早的日子没有，写「估算」＝那天整天 × 最近 4 个同星期到 ${hm} 通常已下单的比例。</small></div>` : '';
+}
 function homeSalesCard() {
   const ld = svLiveDay(), past = ld !== svToday();
   if (past && D.owner) svPrefetch();
   const h = past && D.owner && SVG && SVG.map[ld];
   const lab = (past ? svMD(ld) + '（' + svWk(ld) + '）营业额（含税）' : '今日营业额（含税）');
   if (h) { const ne = h.est ? h.est.length : 0;
-    return `<div class="stat sales" onclick="openSales()"><small>${lab}›</small><b>${esc(yen(h.t))}</b><small>${ne ? `收银后台（其中 ${ne} 家还是实时估计）` : '收银后台的数'}${D.sales ? `　实时最后读数 ${esc(D.sales)}` : ''}</small></div>`; }
-  return `<div class="stat sales" onclick="openSales()"><small>${lab}›</small><b>${esc(D.sales || '—')}</b>${D.salesEx ? `<small>税抜 ${esc(D.salesEx)}${past ? '（实时最后读数）' : ''}</small>` : ''}</div>`;
+    return `<div class="stat sales wide" onclick="openSales()"><small>${lab}›</small><b>${esc(yen(h.t))}</b><small>${ne ? `收银后台（其中 ${ne} 家还是实时估计）` : '收银后台的数'}${D.sales ? `　实时最后读数 ${esc(D.sales)}` : ''}</small></div>`; }
+  return `<div class="stat sales wide" onclick="openSales()"><small>${lab}›</small><b>${esc(D.sales || '—')}</b>${D.salesEx ? `<small>税抜 ${esc(D.salesEx)}${past ? '（实时最后读数）' : ''}</small>` : ''}${past ? '' : homeSalesCmp()}</div>`;
 }
 function render() {
   progScroll();   // v80：重画后页面变短时浏览器自己调的滚动不算「人在滑」
