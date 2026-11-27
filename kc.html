@@ -50,6 +50,7 @@ table.ln{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}table
 .sgf{display:grid;grid-template-columns:1fr auto;gap:6px;margin-top:8px}.sgf button{border:0;border-radius:10px;background:var(--ok);color:#fff;font:inherit;font-weight:700;padding:0 12px}
 .sgd{font-size:13.5px;color:var(--ok);margin-top:6px}.sgd a{color:var(--sub);margin-left:8px;cursor:pointer;font-size:12.5px}
 .grp{font-size:13px;color:var(--sub);font-weight:700;margin:14px 2px 2px}
+.abbtn{flex:0 0 auto;border:1px solid var(--bad);background:var(--card);color:var(--bad);border-radius:999px;padding:6px 12px;font:inherit;font-size:13.5px;font-weight:700;cursor:pointer}.abbtn b{font-size:15px}
 .step{display:grid;grid-template-columns:28px 1fr;gap:8px;padding:8px 0;border-top:1px solid var(--line)}.step:first-of-type{border-top:0}.step b{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--soft);font-size:13px}.step.on b{background:var(--brand);color:#fff}
 .step div{font-size:14px;line-height:1.6}.step small{color:var(--sub);font-size:12.5px}
 .pxs{display:flex;align-items:flex-end;gap:3px;height:34px;margin-top:6px}.pxs i{flex:1;max-width:22px;background:var(--soft);border-radius:3px 3px 0 0;position:relative}.pxs i.up{background:#fca5a5}.pxs i.dn{background:#86efac}.pxs i.lt{outline:2px solid var(--ink)}
@@ -80,7 +81,7 @@ table.ln{width:100%;border-collapse:collapse;font-size:13px;margin-top:6px}table
 // 数据：电脑 Desktop\CLAUDE\库存管理\库存汇总.py 汇总后写云端「库存管理」表 → 后台 what=kc 读（股东・会计部密码），what=kcdo 签名（编号 kc| 开头）。
 // rows：head（分析・合计）／st（每店）／it（商品，按金额排）／sl（每张单据＋明细）／is（问题，lv r/y）；sg＝谁已处理 {id:[谁,时间,怎么处理]}
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kucun-v3';
+const APPV = 'kucun-v4';
 const TEST = /\/test\//.test(location.pathname);
 const DEMO = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) && /demo/.test(location.search);   // 本机预览：读 kc_demo.json
 const LS = {
@@ -103,7 +104,8 @@ const DVUA = (() => { const u = navigator.userAgent; let m;
 const api = q => DEMO ? fetch('kc_demo.json', { cache: 'no-store' }).then(r => r.json())
   : fetch(API + '?fmt=json' + q + '&k=' + encodeURIComponent(K) + '&dv=' + DV + '&ua=' + encodeURIComponent(DVUA), { cache: 'no-store' }).then(r => r.json());
 
-const TABS = [['ov', '📊 总览'], ['st', '🏪 各店进货'], ['it', '📦 商品'], ['is', '⚠️ 问题'], ['px', '💹 涨价'], ['zk', '🗃 在库盘点'], ['cb', '🍳 成本卡'], ['plan', '📐 规划']];
+const TABS = [['ov', '📊 总览'], ['ab', '🚨 库存异常'], ['st', '🏪 各店进货'], ['it', '📦 商品'], ['is', '⚠️ 问题'], ['px', '💹 涨价'], ['zk', '🗃 在库盘点'], ['cb', '🍳 成本卡'], ['plan', '📐 规划']];
+let abQ = '', abSt = '', abKd = '', abS = 'open', abLv = '', abT = null;   // 11/27 🚨 库存异常 查询条件
 let tab = LS.get('kcTab', 'ov'), D = null, err = '', busy = false, store = LS.get('kcStore', ''), cat = 'all', q = '', abc = 'all', msg = {}, showDone = false, zkStore = LS.get('kcZk', '');
 if (!TABS.some(t => t[0] === tab)) tab = 'ov';
 if (TEST) $('tb').innerHTML = '<div class="testbar">🧪 测试版（股东确认后才上线）</div>';
@@ -141,11 +143,12 @@ function render() {
   $('keybox').style.display = 'none'; $('main').style.display = 'block';
   const h0 = head();
   $('age').textContent = h0.at ? h0.at.slice(5) + ' 汇总' : '';
-  $('tabs').innerHTML = TABS.map(([k, n]) => `<button class="${tab === k ? 'on' : ''}" onclick="go(${jq(k)})">${n}${k === 'is' ? openCount() : ''}</button>`).join('');
+  $('tabs').innerHTML = TABS.map(([k, n]) => `<button class="${tab === k ? 'on' : ''}" onclick="go(${jq(k)})">${n}${k === 'is' || k === 'ab' ? openCount() : ''}</button>`).join('');
   let h = err ? `<div class="miss">${esc(err)}（显示的是上次读到的）</div>` : '';
   if (!D || !h0.ym) h += `<div class="card"><div class="note">${busy ? '读取中…' : '还没有数据（电脑每天汇总一次）'}</div></div>`;
-  else h += ({ ov: rOv, st: rSt, it: rIt, is: rIs, px: rPx, zk: rZk, cb: rCb, plan: rPlan })[tab]();
+  else h += ({ ov: rOv, ab: rAb, st: rSt, it: rIt, is: rIs, px: rPx, zk: rZk, cb: rCb, plan: rPlan })[tab]();
   $('body').innerHTML = h;
+  if (tab === 'ab' && abFocus) { const e = $('abq'); if (e) { e.focus(); e.setSelectionRange(e.value.length, e.value.length); } abFocus = false; }
   $('foot').innerHTML = `只有股东密码・会计部密码看得到。金额一律税抜。<br>${DEMO ? '本机预览数据' : '<a onclick="changeKey()">🔑 换密码</a>'}　<a onclick="load(1)">🔄 重新读取</a>　版本 ${APPV.replace('kucun-v', '')}`;
 }
 function openCount() { const sg = (D && D.sg) || {}, n = rows('is').filter(x => !sg[x.id] && x.lv === 'r').length; return n ? ` <span style="color:var(--bad)">${n}</span>` : ''; }
@@ -155,7 +158,9 @@ const LEGEND = '<div class="lg"><span><i style="background:var(--food)"></i>食�
 // ===== 📊 总览 =====
 function rOv() {
   const h0 = head(), n = h0.n || {}, s = h0.sum || {}, st = rows('st');
-  let h = `<div class="note" style="margin:0 2px 6px">${esc(h0.ym)} 月・单据到 ${esc((h0.last || '').slice(5) || '—')}・参考 KA「当月成本预估」${esc(h0.ka || '')} 页</div>`;
+  const sgo = D.sg || {}, ab = rows('is').filter(x => !sgo[x.id]), abr = ab.filter(x => x.lv === 'r').length;
+  let h = `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:0 2px 6px"><div class="note" style="margin:0;flex:1 1 220px">${esc(h0.ym)} 月・单据到 ${esc((h0.last || '').slice(5) || '—')}・参考 KA「当月成本预估」${esc(h0.ka || '')} 页</div>`
+    + `<button class="abbtn" onclick="go('ab')">🚨 库存异常查询${ab.length ? `　未处理 <b>${ab.length}</b>${abr ? `（🔴${abr}）` : ''}` : '　✓ 没有'} ›</button></div>`;
   h += `<div class="kp"><div><b>${n.slips || 0}</b><small>进货单据</small></div><div><b>${n.stores || 0}<span style="font-size:13px;color:var(--sub)">/31</span></b><small>有单据的店</small></div><div><b>${n.items || 0}</b><small>商品种类</small></div><div><b style="color:var(--bad)">${n.r || 0}</b><small>🔴 问题</small></div></div>`;
   h += `<div class="card"><div class="ct">本月进货（税抜）</div><div style="display:flex;gap:14px;flex-wrap:wrap;font-size:14.5px;margin-top:2px"><span>食材 <b>${man(s.food)}</b></span><span>酒水 <b>${man(s.drink)}</b></span><span>资材 <b>${man(s.mat)}</b></span></div>${mixBar(s.food, s.drink, s.mat)}${LEGEND}</div>`;
   h += `<div class="card"><div class="ct">🧠 负责人分析</div><ul class="an">${(h0.ana || []).map(t => `<li>${esc(t)}</li>`).join('')}</ul></div>`;
@@ -234,7 +239,8 @@ function rIs() {
   let h = `<div class="kp" style="grid-template-columns:repeat(3,1fr)"><div><b style="color:var(--bad)">${nr}</b><small>🔴 要处理</small></div><div><b style="color:var(--y)">${open.length - nr}</b><small>🟡 要看</small></div><div><b style="color:var(--ok)">${done.length}</b><small>✅ 已处理</small></div></div>`;
   h += `<div class="card"><div class="note" style="margin-top:0">电脑每天汇总后自动检查：<b>缺单据</b>（店没上传納品書）・<b>价格不一</b>（同一商品各店单价差 15% 以上）・<b>涨价降价</b>（和上月比 5% 以上）・<b>限店商品</b>・<b>非登记供应商</b>・<b>看不清/合计对不上</b>。处理了请签名（写怎么处理的），大家都看得到。</div>`
     + `<input id="kcw" value="${esc(LS.get('kcWho', ''))}" placeholder="签名用的名字" style="margin-top:6px"></div>`;
-  const card = x => {
+  const card = isCard;
+  const _unused = x => {
     const s = sg[x.id], k = x.id.replace(/[^\w]/g, '_').slice(-60);
     return `<div class="it ${s ? 'sg' : x.lv === 'r' ? 'cr' : 'cy'}"><div style="font-size:12.5px;color:var(--sub)">${x.lv === 'r' ? '🔴' : '🟡'} ${esc(x.kind)}${x.store ? '・' + esc(x.store) : ''}</div>`
       + `<div style="margin-top:3px;font-size:14.5px;font-weight:600">${esc(x.title)}</div>` + (x.why ? `<div class="why">${esc(x.why)}</div>` : '') + (x.fix ? `<div class="fix">👉 ${esc(x.fix)}</div>` : '')
@@ -245,6 +251,43 @@ function rIs() {
   if (!all.length) h += '<div class="card"><div class="ok">✓ 本月没有发现问题</div></div>';
   kinds.forEach(kd => { const g = open.filter(x => x.kind === kd); h += `<div class="grp">${esc(kd)}（${g.length}）</div>` + g.map(card).join(''); });
   if (done.length) h += `<div class="grp"><a onclick="showDone=!showDone;render()" style="color:var(--brand);cursor:pointer">✅ 已处理 ${done.length} 条（${showDone ? '收起' : '展开'}）</a></div>` + (showDone ? done.map(card).join('') : '');
+  return h;
+}
+
+// 一条异常的卡片（问题页・库存异常页共用；每条都要签名）
+function isCard(x) {
+  const sg = D.sg || {}, s = sg[x.id], k = x.id.replace(/[^\w]/g, '_').slice(-60);
+  return `<div class="it ${s ? 'sg' : x.lv === 'r' ? 'cr' : 'cy'}"><div style="font-size:12.5px;color:var(--sub)">${x.lv === 'r' ? '🔴' : '🟡'} ${esc(x.kind)}${x.store ? '・' + esc(x.store) : ''}</div>`
+    + `<div style="margin-top:3px;font-size:14.5px;font-weight:600">${esc(x.title)}</div>` + (x.why ? `<div class="why">${esc(x.why)}</div>` : '') + (x.fix ? `<div class="fix">👉 ${esc(x.fix)}</div>` : '')
+    + (s ? `<div class="sgd">✅ ${esc(s[0])}　${esc(String(s[1] || '').slice(5, 16))}${s[2] ? '：' + esc(s[2]) : ''}<a onclick="doSign(${jq(x.id)},1)">撤销</a></div>`
+      : `<div class="sgf"><input id="h_${k}" placeholder="怎么处理的"><button onclick="doSign(${jq(x.id)})">✅ 已处理</button></div>`) + (msg[x.id] || '') + '</div>';
+}
+
+// ===== 🚨 库存异常（11/27 用户：「库存 APP 这边多一个异常选项，关注库存的异常，我们会计部的人点击就能查询得到」）=====
+// 按 店・类型・处理状态・红黄・关键字 查；每条照样签名（和「问题」页同一份签名）。以后 在库盘点差异・指定商品・成本卡 AvT 接上后也放这里。
+let abFocus = false;
+function abSet(k, v) { if (k === 'q') { abQ = v; clearTimeout(abT); abT = setTimeout(() => { abFocus = true; render(); }, 250); return; } if (k === 'St') abSt = v; else if (k === 'Kd') abKd = v; else if (k === 'S') abS = v; else if (k === 'Lv') abLv = v; render(); }
+function rAb() {
+  const sg = D.sg || {}, all = rows('is'), st = x => sg[x.id] ? 'done' : 'open';
+  // 一条异常可能涉及几家店（「上野新8F・船橋」「10 家店」）→ 拆开按店算；拆不出的放「多家店」
+  const SN = rows('st').map(o => o.n), sOf = x => String(x.store || '').split('・').map(n => n.replace('…', '').trim()).filter(n => SN.includes(n));
+  const inSt = x => !abSt || (abSt === '@多' ? sOf(x).length !== 1 : sOf(x).includes(abSt));
+  const base = all.filter(x => (abS === 'all' || st(x) === abS) && (!abLv || x.lv === abLv));
+  const q = abQ.trim().toLowerCase(), hit = x => !q || [x.store, x.kind, x.title, x.why, x.fix, (sg[x.id] || []).join(' ')].join(' ').toLowerCase().includes(q);
+  const L = base.filter(x => inSt(x) && (!abKd || x.kind === abKd) && hit(x));
+  const open = all.filter(x => !sg[x.id]), nr = open.filter(x => x.lv === 'r').length;
+  const cnt = f => { const c = {}; base.filter(hit).filter(f).forEach(x => { const k = x.kind; c[k] = (c[k] || 0) + 1; }); return c; };
+  const kc = cnt(inSt), sc = {}; let nm = 0; base.filter(hit).filter(x => !abKd || x.kind === abKd).forEach(x => { const a = sOf(x); a.forEach(n => sc[n] = (sc[n] || 0) + 1); if (a.length !== 1) nm++; });
+  let h = `<div class="kp"><div><b style="color:var(--bad)">${nr}</b><small>🔴 未处理</small></div><div><b style="color:var(--y)">${open.length - nr}</b><small>🟡 未处理</small></div><div><b style="color:var(--ok)">${all.length - open.length}</b><small>✅ 已处理</small></div><div><b>${new Set(open.flatMap(sOf)).size}<span style="font-size:13px;color:var(--sub)">/${SN.length}</span></b><small>有异常的店</small></div></div>`;
+  h += `<div class="card"><div class="ct">🚨 库存异常查询（${esc(head().ym || '')} 月）</div><div class="note" style="margin-top:0">电脑每天汇总进货单后自动查出来的异常，会计部按店・类型・关键字查，处理完写一句怎么处理的签名（和「⚠️ 问题」页是同一份，签一边两边都有）。</div>`
+    + `<input id="abq" value="${esc(abQ)}" oninput="abSet('q',this.value)" placeholder="🔍 查：商品名・店名・供应商・内容（例：枝豆、船橋、リクエ）" style="margin-top:8px">`
+    + `<select onchange="abSet('St',this.value)" style="margin-top:6px"><option value="">全部店</option>${Object.entries(sc).sort((a, b) => b[1] - a[1]).map(([n, c]) => `<option value="${esc(n)}"${n === abSt ? ' selected' : ''}>${esc(n)}（${c}）</option>`).join('')}${nm ? `<option value="@多"${abSt === '@多' ? ' selected' : ''}>几家店共通的（${nm}）</option>` : ''}${abSt && abSt !== '@多' && !sc[abSt] ? `<option value="${esc(abSt)}" selected>${esc(abSt)}（0）</option>` : ''}</select>`
+    + `<input id="kcw" value="${esc(LS.get('kcWho', ''))}" placeholder="签名用的名字" style="margin-top:6px"></div>`;
+  h += `<div class="chips">${[['open', '未处理'], ['done', '已处理'], ['all', '全部']].map(([k, n]) => `<button class="${abS === k ? 'on' : ''}" onclick="abSet('S',${jq(k)})">${n}</button>`).join('')}<span style="flex:0 0 8px"></span>${[['', '红黄都看'], ['r', '🔴 只看红'], ['y', '🟡 只看黄']].map(([k, n]) => `<button class="${abLv === k ? 'on' : ''}" onclick="abSet('Lv',${jq(k)})">${n}</button>`).join('')}</div>`;
+  h += `<div class="chips"><button class="${!abKd ? 'on' : ''}" onclick="abSet('Kd','')">全部类型</button>${Object.entries(kc).sort((a, b) => b[1] - a[1]).map(([k, c]) => `<button class="${abKd === k ? 'on' : ''}" onclick="abSet('Kd',${jq(k)})">${esc(k)} ${c}</button>`).join('')}</div>`;
+  h += `<div class="grp">查到 ${L.length} 条${abSt || abKd || q ? `　<a onclick="abQ='';abSt='';abKd='';render()" style="color:var(--brand);cursor:pointer">清除条件</a>` : ''}</div>`;
+  h += L.length ? L.sort((a, b) => (a.lv === 'r' ? 0 : 1) - (b.lv === 'r' ? 0 : 1)).map(isCard).join('') : `<div class="card"><div class="ok">${abS === 'open' ? '✓ 没有未处理的异常' : '没有符合的'}</div></div>`;
+  h += `<div class="card"><div class="note" style="margin-top:0"><b>现在查的</b>：缺单据・各店单价不一・涨价・价格核对・非登记供应商・金额看不清・明细合计对不上・疑似重复。<br><b>以后接上就出现在这里</b>：在库盘点差异（盘点后实际用量 vs 进货）・指定商品异常・成本卡 实际 vs 理论用量（AvT）。</div></div>`;
   return h;
 }
 
