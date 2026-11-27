@@ -626,7 +626,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
 })();
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v163';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v164';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -1933,6 +1933,10 @@ function svMissHtml(x) {
   const short = svShort(x), E = short ? svMissEst(x) : null;
   // 11/24 用户「以及APP修改」：早上下载失败（例：11/24 PE 网站 1:30〜9:30 打不开）不是店里没做レジ締め → 写真原因（营业额历史.py 的 dlerr）
   if (E && E.rt && x.dlerr) return `<div class="svmiss">⚠ ${esc(x.dlerr[0])}（${esc(x.dlerr[1])} 试的），这 ${E.ms.length} 家还没换成收银后台的数：${E.ms.map(r => esc(r[0] + ' ' + r[1].slice(0, 14))).join('、')}。合计里先用实时程序的最后读数 ${cnBig(E.sum)}（可能不准），每天 7:10・8:10・10:45・11:30 自动再下，下到了自动换掉。</div>`;
+  // 11/27 用户「川越的レジ有数据呀」：est 第 4 个＝来源（nip＝ダイニー「日報」页，按営業日、含没结账的单；rt＝实时读数），第 7 个＝还没结账的金额
+  const nip = E && E.rt ? E.ms.filter(r => r[3] === 'nip') : [], rtm = E && E.rt ? E.ms.filter(r => r[3] !== 'nip') : [];
+  if (nip.length) return `<div class="svmiss">⚠ ${nip.map(r => `<b>${esc(r[0] + ' ' + r[1].slice(0, 14))}</b>：收银「日報」有 ${man(r[2])}（${r[4] || 0} 组 ${r[5] || 0} 人）${r[6] ? `，但其中 <b>${man(r[6])}</b> 还没结账` : ''}`).join('；')}。营业额已经按日報算进合计；没结账的单收银导出里没有，所以日报的饮料・取消等明细少这家。店里结账（レジ締め）后自动换成收银明细、日报自动重做。</div>`
+    + (rtm.length ? `<div class="svmiss">⚠ 收银后台还没有这 ${rtm.length} 家的数据：${rtm.map(r => esc(r[0] + ' ' + r[1].slice(0, 14))).join('、')}（多半是店里没做レジ締め）。合计里先用实时程序的最后读数 ${cnBig(rtm.reduce((a, r) => a + r[2], 0))} 补上。</div>` : '');
   if (E && E.rt) return `<div class="svmiss">⚠ 收银后台还没有这 ${E.ms.length} 家的数据：${E.ms.map(r => esc(r[0] + ' ' + r[1].slice(0, 14))).join('、')}（多半是店里没做レジ締め）。合计里先用实时程序的最后读数 ${cnBig(E.sum)} 补上，收银数据一出来自动换掉、日报自动重做。</div>`;
   if (E) return `<div class="svmiss">⚠ 少 ${short} 家：${E.ms.map(r => esc(r[0] + ' ' + r[1].slice(0, 14))).join('、')}。那天收银台数据里没有这几家，合计少算了约 ${cnBig(E.sum)}（按 ${svMD(E.ref.d)} 同星期几估计）。每天 9:30 自动重下，补上后日报自动重做。</div>`;
   return '';
@@ -2065,7 +2069,7 @@ function svTabDay(today) {
   h += `<div class="svcard"><div class="svct">${svYMD(svDay)}${svWkH(svDay)}${x && x.live ? (x.fin ? '<small>实时最终读数・12 点日报出来后以日报为准</small>' : '<small>实时・明天日报为准</small>') : ''}</div>`;
   if (!x) return h + `<div class="svnote">这一天没有数据${svDay < first ? '（营业额历史从 ' + first + ' 开始）' : (svDay >= svAdd(svToday(), -1) ? '（昨天的要等今天 12 点日报做完）' : '')}</div></div>`;
   const short = svShort(x);
-  h += `<div class="svbig">${yen(x.t)}</div><div class="svnote">含税 · ${svNShop(x.s)} 家${short ? `　<span class="rr">${x.est ? `含 ${x.est.length} 家实时估计` : `少 ${short} 家`}</span>` : ''}${x.rest ? `　休息：${x.rest.map(r => esc(r[0] + ' ' + r[1].slice(0, 10))).join('、')}` : ''}</div>` + svMissHtml(x);
+  h += `<div class="svbig">${yen(x.t)}</div><div class="svnote">含税 · ${svNShop(x.s)} 家${short ? `　<span class="rr">${x.est ? (x.est.every(e => e[3] === 'nip') ? `含 ${x.est.length} 家还没结账（按日報）` : `含 ${x.est.length} 家实时估计`) : `少 ${short} 家`}</span>` : ''}${x.rest ? `　休息：${x.rest.map(r => esc(r[0] + ' ' + r[1].slice(0, 10))).join('、')}` : ''}</div>` + svMissHtml(x);
   { const p = svFcOf(svDay);   // 11/21：当天的预测 vs 实际
     if (p) h += `<div class="svfcl">${x.live && !x.fin ? `今天的预测 <b>约 ${man(p.v)}</b>：现在 ${man(x.t)}，到了预测的 <b>${Math.round(100 * x.t / p.v)}%</b>（晚上还会涨）` : `当天的预测 <b>约 ${man(p.v)}</b> → 实际比预测 ${svDl(x.t, p.v)}${x.live ? '（实时数，日报出来后以日报为准）' : ''}`}${p.rec ? '' : '<small>（倒推）</small>'}</div>`; }
   if (!x.live || x.fin) {
