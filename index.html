@@ -301,6 +301,10 @@ nav button.on{color:var(--brand)}
 .pwpast.on select{border:2px solid var(--brand)}
 .pwpast input[type=date]{font-size:15px;padding:6px 8px;border-radius:10px;border:1px solid var(--line);background:var(--card);color:var(--ink)}
 .pwpast.on input[type=date]{border:2px solid var(--brand)}
+.pwcal{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px;margin:0 0 8px;flex-basis:100%}.pwcm{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;color:var(--ink)}.pwcm button{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:10px;width:40px;height:34px;font-size:18px}.pwcm button:disabled{opacity:.3}
+.pwg{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}.pwg i{font-style:normal;text-align:center;font-size:12px;color:var(--sub)}.pwg i.rr{color:#dc2626}.pwg i.bl{color:#2563eb}
+.pwg button{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:3px 0;min-height:46px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;font:inherit;cursor:pointer}.pwg button b{font-size:13px}.pwg button small{font-size:9.5px;color:var(--sub);line-height:1.15}
+.pwg button.f1{background:rgba(234,88,12,.25)}.pwg button.f2{background:rgba(220,38,38,.32)}.pwg button.td{border:2px solid #2563eb}.pwg button.in{box-shadow:inset 0 0 0 2px #2563eb}.pwg button.end{box-shadow:inset 0 0 0 3px var(--ink)}.pwcs{text-align:center;font-weight:600;font-size:13px;margin-top:6px;color:var(--ink)}
 .pwrt{width:100%;border-collapse:collapse;font-size:13.5px}.pwrt th{text-align:left;color:var(--sub);font-weight:600;padding:4px 4px;border-bottom:1px solid var(--line)}.pwrt td{padding:6px 4px;border-bottom:1px solid var(--line);font-variant-numeric:tabular-nums}.pwrt td small{display:block;color:var(--sub);font-size:11px}.pwrt tr[onclick]{cursor:pointer}
 .pwday .chip{text-align:center;line-height:1.3;padding:6px 12px}
 /* 11/27 用户：已订人数占最大容量 65% 以上红、45% 以上橘黄 */
@@ -634,7 +638,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
 })();
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v171';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v172';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
@@ -999,6 +1003,33 @@ function loadPwDay(ds) {
 const PW_MIN = '2025-01-01', PW_MAX = '2027-03-31';
 let pwRg = null, pwRgMode = 0;
 const PWR = {}, pwrBusy = {};
+// 11/27 晚用户（看广告部那页）：「选择方式区间不是在日历上直接选区间方便」＋深色模式日期框看不见 → 日历：单日点一下；区间先点开始、再点结束；每格写已订人数和占容量 %，按快满上色
+let pwCalM = '', pwPick = null;
+function pwDayP(d) {
+  const rs = (PW.rows || []).filter(r => !r.kind && r.date === d && !r.fin);
+  if (rs.length) return rs.reduce((a, r) => a + (r.people || 0), 0);
+  if (PWOD[d]) return (PWOD[d].stores || []).reduce((a, r) => a + (r.people || 0), 0);
+  const o = (PWO || []).find(x => x.date === d); return o ? o.p : null;
+}
+function pwTap(d) {
+  if (!pwRgMode) { pwDate = d; pwRg = null; render(); return; }
+  if (!pwPick || pwRg) { pwPick = d; pwRg = null; } else { pwRg = { a: d < pwPick ? d : pwPick, b: d < pwPick ? pwPick : d }; pwPick = null; }
+  render();
+}
+function pwCalMove(n) { const [y, m] = pwCalM.split('-').map(Number), t = new Date(y, m - 1 + n, 1), s = t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0'); if (s >= PW_MIN.slice(0, 7) && s <= PW_MAX.slice(0, 7)) { pwCalM = s; render(); } }
+function pwCal(td) {
+  if (!pwCalM) pwCalM = (pwRgMode && pwRg ? pwRg.b : pwDate || td).slice(0, 7);
+  const [y, m] = pwCalM.split('-').map(Number), d1 = new Date(y, m - 1, 1), nd = new Date(y, m, 0).getDate();
+  const A = pwRgMode ? (pwRg ? pwRg.a : pwPick) : pwDate, B = pwRgMode ? (pwRg ? pwRg.b : pwPick) : pwDate;
+  let h = `<div class="pwcal"><div class="pwcm"><button onclick="pwCalMove(-1)" ${pwCalM <= PW_MIN.slice(0, 7) ? 'disabled' : ''} aria-label="上个月">‹</button><b>${y} 年 ${m} 月</b><button onclick="pwCalMove(1)" ${pwCalM >= PW_MAX.slice(0, 7) ? 'disabled' : ''} aria-label="下个月">›</button></div><div class="pwg">`
+    + [...WD].map((w, i) => `<i class="${i === 0 ? 'rr' : i === 6 ? 'bl' : ''}">${w}</i>`).join('');
+  for (let i = 0; i < d1.getDay(); i++) h += '<span></span>';
+  for (let i = 1; i <= nd; i++) {
+    const ds = y + '-' + String(m).padStart(2, '0') + '-' + String(i).padStart(2, '0'), P = ds === td ? pwSum(pwTodayRows()).p : pwDayP(ds), F = pwFull(P);
+    h += `<button class="${pwFullCls(F).trim()}${A && B && ds >= A && ds <= B ? ' in' : ''}${ds === A || ds === B ? ' end' : ''}${ds === td ? ' td' : ''}" onclick="pwTap(${jq(ds)})"><b>${i}</b><small>${P != null ? P + '人' : ''}</small>${F ? `<small>${F}%</small>` : ''}</button>`;
+  }
+  return h + '</div>' + (pwRgMode ? `<div class="pwcs">${pwRg ? `${pwMd(pwRg.a)}〜${pwMd(pwRg.b)}　再点一下重新选` : pwPick ? `开始 ${pwMd(pwPick)}　② 再点结束那天（可以换月）` : '① 点开始那天'}</div>` : '') + '</div>';
+}
 function pwRgGo() { let a = (document.getElementById('pwa') || {}).value, b = (document.getElementById('pwb') || {}).value; if (!a || !b) return; if (b < a) [a, b] = [b, a]; pwRg = { a, b }; render(); }
 function loadPwRange(a, b) {
   const k = a + '_' + b; if (!K || pwrBusy[k]) return; pwrBusy[k] = 1;
@@ -1141,14 +1172,12 @@ function pwView() {
   h += '<div class="pwday">' + dates.map(ds => {
     const S = pwSum(rowsOf(ds)), L = pwDayLabel(ds), rate = S.g ? Math.round(100 * S.as / S.g) : 0;
     const F = pwFull(S.p);
-    return `<button class="chip${ds === pwDate ? ' on' : ''}${pwFullCls(F)}" onclick='pwDate=${esc(JSON.stringify(ds))};render()'>${L.md}<small>${L.left} · ${S.g} 组 ${S.p} 人 · 排了 ${rate}%${F ? ` · 已订 ${F}%` : ''}</small>${pwCmpChip(ds)}</button>`;
+    return `<button class="chip${ds === pwDate ? ' on' : ''}${pwFullCls(F)}" onclick='pwDate=${esc(JSON.stringify(ds))};pwCalM="";render()'>${L.md}<small>${L.left} · ${S.g} 组 ${S.p} 人 · 排了 ${rate}%${F ? ` · 已订 ${F}%` : ''}</small>${pwCmpChip(ds)}</button>`;
   }).join('') + '</div>';
   // 11/27 用户：「去年开始 1 月〜明年的 3 月份为止可以选，看他们当天排位置的情况，可以选当天，可以选自己要的区间」
   const away = pwDate !== td && !dates.includes(pwDate);
   h += `<div class="pwpast${away || pwRg ? ' on' : ''}">📅 选日子・区间：<button class="chip${pwRgMode ? '' : ' on'}" onclick="pwRgMode=0;pwRg=null;render()">单日</button><button class="chip${pwRgMode ? ' on' : ''}" onclick="pwRgMode=1;render()">区间</button>`
-    + (!pwRgMode ? `<input type="date" min="${PW_MIN}" max="${PW_MAX}" value="${esc(pwDate)}" onchange="if(this.value){pwDate=this.value;pwRg=null;render()}" aria-label="选日子">`
-      : `<input type="date" id="pwa" min="${PW_MIN}" max="${PW_MAX}" value="${esc((pwRg || {}).a || '')}" aria-label="开始"> 〜 <input type="date" id="pwb" min="${PW_MIN}" max="${PW_MAX}" value="${esc((pwRg || {}).b || '')}" aria-label="结束"><button class="chip on" onclick="pwRgGo()">看这段</button>`)
-    + (away || pwRg ? `<button class="chip" onclick='pwDate=${esc(JSON.stringify(td))};pwRg=null;pwRgMode=0;render()'>回到今天</button>` : '') + '</div>'
+    + (away || pwRg ? `<button class="chip" onclick='pwDate=${esc(JSON.stringify(td))};pwRg=null;pwRgMode=0;render()'>回到今天</button>` : '') + '</div>' + pwCal(td, rows)
     + `<div class="svnote" style="margin:0 2px 8px">可以选 2025/1/1〜2027/3/31。日期底色：已订人数占全部店最大容量 <span class="fl2"></span> 65% 以上（快满）・<span class="fl1"></span> 45% 以上。<b>11/13 起</b>是那天开店前读到的真实排位；<b>更早</b>的是事后读的，只有预约组数・人数（客人退店后 レストランボード 桌号多半清掉，排位率看不到）；14 天以后的是现在订到的。电脑每晚自动补读，不用 token。</div>`;
   if (pwRg) return h + pwRangeHtml(pwRg, rows, rowsOf, td, dates);
   const q = document.getElementById('q').value.trim();
