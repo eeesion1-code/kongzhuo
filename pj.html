@@ -285,7 +285,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
   addEventListener('touchcancel', () => { on = false; hide(); }, { passive: true });
 })();
 
-const APPV = 'yunying-v75';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v76';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);
 const PVST = IN_KZ && (localStorage.getItem('asRole') === 'staff' || localStorage.getItem('asStaff') === '1');   // 11/19 老板在空桌一览点「👀 运营部画面／店长画面」→ 按店长权限看
 function exitPreview() { ['asRole', 'asStaff', 'last', 'acrq'].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} }); location.href = './'; }
@@ -1042,6 +1042,45 @@ function setSySort(m) { sySort = m; LS.set('sySort', m); render(); }
 //   现在输入法拼字（composition）期间不重画，选定汉字（compositionend）再搜
 function onSyQ(v, e) { syQ = v; clearTimeout(window._syT); if (window._syComp || (e && e.isComposing)) return; window._syT = setTimeout(() => { render(); const q = $('syq'); if (q) { q.focus(); q.setSelectionRange(q.value.length, q.value.length); } }, 250); }
 function tgSy(k) { syOpen.has(k) ? syOpen.delete(k) : syOpen.add(k); render(); }
+// v76（11/28 用户「每一个人社员，他们点击自己专有的链接，只显示他们的分数」）：社员专属链接 …/yunying/me.html?t=随机码（后台 社员链接.gs）。
+//   股东在这里：生成／复制链接、看绑了哪些入口（微信・浏览器・桌面图标，最多 3 个）、删入口、给配对码（10 分钟）、作废重发、停用。
+//   社员那边只看到自己的评分（不含奖金）和所在店卫生；链接随机码只存在后台「スクリプト プロパティ」。
+let ME = null, meBusy = false, meErr = '', meCode = {};
+async function meAdm(act, extra) {
+  const r = await fetch(API + '?fmt=json&what=meadm&act=' + act + (extra || '') + '&k=' + encodeURIComponent(K) + '&dv=' + DV + '&ua=' + encodeURIComponent(DVUA), { cache: 'no-store' });
+  return r.json();
+}
+async function loadMe() {
+  if (meBusy) return; meBusy = true;
+  try { const d = await meAdm('list'); if (d && d.ok) { ME = d.m || {}; meErr = ''; } else meErr = (d && d.error) || '没读到'; } catch (e) { meErr = '网络不通'; }
+  meBusy = false; if (tab === 'sy') render();
+}
+const meUrl = t => location.origin + '/yunying/me.html?t=' + t;
+async function meDo(act, n, i) {
+  if (act === 'new' && ME && ME[n] && !confirm('作废「' + n + '」现在的链接，换一个新的？旧链接马上打不开，要把新链接重新发给他。')) return;
+  if (act === 'off' && !confirm('停用「' + n + '」的专属链接？他就打不开了。')) return;
+  if (act === 'del' && !confirm('删掉这个入口？那边要重新配对才能看。')) return;
+  let d; try { d = await meAdm(act, '&n=' + encodeURIComponent(n) + (i != null ? '&i=' + i : '')); } catch (e) { alert('网络不通，请再按一次'); return; }
+  if (!d || !d.ok) { alert('没成功：' + ((d && d.error) || '')); return; }
+  if (act === 'code') meCode[n] = [d.code, d.exp];
+  if (act === 'new') { try { await navigator.clipboard.writeText(meUrl(d.t)); alert('新链接已复制，可以直接贴到微信发给 ' + n); } catch (e) {} }
+  await loadMe();
+}
+async function meCopy(n) { const t = ME && ME[n] && ME[n].t; if (!t) return; try { await navigator.clipboard.writeText(meUrl(t)); alert('已复制「' + n + '」的专属链接，贴到微信发给他就行'); } catch (e) { prompt('长按复制这个链接：', meUrl(t)); } }
+function meBox(n) {
+  if (PVST) return '';
+  if (ME === null) { if (!meBusy && !meErr) setTimeout(loadMe, 0); return '<div class="note" style="margin-top:10px">' + (meErr ? '⚠ 专属链接没读到（' + esc(meErr) + '）<a onclick="meErr=\'\';loadMe()" style="color:var(--brand);cursor:pointer">再读一次</a>' : '🔗 读取专属链接中…') + '</div>'; }
+  const m = ME[n], d2 = x => { const t = new Date(x); return (t.getMonth() + 1) + '/' + t.getDate(); };
+  let h = '<div style="margin-top:10px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--soft)" onclick="event.stopPropagation()"><b style="font-size:14px">🔗 专属链接</b><small style="color:var(--sub)">（他点开只看到自己的分数和店的卫生，不含奖金）</small>';
+  if (!m) return h + '<div style="margin-top:6px"><button class="btn" style="border:0;border-radius:8px;padding:6px 12px;background:var(--brand);color:#fff;font-weight:700" onclick="meDo(\'new\',' + jq(n) + ')">生成专属链接</button></div></div>';
+  const btn = (lb, js, bg) => '<button style="border:1px solid var(--line);border-radius:8px;padding:5px 10px;margin:4px 6px 0 0;background:' + (bg || 'var(--card)') + ';color:' + (bg ? '#fff' : 'var(--ink)') + ';font-weight:700" onclick="' + js + '">' + lb + '</button>';
+  h += '<div style="margin-top:6px;font-size:13px">' + (m['入口'].length ? '已绑定 ' + m['入口'].length + ' / 3 个入口：' : '<span style="color:var(--warn)">还没打开过</span>（发给他后请他马上点开一次）') + '</div>' +
+    m['入口'].map((x, i) => '<div style="font-size:13px;display:flex;gap:8px;align-items:center;margin-top:3px"><span>• ' + esc(x.lb || '入口') + '</span><small style="color:var(--sub)">' + d2(x.at) + ' 绑定・最近 ' + d2(x.last) + '</small><a style="margin-left:auto;color:var(--bad);cursor:pointer" onclick="meDo(\'del\',' + jq(n) + ',' + i + ')">删</a></div>').join('') +
+    (m['锁'] ? '<div style="font-size:12px;color:var(--bad);margin-top:3px">输错太多次，锁到 ' + new Date(m['锁']).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }) + '（点「给配对码」会解锁）</div>' : '') +
+    (meCode[n] && meCode[n][1] > Date.now() ? '<div style="margin-top:6px;font-size:13px">配对码 <b style="font-size:22px;letter-spacing:4px">' + meCode[n][0] + '</b> <small style="color:var(--sub)">' + new Date(meCode[n][1]).toLocaleTimeString('ja-JP', { hour: '2-digit', minute: '2-digit' }) + ' 前有效，只能用一次：请他打开链接，把这 4 位填进去</small></div>' : '') +
+    '<div>' + btn('复制链接', 'meCopy(' + jq(n) + ')', 'var(--brand)') + btn('给配对码', 'meDo(\'code\',' + jq(n) + ')') + btn('作废重发', 'meDo(\'new\',' + jq(n) + ')') + btn('停用', 'meDo(\'off\',' + jq(n) + ')') + '</div></div>';
+  return h;
+}
 function renderSy() {
   if (!HR) return hrErr ? '<div class="err">' + esc(hrErr) + '</div>' : '<div class="empty">读取中…</div>';
   const D = syParse();
@@ -1088,7 +1127,7 @@ function renderSy() {
           '<div style="font-size:12px;font-weight:700;margin:4px 0 2px">每月评分</div><div>' + bCells + '</div></div>' +
           (Z ? '<p class="note" style="margin:6px 0 0">📈 年涨综合分数' + (/^(①|②)$/.test(role || '') ? '（' + esc(role) + '）' : '') + '：右上角 ' + Z['综合'] + '＝姓名下面每月年涨综合分数的平均（有分的 ' + Z['月数'] + ' 个月）・全员 ' + Z['人数'] + ' 人中第 ' + Z['排名'] + ' 名・近 3 个月 ' + Z['近3月'] + '・最高 ' + Z['最高'] + '・最低 ' + Z['最低'] +
             '。来源：公司「全店铺员工评分」（' + esc(Z['文件'] || '') + '）——表上每个月写的「分数」就是那个月的年涨综合分数，原样显示；①・②＝表上每家店第一个・第二个人那一栏（最近一个月）。一个月管两家店的，那个月取两家平均。7〜10 月和奖金表的评分逐个对过，一样。</p>' : '') +
-          hyBox(r['店']);   // v75：点名字也看卫生
+          hyBox(r['店']) + meBox(r['名']);   // v75：点名字也看卫生；v76：专属链接
       }
       return x + '</div>';
     }).join('') + '</div>';
