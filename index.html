@@ -402,6 +402,7 @@ nav button.on{color:var(--brand)}
 .svlabbt td small{color:var(--faint)}
 .svld.bg{background:var(--freeBg)}.svld.bm{background:var(--remindBg)}.svld.brr{background:var(--overBg)}
 .svlabd>div.hd,.svlabd button{display:grid;grid-template-columns:1fr 50px 58px 50px 38px;gap:6px;align-items:center;width:100%}
+.svac .svlabd>div.hd,.svac .svlabd button{grid-template-columns:1fr 50px 50px 38px}.svac .svtop .iconbtn{display:none}.svac #salesView{top:0}
 .svlabd>div.hd span{font-size:11px;color:var(--faint);text-align:right}.svlabd>div.hd span:first-child{text-align:left}
 .svlabhr>div{display:grid;grid-template-columns:64px 1fr 40px 1fr 50px;gap:4px;align-items:center;padding:5px 4px;border-top:1px solid var(--line);font-size:13px}
 .svlabhr>div b{font-weight:600;text-align:right;font-variant-numeric:tabular-nums}.svlabhr>div.hd{border-top:0;font-size:11px;color:var(--faint)}.svlabhr>div.hd span{text-align:right}.svlabhr>div.hd span:first-child{text-align:left}
@@ -640,8 +641,11 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
 })();
 // 数据接口：Google Apps Script「实时桌位手机版」部署后的网址（/exec 结尾）
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kongzhuo-v174';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
+const APPV = 'kongzhuo-v175';  // 版本号：和 sw.js 的 V 一起改（下面 checkUpdate 用）
 let K = '';
+// 11/28 用户：「这一块人工，也要显示到会计部 APP 按键这」「营业额不能看」「是复制过去，不是搬过去」
+//   → 会计部 APP 的「👷 人工」用框架打开这一页 ?ac=1：只开营业额页的「人工」，读后台 what=labsales（只有人工月报的行），画面上营业额金额都去掉（svAcStrip）
+const SV_AC = /[?&]ac=1(&|$)/.test(location.search);
 const LS = {
   get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch (e) { return d; } },
   set(k, v) { try { localStorage.setItem(k, v); } catch (e) {} },
@@ -2099,14 +2103,16 @@ function renderSales() {
   if (SV.sk && svTab === 'st') svTab = 'ov';
   if (svTab === 'lab' && !svHasLab()) svTab = 'ov';
   if (svTab === 'so' && !SV.sk) svTab = 'ov';
-  document.getElementById('svTitle').textContent = SV.sk ? '🥩 三幸園 营业额' : '💴 集团总营业额';
+  if (SV_AC) svTab = 'lab';
+  document.getElementById('svTitle').textContent = SV_AC ? '👷 人工（会计部）' : SV.sk ? '🥩 三幸園 营业额' : '💴 集团总营业额';
   let h = (SVK && SVK.days.length && SVG && SVG.days.length ? `<div class="svco"><button class="${SV.sk ? '' : 'on'}" onclick="svSetCo('')">💴 集团</button><button class="${SV.sk ? 'on' : ''}" onclick="svSetCo('sk')">🥩 三幸園</button></div>` : '')
-    + '<div class="svtabs">' + SV_TABS.filter(([k]) => !(SV.sk && k === 'st') && !(k === 'so' && !SV.sk) && !(k === 'lab' && !svHasLab())).map(([k, n]) => `<button class="${svTab === k ? 'on' : ''}" onclick="svGo(${jq(k)})">${n}</button>`).join('') + '</div>';
+    + '<div class="svtabs">' + SV_TABS.filter(([k]) => !(SV.sk && k === 'st') && !(k === 'so' && !SV.sk) && !(k === 'lab' && !svHasLab()) && !(SV_AC && k !== 'lab')).map(([k, n]) => `<button class="${svTab === k ? 'on' : ''}" onclick="svGo(${jq(k)})">${n}</button>`).join('') + '</div>';
   if (svTab !== 'fc' && svTab !== 'lab' && svTab !== 'so') h += svCmpBar();
   h += ({ ov: svTabOv, day: svTabDay, hr: svTabHr, st: svTabSt, fc: svTabFc, lab: SV.sk ? svTabLabSk : svTabLab, so: svTabSo }[svTab] || svTabOv)(today);
   h += SV.sk ? `<div class="foot">三幸園（麻布十番，コーズ经营）：每天的数字来自三幸園 ダイニー 后台（含税，取消的单不算），不算进集团合计；今天是实时程序读的（折扣前，以第二天日报为准）。营业额含外卖（Uber・便当）；外卖单都是晚上集中补登的，所以组数・客数・客单价・时段只算堂食。最后更新：${esc(SV.at || '')}</div>`
+    : SV_AC ? `<div class="foot">会计部看的人工页：和股东的「人工」同一份数据（指纹打卡・各店工资表），营业额金额不显示。最后更新：${esc(SV.at || '')}</div>`
     : `<div class="foot">每天的数字来自 12 点日报（收银台下载，含税）；今天是实时程序读的，晚上会变。集团不含三幸園（三幸園单独看）。最后更新：${esc(SV.at || '')}</div>`;
-  el.innerHTML = h;
+  el.innerHTML = SV_AC ? svAcStrip(h) : h;
 }
 
 // ---- 总览 ----
@@ -2406,7 +2412,8 @@ function svTabLab() {
   const [y, m] = svLabM.split('-').map(Number);
   let h = svLabV === 'b' || svLabV === 'r' ? '' : `<div class="svmon"><button class="iconbtn" onclick="svLabSet('m',${jq(ms[i - 1] || '')})" ${i > 0 ? '' : 'disabled'} aria-label="上个月">‹</button><b>${y} 年 ${m} 月</b>`
     + `<button class="iconbtn" onclick="svLabSet('m',${jq(ms[i + 1] || '')})" ${i < ms.length - 1 ? '' : 'disabled'} aria-label="下个月">›</button></div>`;
-  h += `<div class="svseg2 wide">${[['m', '月度'], ['d', '每日'], ['r', '📅 期间'], ['b', '本月预算']].map(([k, t]) => `<button class="${svLabV === k ? 'on' : ''}" onclick="svLabDSet('v',${jq(k)})">${t}</button>`).join('')}</div>`;
+  if (SV_AC && svLabV === 'b') svLabV = 'm';
+  h += `<div class="svseg2 wide">${[['m', '月度'], ['d', '每日'], ['r', '📅 期间'], ['b', '本月预算']].filter(([k]) => !(SV_AC && k === 'b')).map(([k, t]) => `<button class="${svLabV === k ? 'on' : ''}" onclick="svLabDSet('v',${jq(k)})">${t}</button>`).join('')}</div>`;
   h += svLabAlert();
   if (svLabV === 'd') return h + svTabLabDay(L);
   if (svLabV === 'r') { if (!svRg) { const [a, b] = svRgQ(7); svRg = { a, b }; } return h + svRgBar() + svTabLabRange(); }
@@ -2573,6 +2580,26 @@ function svLabRgStore(R, nm) {
         + KS.map(K => `<b>${svLabCell(K, Y[K.k], ln)}</b>`).join('') + '</button>'; }).join('') + '</div></div>';
   return h;
 }
+// 11/28 会计部模式：画面上的营业额金额去掉（人件费率・人工・工时・客数照常）
+function svAcStrip(h) {
+  return h.replace(/<span>人时营业额<\/span>/g, '')
+    .replace(/<div>人时营业额<b>[\s\S]*?<\/div>/g, '')
+    .replace(/<div>23〜24 点下单<b>[^<]*<\/b>[^<]*<\/div>/g, '')
+    .replace(/\s*÷\s*(?:下单营业额|这天时段营业额|已到的营业额|营业额)\s*(?:约\s*)?-?[\d.,]+万/g, '')
+    .replace(/[、，]?\s*(?:月底营业额约|营业额)\s*(?:约\s*)?-?[\d.,]+万/g, '');
+}
+function acLabStart() {
+  document.body.classList.add('svac');
+  const v = document.getElementById('salesView'); v.style.display = 'block';
+  const b = document.getElementById('svBody');
+  if (!K) { b.innerHTML = '<div id="msg">请先在会计部 APP 用会计部密码登录</div>'; return; }
+  svTab = 'lab'; if (svLabV === 'b') svLabV = 'm';
+  b.innerHTML = '<div id="msg">读取中…</div>';
+  fetch(API + '?fmt=json&what=labsales' + KQ(), { cache: 'no-store' }).then(r => r.json()).then(d => {
+    if (d.error) throw new Error(d.error === 'device' ? '这台手机还没登记' : d.error === 'owner' || d.error === 'key' ? '这个密码看不到人工' : d.error === 'what' ? '后台还没部署新版本' : d.error);
+    svUse(d); renderSales();
+  }).catch(e => { b.innerHTML = `<div id="msg">读不到人工数据（${esc(e.message)}）</div>`; });
+}
 function svLabGoDay(ds, nm) {
   const pv = svLabV, pm = svLabM, pst = svLabRgSt;
   navPush('svlab', () => { svLabV = pv; LS.set('svLabV', pv); svLabM = pm; svLabRgSt = pst; svLabDSt = ''; renderSales(); });
@@ -2688,7 +2715,7 @@ const svShSum = rows => { const t = [0, 0, 0, 0, 0, 0]; let n = 0; rows.forEach(
 function svShTiles(a, nNight, GL) {
   if (!a) return '';
   const t = (k, lab) => { const i = SV_SH_I[k], r = svShR(a, k);
-    return `<div>${lab}<b class="${k === 'e' && r != null && GL ? svLabCls(r, GL) : ''}">${r == null ? '—' : svPctS(r)}</b>人工 ${man(a[i])}<br>营业额 ${man(a[i + 1])}</div>`; };
+    return `<div>${lab}<b class="${k === 'e' && r != null && GL ? svLabCls(r, GL) : ''}">${r == null ? '—' : svPctS(r)}</b>人工 ${man(a[i])}${SV_AC ? '' : `<br>营业额 ${man(a[i + 1])}`}</div>`; };
   return `<div class="svmini">${t('m', '早班 〜15点')}${t('e', '晚班 15〜24点')}${a[4] >= SV_NIGHT_MIN ? t('n', `夜班 24点〜${nNight ? `（${nNight} 家）` : ''}`) : '<div>夜班 24点〜<b>—</b>没有夜班</div>'}</div>`;
 }
 // 表格第一列跟着「晚班／全天／早班／夜班」切换
@@ -2698,7 +2725,7 @@ function svLabK0() {
   return { k: 'r' + svLabSh, n: nm, u: lab + ' 人工 ÷ 营业额', f: v => svPctS(v), c: svLabSh === 'e' ? (v, ln) => svLabCls(v, ln) : () => '',
     rule: svLabSh === 'e' ? '绿＝奖励线以下　黄＝两线之间　红＝超过罚线（本店罚线）' : '不判定，只看多少（那段营业额不到 1 万写「—」）' };
 }
-const svLabKS = () => [svLabK0(), ...SV_LK.slice(1)];
+const svLabKS = () => [svLabK0(), ...SV_LK.slice(1)].filter(K => !(SV_AC && K.k === 'rph'));   // 会计部：人时营业额不显示
 function svLabMet(rs) {   // 几行加起来算指标
   const S = rs.reduce((a, r) => a + (r[2] || 0), 0), U = rs.reduce((a, r) => a + (r[3] || 0), 0), H = rs.reduce((a, r) => a + (r[4] || 0), 0), C = rs.reduce((a, r) => a + (r[5] || 0), 0);
   const ov = rs.filter(r => r[6] != null), O = ov.reduce((a, r) => a + r[6], 0);
@@ -3253,14 +3280,13 @@ function checkUpdate() {
     reg.then(r => r && r.update().then(() => new Promise(res => { const w = r.installing || r.waiting; if (!w) return res(); w.addEventListener('statechange', () => { if (w.state === 'activated' || w.state === 'redundant') res(); }); setTimeout(res, 8000); }))).catch(() => {}).then(() => location.reload());
   }).catch(() => {});
 }
-document.getElementById('nav').style.display = 'flex';
-load();
+if (SV_AC) acLabStart(); else { document.getElementById('nav').style.display = 'flex'; load(); }
 checkUpdate();
 // 11/14：APP 在后台（看不见）时不读不画；营业额页开着时不重画底下的首页（省电、不卡）
-setInterval(() => { if (!document.hidden && !devBlk) load(); }, 60000);
+setInterval(() => { if (!document.hidden && !devBlk && !SV_AC) load(); }, 60000);
 setInterval(() => { if (D && !document.hidden && !svOpen()) renderSoon(); }, 30000);  // 「几分前」「坐了多久」跟着走
 setInterval(checkUpdate, 30 * 60000);
-document.addEventListener('visibilitychange', () => { if (!document.hidden) { if (K && !devBlk) load(); checkUpdate(); } });
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { if (K && !devBlk && !SV_AC) load(); checkUpdate(); } });
 </script>
 </body>
 </html>

@@ -93,7 +93,7 @@ textarea{min-height:120px;resize:vertical}
   <div id="main" style="display:none">
     <div class="top"><a id="kzback" href="./" style="display:none;border:1px solid var(--line);background:var(--card);border-radius:10px;padding:6px 10px;font-size:14px;color:var(--ink);text-decoration:none">‹ 空桌一览</a><h1>🧾 会计部</h1><small id="age"></small></div>
     <div class="tabs" id="tabs"></div>
-    <div id="body"></div>
+    <div id="body"></div><div id="labwrap" style="display:none"></div>
     <div class="foot" id="foot"></div>
   </div>
 </div>
@@ -101,7 +101,7 @@ textarea{min-height:120px;resize:vertical}
 // 11/18 用户：「单独的会计部键这个 APP 也做出来，因为给会计部看，然后让他们说有什么想更新的」。
 // 数据接口和「空桌一览」同一个后台（Apps Script）；会计部密码（或老板密码）才看得到。只有登记过的手机能用（手机编号 dv）。
 const API = 'https://script.google.com/macros/s/AKfycbxDX1OB8iAKYYpfBlncpfov66qsDdWfq6wjs2xNGydXDbkkUPf7NsOwwmd_PG2Dbpe0/exec';
-const APPV = 'kuaiji-v40';   // 11/27 用户「未存现金下架，只要放在本地电脑里」→ TABS 去掉 wc（代码留着）
+const APPV = 'kuaiji-v41';   // 11/27 用户「未存现金下架，只要放在本地电脑里」→ TABS 去掉 wc（代码留着）
 // 11/19 自检：提需求「测试版 → 老板确认 → 正式版」流程跑通（这一行就是自检时上线的改动）
 const TEST = /\/test\//.test(location.pathname);
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);   // 11/19 用户：「会计部跟运营部一样，不是 2 个网页」→ 空桌一览「🧾 会计」打开的是这份网页的副本 kongzhuo/kj.html（内容完全一样）   // 11/19 测试版（kuaiji/test/）：Claude 按需求改好先放这里，老板确认后才换成正式版   // 版本号：和 sw.js 的 V 一起改
@@ -127,7 +127,7 @@ const PVAC = IN_KZ && LS.get('asRole', '') === 'ac';
 function exitPreview() { ['asRole', 'asStaff', 'last', 'acrq'].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} }); location.href = './'; }
 const api = q => fetch(API + '?fmt=json' + q + '&k=' + encodeURIComponent(K) + '&dv=' + DV + '&ua=' + encodeURIComponent(DVUA) + (PVAC ? '&as=ac' : ''), { cache: 'no-store' }).then(r => r.json());
 
-const TABS = [['sx', '📋 事项汇报'], ['ns', '💴 取消料'], ['cy', '🔎 当月预估表异常'], ['nh', '📷 纳品书异常'], ['pt', '🎫 积分对账'], ['bb', '🎁 BB 费用'], ['gz', '💰 工资・社内对账'], ['bk', '🏦 会计入力银行数校对'], ['msg', '💡 提需求'], ['cash', '资金余额'], ['pay', '要付的钱'], ['pl', '月度损益']];   // 11/19 用户：「没有提需求这个键」——第 5 个在手机上被挤到右边看不见 → 放第 2 个，标签换行全部看得到
+const TABS = [['sx', '📋 事项汇报'], ['ns', '💴 取消料'], ['cy', '🔎 当月预估表异常'], ['nh', '📷 纳品书异常'], ['pt', '🎫 积分对账'], ['bb', '🎁 BB 费用'], ['gz', '💰 工资・社内对账'], ['lab', '👷 人工'], ['bk', '🏦 会计入力银行数校对'], ['msg', '💡 提需求'], ['cash', '资金余额'], ['pay', '要付的钱'], ['pl', '月度损益']];   // 11/19 用户：「没有提需求这个键」——第 5 个在手机上被挤到右边看不见 → 放第 2 个，标签换行全部看得到
 const INFO = {
   cash: ['各公司银行・现金余额，这个月进了多少、出了多少。', 'Google Drive「11家流水」整理出来的现金流（残高）表。'],
   pay: ['请求书・信用卡要付的钱：哪天付、付多少，快到期的标出来。', '公司档案里的请求书、信用卡明细。'],
@@ -169,6 +169,15 @@ async function load() {
   if (tab === 'nh') loadNh();
   if (tab === 'pt' || tab === 'bb' || tab === 'gz' || tab === 'wc' || tab === 'bk') loadPt();
 }
+// 11/28 用户：「这一块人工（空桌一览・集团总营业额的「人工」），也要显示到会计部 APP 按键这」「营业额不能看」「是复制过去，不是搬过去」
+//   → 框架打开空桌一览同一页的会计部模式（?ac=1：只有人工，营业额金额不显示）；后台 what=labsales（会计部密码）
+//   框架放在 #body 外面（#labwrap），换标签时只藏起来，不会每次重画都重新读
+function renderLab() { return `<div class="note" style="margin:0 2px 6px">👷 人工：指纹打卡・各店工资表算的人件费率、人工、工时、客数（和股东看的同一份，营业额金额不显示）。</div>`; }
+function labShow() {
+  const w = $('labwrap'); if (!w) return;
+  if (tab === 'lab' && !w.firstChild) w.innerHTML = `<iframe src="https://eeesion1-code.github.io/kongzhuo/?ac=1" title="人工" style="width:100%;height:calc(100vh - 150px);min-height:560px;border:1px solid var(--line);border-radius:12px;background:var(--card)"></iframe>`;
+  w.style.display = tab === 'lab' ? 'block' : 'none';
+}
 function go(t) { tab = t; LS.set('acTab', t); sendMsg = ''; render(); window.scrollTo(0, 0); if (t === 'sx') loadSx(); if (t === 'msg') loadRq(); if (t === 'ns') loadNs(); if (t === 'cy') loadCy(); if (t === 'nh') loadNh(); if (t === 'pt' || t === 'bb' || t === 'gz' || t === 'wc' || t === 'bk') loadPt(); }
 function ask(t) { const nm = TABS.find(x => x[0] === t)[1]; draft = `【${nm}】`; go('msg'); setTimeout(() => { const e = $('mv'); if (e) { e.focus(); e.setSelectionRange(e.value.length, e.value.length); } }, 50); }
 function render() {
@@ -184,6 +193,7 @@ function render() {
   else if (tab === 'pt') h += renderPt();
   else if (tab === 'bb') h += renderBb();
   else if (tab === 'gz') h += renderGz();
+  else if (tab === 'lab') h += renderLab();
   else if (tab === 'bk') h += renderBk();
   else if (tab === 'wc') h += renderWc();
   else {
@@ -192,7 +202,7 @@ function render() {
       + `<div class="card"><div class="ct">接上以后这里显示</div><div class="note">${what}</div><div class="ct" style="margin-top:10px">数据从哪里来</div><div class="note">${src}</div>`
       + `<button class="btn sub" onclick="ask(${jq(tab)})">💬 对这一页提意见</button></div>`;
   }
-  $('body').innerHTML = h;
+  $('body').innerHTML = h; labShow();
   $('foot').innerHTML = `只有会计部密码和股东密码看得到。<br><a onclick="changeKey()">🔑 换密码</a>　版本 ${APPV.replace('kuaiji-v', '')}`;
 }
 
