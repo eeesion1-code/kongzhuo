@@ -285,7 +285,7 @@ function navBack() { if (NAVS.length) history.back(); else { const f = navTop();
   addEventListener('touchcancel', () => { on = false; hide(); }, { passive: true });
 })();
 
-const APPV = 'yunying-v74';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
+const APPV = 'yunying-v75';   // 独立 APP 的版本号：和 sw.js 的 V 一起改（checkUpdate 用）
 const IN_KZ = /\/kongzhuo\//.test(location.pathname);
 const PVST = IN_KZ && (localStorage.getItem('asRole') === 'staff' || localStorage.getItem('asStaff') === '1');   // 11/19 老板在空桌一览点「👀 运营部画面／店长画面」→ 按店长权限看
 function exitPreview() { ['asRole', 'asStaff', 'last', 'acrq'].forEach(k => { try { localStorage.removeItem(k); } catch (e) {} }); location.href = './'; }
@@ -1087,7 +1087,8 @@ function renderSy() {
           '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><b style="font-size:14px">📋 奖金表评分<small style="font-weight:400;color:var(--sub)">（売上ボナース计算表）</small></b><span style="text-align:right"><span style="font-size:24px;font-weight:800;color:' + scCol(r['平均']) + '">' + (r['平均'] ?? '—') + '</span><br><small style="color:var(--sub)">全年平均・' + r['月数'] + ' 个月</small></span></div>' +
           '<div style="font-size:12px;font-weight:700;margin:4px 0 2px">每月评分</div><div>' + bCells + '</div></div>' +
           (Z ? '<p class="note" style="margin:6px 0 0">📈 年涨综合分数' + (/^(①|②)$/.test(role || '') ? '（' + esc(role) + '）' : '') + '：右上角 ' + Z['综合'] + '＝姓名下面每月年涨综合分数的平均（有分的 ' + Z['月数'] + ' 个月）・全员 ' + Z['人数'] + ' 人中第 ' + Z['排名'] + ' 名・近 3 个月 ' + Z['近3月'] + '・最高 ' + Z['最高'] + '・最低 ' + Z['最低'] +
-            '。来源：公司「全店铺员工评分」（' + esc(Z['文件'] || '') + '）——表上每个月写的「分数」就是那个月的年涨综合分数，原样显示；①・②＝表上每家店第一个・第二个人那一栏（最近一个月）。一个月管两家店的，那个月取两家平均。7〜10 月和奖金表的评分逐个对过，一样。</p>' : '');
+            '。来源：公司「全店铺员工评分」（' + esc(Z['文件'] || '') + '）——表上每个月写的「分数」就是那个月的年涨综合分数，原样显示；①・②＝表上每家店第一个・第二个人那一栏（最近一个月）。一个月管两家店的，那个月取两家平均。7〜10 月和奖金表的评分逐个对过，一样。</p>' : '') +
+          hyBox(r['店']);   // v75：点名字也看卫生
       }
       return x + '</div>';
     }).join('') + '</div>';
@@ -1111,11 +1112,13 @@ function renderSy() {
         x += '<div class="syst"><b>' + esc(r['店']) + '</b>' + (r['达成率'] != null ? '<span>达成率 ' + Math.round(r['达成率'] * 100) + '%</span>' : '') + ((r['T'] || r['G']) ? '<span>T ' + (r['T'] || 0) + '・G ' + (r['G'] || 0) + '</span>' : '') +
           (s && s['总分'] != null ? '<span style="margin-left:auto">①考核 <b style="font-size:13px">' + s['总分'] + '</b> ' + s['等级'] + '</span>' : '') + '</div>';
       }
-      return x + '<div class="card" style="margin:0 0 6px;display:flex;align-items:center;gap:8px">' +
+      const mk = 'm|' + syMonth + '|' + r['名'], mo = syOpen.has(mk);   // v75：月视图也能点名字，看这个月这家店的卫生
+      return x + '<div class="card' + (mo ? ' open' : '') + '" style="margin:0 0 6px;cursor:pointer" onclick="tgSy(' + jq(mk) + ')"><div style="display:flex;align-items:center;gap:8px">' +
         (sySort === 'score' ? '<span style="color:var(--sub);width:22px">' + (sc(r) != null ? i + 1 : '') + '</span>' : '') +
         '<div style="flex:1;min-width:0"><b style="font-size:16px">' + esc(r['名']) + '</b>' + (sySort === 'score' ? ' <small style="color:var(--sub)">' + esc(r['店']) + '</small>' : '') +
         '<div style="font-size:12px;color:var(--sub)">' + (r['有分'] ? '百分比 ' + Math.round((r['百分比'] || 0) * 100) + '%・奖金 ' + fmt(r['奖金']) + ' 円' : esc(r['空因'] || '表上没填')) + (r['出勤天'] ? '・出勤 ' + r['出勤天'] + ' 天' : '') + '</div></div>' +
-        '<div style="text-align:right"><div style="font-size:24px;font-weight:800;color:' + scCol(sc(r)) + '">' + (sc(r) ?? '—') + '</div>' + (fromZ(r) ? '<div style="font-size:10.5px;color:var(--sub)">年涨评分表</div>' : '') + '</div></div>';
+        '<div style="text-align:right"><div style="font-size:24px;font-weight:800;color:' + scCol(sc(r)) + '">' + (sc(r) ?? '—') + '</div>' + (fromZ(r) ? '<div style="font-size:10.5px;color:var(--sub)">年涨评分表</div>' : '') + '</div></div>' +
+        (mo ? hyBox(r['店'], syMonth) : '') + '</div>';
     }).join('') + '</div>';
   }
   h += '<div class="card" style="margin-top:12px"><b>奖金怎么算</b>（用 7〜10 月表上全部数字倒推验算，每一行都对得上）<table class="tbl" style="margin-top:6px">' +
@@ -1752,6 +1755,36 @@ function renderYc() {
 }
 
 // ================= 🧹 卫生检查 =================
+// v75（11/28 用户「他们的卫生是哪里扣分了，哪里得分了，可以点他们名字，他们就知道自己的卫生分数」）：
+//   社员页点名字 → 这家店的卫生检查：前厅・后厨分数，每一类扣了几分（哪一项・整改），没扣分的类别＝满分。
+//   卫生是按店检查的（表上「责任人」一栏还没填），所以看到的是这个人所在店的分数；ym 给了就只看那个月的检查。
+function hyBox(st, ym) {
+  const all = HR ? hrParse().hy : [];
+  let l = all.filter(c => c['店'] === st).sort((a, b) => a['日期'].localeCompare(b['日期']));
+  if (ym) { const m = l.filter(c => c['日期'].slice(0, 7) === ym); if (m.length) l = m; }
+  const head = '<b style="font-size:14px">🧹 ' + esc(st) + ' 卫生检查</b>';
+  if (!l.length) return '<div style="margin-top:10px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--soft)">' + head + '<p class="note" style="margin:4px 0 0">还没有这家店的卫生检查</p></div>';
+  const c = l[l.length - 1], CAT = {};
+  all.forEach(z => (z['问题'] || []).forEach(i => { (CAT[i['区']] = CAT[i['区']] || new Set()).add(i['类']); }));
+  const area = a => {
+    const its = (c['问题'] || []).filter(i => i['区'] === a), g = {};
+    its.forEach(i => (g[i['类']] = g[i['类']] || []).push(i));
+    const full = [...(CAT[a] || [])].filter(k => !g[k]);
+    return '<div style="margin-top:8px"><div style="display:flex;justify-content:space-between;align-items:baseline"><b>' + a + '</b><span><b style="font-size:18px;color:' + (c[a] >= 90 ? 'var(--good)' : c[a] >= 75 ? 'var(--warn)' : 'var(--bad)') + '">' + c[a] + '</b><small style="color:var(--sub)"> ／100</small></span></div>' +
+      Object.keys(g).sort((x, y) => g[y].reduce((t, i) => t + i['扣'], 0) - g[x].reduce((t, i) => t + i['扣'], 0)).map(k =>
+        '<div style="margin-top:4px"><small style="font-weight:700">' + esc(k) + ' <span class="dn">−' + g[k].reduce((t, i) => t + i['扣'], 0) + '</span></small>' +
+        g[k].map(i => '<div class="issue"><span class="pill ' + (i['扣'] >= 15 ? 'p-bad' : i['扣'] >= 3 ? 'p-warn' : 'p-soft') + '">−' + i['扣'] + '</span><span>' + esc(i['项']) + '</span>' + (i['整改'] ? '<span class="x">' + esc(i['整改']) + '</span>' : '') + '</div>').join('') + '</div>').join('') +
+      (full.length ? '<div style="margin-top:4px;font-size:12px"><span class="up">✓ 满分（没扣分）</span>：' + full.map(esc).join('、') + '</div>' : '') +
+      (() => { const t = its.reduce((q, i) => q + i['扣'], 0), gap = Math.round((100 - t - c[a]) * 10) / 10;   // 表上分数和扣分项对不上时写出来（例：上野2F 11/03 前厅表上 80，扣分项只有 −14）
+        return gap ? '<div style="margin-top:4px;font-size:12px;color:var(--warn)">⚠ 表上' + a + ' ' + c[a] + ' 分，扣分项加起来 −' + t + '，' + (gap > 0 ? '还有 ' + gap + ' 分表上没写扣在哪一项' : '多扣了 ' + (-gap) + ' 分') + '</div>' : ''; })() + '</div>';
+  };
+  return '<div style="margin-top:10px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--soft)" onclick="event.stopPropagation()">' +
+    '<div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px">' + head + '<span><span style="font-size:24px;font-weight:800;color:' + (c['合计'] >= 180 ? 'var(--good)' : c['合计'] >= 150 ? 'var(--warn)' : 'var(--bad)') + '">' + c['合计'] + '</span><small style="color:var(--sub)"> ／200</small></span></div>' +
+    '<small style="color:var(--sub)">' + (c['日期是推的'] ? +c['日期'].slice(5, 7) + '月' : c['日期'].slice(5).replace('-', '/')) + ' 检查・检查人 ' + esc(c['检查人'] || '') + '・扣分 ' + (c['问题'] || []).length + ' 项</small>' +
+    area('前厅') + area('后厨') +
+    (l.length > 1 ? '<p class="note" style="margin:6px 0 0">历次：' + l.map(z => z['日期'].slice(5).replace('-', '/') + ' ' + z['合计']).join(' → ') + '</p>' : '') +
+    '<p class="note" style="margin:4px 0 0">卫生是按店检查的（前厅・后厨各 100 分起扣），这是' + esc(st) + '全店的分数。</p></div>';
+}
 function renderHy() {
   if (!HR) return hrErr ? '<div class="err">' + esc(hrErr) + '</div>' : '<div class="empty">读取中…</div>';
   const all = hrParse().hy.filter(c => c['店'] !== '三幸園' && c['店'] !== '品川1');
